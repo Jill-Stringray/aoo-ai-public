@@ -1,5 +1,10 @@
 package com.clockshore.aooai.chat;
 
+import lombok.Getter;
+import lombok.Setter;
+
+@Setter
+@Getter
 public class ChatResponse {
 
     private String reply;
@@ -11,11 +16,4 @@ public class ChatResponse {
         this.reply = reply;
     }
 
-    public String getReply() {
-        return reply;
-    }
-
-    public void setReply(String reply) {
-        this.reply = reply;
-    }
 }

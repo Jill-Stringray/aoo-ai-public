@@ -30,7 +30,7 @@ public class DeepSeekChatService {
 
     public String chat(String message) {
         if (!StringUtils.hasText(aiProperties.getApiKey())) {
-            throw new IllegalStateException("请先在 application.properties 中配置 deepseek.api-key");
+            throw new IllegalStateException("请先在 application.yaml 中配置 deepseek.api-key");
         }
 
         String url = aiProperties.getBaseUrl() + "/chat/completions";
