@@ -4,8 +4,8 @@
 
 ## 1. 准备工作
 
-- JDK 8+
-- Maven 3.6+
+- JDK 17+（Spring Boot 3 / Spring AI 要求）
+- Maven 3.9+（建议）
 - DeepSeek API Key（在 DeepSeek 平台申请）
 
 > 说明：DeepSeek 提供 OpenAI 兼容接口，所以后端以标准 HTTP JSON 调用即可。
@@ -18,16 +18,17 @@
 - `src/main/java/com/clockshore/aooai/chat/ChatController.java`：聊天接口
 - `src/main/java/com/clockshore/aooai/chat/DeepSeekChatService.java`：调用 DeepSeek
 - `src/main/java/com/clockshore/aooai/config/AiProperties.java`：模型配置
-- `src/main/resources/application.properties`：API Key 与模型参数
+- `src/main/resources/application.yaml`：API Key 与模型参数
 
 ## 3. 配置 DeepSeek 参数
 
-在 `application.properties` 中填写：
+在 `application.yaml` 中填写：
 
-```properties
-deepseek.api-key=YOUR_DEEPSEEK_API_KEY
-deepseek.base-url=https://api.deepseek.com
-deepseek.model=deepseek-chat
+```yaml
+deepseek:
+  api-key: YOUR_DEEPSEEK_API_KEY
+  base-url: https://api.deepseek.com
+  model: deepseek-chat
 ```
 
 把 `YOUR_DEEPSEEK_API_KEY` 换成你的真实密钥。
