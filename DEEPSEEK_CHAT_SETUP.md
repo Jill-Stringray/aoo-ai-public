@@ -10,6 +10,20 @@
 
 > 说明：DeepSeek 提供 OpenAI 兼容接口，所以后端以标准 HTTP JSON 调用即可。
 
+
+## 1.1 IDE / 编译器版本对齐（避免 `source 8` 与 `TypeTag::UNKNOWN`）
+
+如果你看到以下报错：
+- `java: 源值 8 已过时`
+- `java: 目标值 8 已过时`
+- `java.lang.ExceptionInInitializerError`
+- `com.sun.tools.javac.code.TypeTag :: UNKNOWN`
+
+请确认：
+1. **Project SDK/JDK = 17**（不要让 IDE 回落到 1.8）
+2. Maven Reimport 后，`maven-compiler-plugin` 使用 `<release>17</release>`
+3. Lombok 插件与依赖版本同步（本项目已升级到 `1.18.38`）
+
 ## 2. 项目结构
 
 本项目核心文件如下：
