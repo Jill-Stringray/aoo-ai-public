@@ -8,15 +8,19 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
 public class DeepSeekChatService {
+
+    private static final double DEFAULT_TEMPERATURE = 0.7D;
 
     private final AiProperties aiProperties;
     private final ObjectMapper objectMapper;
@@ -28,7 +32,7 @@ public class DeepSeekChatService {
         this.restTemplate = new RestTemplate();
     }
 
-    public String chat(String message) {
+    public String chat(ChatRequest request) {
         if (!StringUtils.hasText(aiProperties.getApiKey())) {
             throw new IllegalStateException("请先在 application.yaml 中配置 deepseek.api-key");
         }
@@ -36,9 +40,13 @@ public class DeepSeekChatService {
         String url = aiProperties.getBaseUrl() + "/chat/completions";
 
         Map<String, Object> payload = new HashMap<String, Object>();
-        payload.put("model", aiProperties.getModel());
-        payload.put("messages", Arrays.asList(buildUserMessage(message)));
-        payload.put("temperature", 0.7);
+        payload.put("model", resolveModel(request));
+        payload.put("messages", resolveMessages(request));
+        payload.put("temperature", resolveTemperature(request));
+
+        if (request.getStream() != null) {
+            payload.put("stream", request.getStream());
+        }
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -50,11 +58,46 @@ public class DeepSeekChatService {
         return parseReply(response.getBody());
     }
 
-    private Map<String, String> buildUserMessage(String message) {
-        Map<String, String> userMessage = new HashMap<String, String>();
-        userMessage.put("role", "user");
-        userMessage.put("content", message);
-        return userMessage;
+    private String resolveModel(ChatRequest request) {
+        if (StringUtils.hasText(request.getModel())) {
+            return request.getModel().trim();
+        }
+        return aiProperties.getModel();
+    }
+
+    private double resolveTemperature(ChatRequest request) {
+        if (request.getTemperature() != null) {
+            return request.getTemperature();
+        }
+        return DEFAULT_TEMPERATURE;
+    }
+
+    private List<Map<String, String>> resolveMessages(ChatRequest request) {
+        if (!CollectionUtils.isEmpty(request.getMessages())) {
+            List<Map<String, String>> messages = new ArrayList<Map<String, String>>();
+            for (ChatRequest.Message message : request.getMessages()) {
+                if (message == null || !StringUtils.hasText(message.getContent())) {
+                    continue;
+                }
+                messages.add(buildMessage(message.getRole(), message.getContent()));
+            }
+            if (!messages.isEmpty()) {
+                return messages;
+            }
+        }
+
+        String text = request.resolveMessage();
+        if (!StringUtils.hasText(text)) {
+            throw new IllegalArgumentException("请求体缺少 message 或 messages[].content 字段");
+        }
+        return List.of(buildMessage("user", text));
+    }
+
+    private Map<String, String> buildMessage(String role, String content) {
+        Map<String, String> message = new HashMap<String, String>();
+        message.put("role", StringUtils.hasText(role) ? role.trim() : "user");
+        message.put("content", content.trim());
+        return message;
     }
 
     private String parseReply(String body) {
