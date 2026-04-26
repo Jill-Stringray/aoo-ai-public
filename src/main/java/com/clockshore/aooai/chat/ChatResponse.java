@@ -8,12 +8,14 @@ import lombok.Setter;
 public class ChatResponse {
 
     private String reply;
+    private String additionMsg;
 
     public ChatResponse() {
     }
 
-    public ChatResponse(String reply) {
+    public ChatResponse(String reply,String additionMsg) {
         this.reply = reply;
+        this.additionMsg = additionMsg;
     }
 
 }
