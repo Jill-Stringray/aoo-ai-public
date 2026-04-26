@@ -1,5 +1,6 @@
-package com.clockshore.aooai.chat;
+package com.clockshore.aooai.Service;
 
+import com.clockshore.aooai.chat.ChatRequest;
 import com.clockshore.aooai.config.AiProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

@@ -1,5 +1,8 @@
-package com.clockshore.aooai.chat;
+package com.clockshore.aooai.Controller;
 
+import com.clockshore.aooai.chat.ChatRequest;
+import com.clockshore.aooai.chat.ChatResponse;
+import com.clockshore.aooai.Service.DeepSeekChatService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
