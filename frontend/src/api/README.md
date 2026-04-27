@@ -12,13 +12,16 @@
 
 ```json
 {
-  "message": "什么是 JWT？"
+  "messages": [
+    { "role": "user", "content": "什么是 JWT？" }
+  ]
 }
 ```
 
 字段说明：
 
-- `message` (string, 必填): 用户输入的提问内容。
+- `messages` (array, 推荐): 当前会话消息流，元素需包含 `role` 与 `content` 字段。
+- `message` (string, 可选): 兼容字段。未提供 `messages` 时可仅传最后一条用户输入。
 
 ### 响应参数（JSON）
 

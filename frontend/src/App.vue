@@ -22,7 +22,7 @@ const sendMessage = async () => {
   loading.value = true;
 
   try {
-    const { reply } = await postChatMessage({ message: content });
+    const { reply } = await postChatMessage({ messages: messages.value });
     messages.value.push({ role: 'assistant', content: reply });
   } catch (error) {
     messages.value.push({
@@ -39,7 +39,7 @@ const sendMessage = async () => {
   <main class="chat-page">
     <header class="chat-header">
       <h1>后端对话接口测试窗口</h1>
-      <p>前端将调用 <code>POST /chat</code>，请求体为 <code>{"message":"..."}</code>。</p>
+      <p>前端将调用 <code>POST /chat</code>，并将当前会话消息流作为 <code>messages</code> 上传到后端。</p>
     </header>
 
     <section class="chat-panel">
