@@ -10,7 +10,7 @@ public interface ChatResourceMapper {
 
     @Insert("""
             INSERT INTO conversation (conversation_key, user_id, session_id, title, status)
-            VALUES (#{conversationKey}, #{userId}, #{sessionId}, #{title}, #{status})
+            VALUES (#{conversationKey}, #{userId}, #{session_id}, #{title} , #{status})
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(Conversation conversation);
