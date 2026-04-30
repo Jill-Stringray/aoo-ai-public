@@ -46,15 +46,5 @@ public class ConversationMessage {
     /**
      * 消息角色：system / user / assistant / tool
      */
-    private Role role;
-
-    /**
-     * 消息角色枚举
-     */
-    public enum Role {
-        system,
-        user,
-        assistant,
-        tool
-    }
+    private String role;
 }

@@ -6,14 +6,14 @@ import org.apache.ibatis.annotations.*;
 import java.util.List;
 
 @Mapper
-public interface ChatResourceMapper {
+public interface ConversationMapper {
 
     @Insert("""
             INSERT INTO conversation (conversation_key, user_id, session_id, title, status)
             VALUES (#{conversationKey}, #{userId}, #{session_id}, #{title} , #{status})
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")
-    int insert(Conversation conversation);
+    Long insert(Conversation conversation);
 
     @Select("""
             SELECT id, conversation_key AS conversationKey, user_id AS userId, session_id AS sessionId,
