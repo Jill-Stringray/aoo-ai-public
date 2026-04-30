@@ -6,16 +6,15 @@ import com.clockshore.aooai.Mapper.ConversationMapper;
 import com.clockshore.aooai.Mapper.ConversationMessageMapper;
 import com.clockshore.aooai.enums.ConversationStatus;
 import com.clockshore.aooai.mq.ChatMessageEvent;
-import com.clockshore.aooai.mq.ChatMessageEventPublisher;
 import com.clockshore.aooai.enums.Role;
 import jakarta.annotation.Resource;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
-import java.util.List;
 
 @Service
 public class ChatWindowService {
@@ -30,7 +29,7 @@ public class ChatWindowService {
     private ConversationMessageMapper conversationMessageMapper;
 
     @Resource
-    private ChatMessageEventPublisher chatMessageEventPublisher;
+    private ApplicationEventPublisher applicationEventPublisher;
 
 
     @Transactional
@@ -56,7 +55,7 @@ public class ChatWindowService {
 
         ConversationMessage message = buildConversationMessage(conversationId,content,Role.USER.getValue());
         conversationMessageMapper.insert(message);
-        chatMessageEventPublisher.publish(new ChatMessageEvent(conversationId, message.getId(), uid, content));
+        applicationEventPublisher.publishEvent(new ChatMessageEvent(conversationId, message.getId(), uid, content));
 
         return conversation;
     }
