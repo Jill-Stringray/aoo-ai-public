@@ -5,6 +5,8 @@ import com.clockshore.aooai.Entity.ConversationMessage;
 import com.clockshore.aooai.Mapper.ConversationMapper;
 import com.clockshore.aooai.Mapper.ConversationMessageMapper;
 import com.clockshore.aooai.enums.ConversationStatus;
+import com.clockshore.aooai.mq.ChatMessageEvent;
+import com.clockshore.aooai.mq.ChatMessageEventPublisher;
 import com.clockshore.aooai.enums.Role;
 import jakarta.annotation.Resource;
 import jakarta.validation.constraints.NotBlank;
@@ -26,6 +28,9 @@ public class ChatWindowService {
 
     @Resource
     private ConversationMessageMapper conversationMessageMapper;
+
+    @Resource
+    private ChatMessageEventPublisher chatMessageEventPublisher;
 
 
     @Transactional
@@ -51,7 +56,7 @@ public class ChatWindowService {
 
         ConversationMessage message = buildConversationMessage(conversationId,content,Role.USER.getValue());
         conversationMessageMapper.insert(message);
-
+        chatMessageEventPublisher.publish(new ChatMessageEvent(conversationId, message.getId(), uid, content));
 
         return conversation;
     }
