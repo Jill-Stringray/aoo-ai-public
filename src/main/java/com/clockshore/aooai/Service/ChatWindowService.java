@@ -49,10 +49,11 @@ public class ChatWindowService {
             }
         }
 
-        createConversationMessage(buildConversationMessage(conversationId,content,Role.USER.getValue()));
+        ConversationMessage message = buildConversationMessage(conversationId,content,Role.USER.getValue());
+        conversationMessageMapper.insert(message);
 
 
-        //.....
+        return conversation;
     }
 
     @Validated
@@ -70,10 +71,10 @@ public class ChatWindowService {
     private ConversationMessage buildConversationMessage(@NotNull Long conversationId,@NotBlank String content,@NotNull String role){
 
         return ConversationMessage.builder()
+                .id(snowflakeService.nextId())
                 .conversationId(conversationId)
                 .role(role)
                 .content(content)
-                .messageOrder(conversationMessageMapper.nextOrder(conversationId))
                 .build();
     }
 
@@ -83,13 +84,6 @@ public class ChatWindowService {
         conversationMapper.insert(cvs);
         return cvs;
     }
-
-    @Transactional
-    public ConversationMessage createConversationMessage(@NotNull ConversationMessage message) {
-        conversationMessageMapper.insert(message);
-        return message;
-    }
-
 
 
 }

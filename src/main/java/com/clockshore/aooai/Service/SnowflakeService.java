@@ -9,4 +9,8 @@ public class SnowflakeService {
     public String nextIdStr() {
         return IdUtil.getSnowflakeNextIdStr();
     }
+
+    public Long nextId(){
+        return IdUtil.getSnowflakeNextId();
+    }
 }

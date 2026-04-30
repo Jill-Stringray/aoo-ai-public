@@ -34,11 +34,6 @@ public class ConversationMessage {
     private Integer tokenCount;
 
     /**
-     * 消息顺序（保证对话顺序）
-     */
-    private Long messageOrder;
-
-    /**
      * 创建时间
      */
     private LocalDateTime createdAt;
