@@ -22,7 +22,7 @@ public interface LocalMqMessageMapper {
             FROM local_mq_message
             WHERE status IN ('NEW', 'FAILED')
               AND (next_retry_at IS NULL OR next_retry_at <= NOW())
-            ORDER BY id ASC
+            ORDER BY id
             LIMIT #{limit}
             """)
     List<LocalMqMessage> selectForDispatch(@Param("limit") int limit);

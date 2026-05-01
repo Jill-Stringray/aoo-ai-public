@@ -61,7 +61,6 @@ CREATE TABLE `conversation_message`  (
   `conversation_id` bigint(20) UNSIGNED NOT NULL,
   `content` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `token_count` int(10) UNSIGNED NULL DEFAULT NULL,
-  `message_order` bigint(20) UNSIGNED NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `role` enum('system','user','assistant','tool') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   PRIMARY KEY (`id`) USING BTREE,
