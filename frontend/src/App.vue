@@ -7,7 +7,8 @@ const loading = ref(false);
 const messages = ref([
   {
     role: 'assistant',
-    content: '你好，我是测试助手。请输入问题后点击发送。'
+    content: '你好，我是测试助手。请输入问题后点击发送。',
+    localOnly: true
   }
 ]);
 
@@ -17,12 +18,23 @@ const sendMessage = async () => {
     return;
   }
 
+  const buildBackendMessages = () => {
+    return messages.value
+        .filter((item) => !item.localOnly)
+        .map((item) => ({
+          role: item.role,
+          content: item.content
+        }));
+  };
+
   messages.value.push({ role: 'user', content });
   draft.value = '';
   loading.value = true;
 
   try {
-    const { reply } = await postChatMessage({ messages: messages.value });
+    const { reply } = await postChatMessage({
+      messages: buildBackendMessages()
+    });
     messages.value.push({ role: 'assistant', content: reply });
   } catch (error) {
     messages.value.push({
