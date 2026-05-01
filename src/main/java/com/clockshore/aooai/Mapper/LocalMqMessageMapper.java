@@ -9,14 +9,15 @@ import java.util.List;
 public interface LocalMqMessageMapper {
 
     @Insert("""
-            INSERT INTO local_mq_message (topic, routing_key, payload, status, retry_count, next_retry_at)
-            VALUES (#{topic}, #{routingKey}, #{payload}, #{status}, #{retryCount}, #{nextRetryAt})
+            INSERT INTO local_mq_message (event_key, topic, routing_key, payload, status, retry_count, next_retry_at)
+            VALUES (#{eventKey}, #{topic}, #{routingKey}, #{payload}, #{status}, #{retryCount}, #{nextRetryAt})
+            ON DUPLICATE KEY UPDATE id = id
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(LocalMqMessage message);
 
     @Select("""
-            SELECT id, topic, routing_key AS routingKey, payload, status, retry_count AS retryCount,
+            SELECT id, event_key AS eventKey, topic, routing_key AS routingKey, payload, status, retry_count AS retryCount,
                    next_retry_at AS nextRetryAt, fail_reason AS failReason, created_at AS createdAt, updated_at AS updatedAt
             FROM local_mq_message
             WHERE status IN ('NEW', 'FAILED')

@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 public class LocalMqMessage {
 
     private Long id;
+    private String eventKey;
     private String topic;
     private String routingKey;
     private String payload;

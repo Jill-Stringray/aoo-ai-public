@@ -70,6 +70,7 @@ public class ChatWindowService {
         try {
             String payload = objectMapper.writeValueAsString(event);
             LocalMqMessage localMqMessage = LocalMqMessage.builder()
+                    .eventKey(buildEventKey(event))
                     .topic(ChatMqConfig.CHAT_EXCHANGE)
                     .routingKey(ChatMqConfig.CHAT_ROUTING_KEY)
                     .payload(payload)
@@ -80,6 +81,11 @@ public class ChatWindowService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("序列化MQ消息失败", e);
         }
+    }
+
+
+    private String buildEventKey(ChatMessageEvent event) {
+        return "chat:send:" + event.getMessageId();
     }
 
     @Validated

@@ -76,6 +76,7 @@ CREATE TABLE `conversation_message`  (
 DROP TABLE IF EXISTS `local_mq_message`;
 CREATE TABLE `local_mq_message`  (
   `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `event_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `topic` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `routing_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `payload` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
@@ -86,6 +87,7 @@ CREATE TABLE `local_mq_message`  (
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_local_mq_event_key`(`event_key`) USING BTREE,
   INDEX `idx_local_mq_status_retry`(`status`, `next_retry_at`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
 
