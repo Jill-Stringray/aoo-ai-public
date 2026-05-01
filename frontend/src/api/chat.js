@@ -30,7 +30,11 @@ export async function postChatMessage(payload) {
   const data = await response.json();
 
   if (!response.ok) {
-    const message = typeof data?.reply === 'string' ? data.reply : '请求失败';
+    const message = typeof data?.additionMsg === 'string'
+      ? data.additionMsg
+      : typeof data?.reply === 'string'
+        ? data.reply
+        : '请求失败';
     throw new Error(`HTTP ${response.status}: ${message}`);
   }
 
