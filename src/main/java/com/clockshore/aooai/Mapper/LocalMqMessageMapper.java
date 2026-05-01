@@ -1,6 +1,7 @@
 package com.clockshore.aooai.Mapper;
 
 import com.clockshore.aooai.Entity.LocalMqMessage;
+import com.clockshore.aooai.enums.LocalMqMessageStatus;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
@@ -29,19 +30,33 @@ public interface LocalMqMessageMapper {
 
     @Update("""
             UPDATE local_mq_message
-            SET status = 'SENT',
-                fail_reason = NULL
+            SET status = #{sendingStatus}
             WHERE id = #{id}
+              AND status IN (#{newStatus}, #{failedStatus})
             """)
-    int markSent(@Param("id") Long id);
+    int tryMarkSending(@Param("id") Long id,
+                       @Param("sendingStatus") LocalMqMessageStatus sendingStatus,
+                       @Param("newStatus") LocalMqMessageStatus newStatus,
+                       @Param("failedStatus") LocalMqMessageStatus failedStatus);
 
     @Update("""
             UPDATE local_mq_message
-            SET status = 'FAILED',
+            SET status = #{sentStatus},
+                fail_reason = NULL
+            WHERE id = #{id}
+            """)
+    int markSent(@Param("id") Long id, @Param("sentStatus") LocalMqMessageStatus sentStatus);
+
+    @Update("""
+            UPDATE local_mq_message
+            SET status = #{failedStatus},
                 retry_count = retry_count + 1,
                 next_retry_at = DATE_ADD(NOW(), INTERVAL #{retryMinutes} MINUTE),
                 fail_reason = #{failReason}
             WHERE id = #{id}
             """)
-    int markFailed(@Param("id") Long id, @Param("failReason") String failReason, @Param("retryMinutes") int retryMinutes);
+    int markFailed(@Param("id") Long id,
+                   @Param("failedStatus") LocalMqMessageStatus failedStatus,
+                   @Param("failReason") String failReason,
+                   @Param("retryMinutes") int retryMinutes);
 }
