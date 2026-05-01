@@ -1,7 +1,6 @@
 package com.clockshore.aooai.chat;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
@@ -9,6 +8,10 @@ import java.util.List;
 
 @Getter
 @Setter
+@ToString
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ChatRequest {
 
     private String message;
@@ -44,6 +47,10 @@ public class ChatRequest {
 
     @Getter
     @Setter
+    @ToString
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Message {
         private String role;
         private String content;
