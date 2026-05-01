@@ -6,6 +6,7 @@ import com.clockshore.aooai.Service.DeepSeekChatService;
 import com.clockshore.aooai.Entity.ConversationMessage;
 import com.clockshore.aooai.chat.ChatRequest;
 import com.clockshore.aooai.enums.Role;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,10 +25,14 @@ public class ChatMessageEventConsumer {
     @Resource
     private SnowflakeService snowflakeService;
 
+    @Resource
+    private ObjectMapper objectMapper;
+
     private static final Logger log = LoggerFactory.getLogger(ChatMessageEventConsumer.class);
 
     @RabbitListener(queues = ChatMqConfig.CHAT_QUEUE)
-    public void consume(ChatMessageEvent event) {
+    public void consume(String payload) {
+        ChatMessageEvent event = parseEvent(payload);
         log.info("consume chat message event: conversationId={}, messageId={}, userId={},content={}",
                 event.getConversationId(), event.getMessageId(), event.getUserId(), event.getContent());
 
@@ -49,5 +54,13 @@ public class ChatMessageEventConsumer {
         conversationMessageMapper.insert(assistantMessage);
 
 
+    }
+
+    private ChatMessageEvent parseEvent(String payload) {
+        try {
+            return objectMapper.readValue(payload, ChatMessageEvent.class);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("invalid chat message payload: " + payload, e);
+        }
     }
 }
