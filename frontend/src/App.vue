@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { postChatMessage } from './api/chat';
+import { fetchConversationMessages, postChatMessage } from './api/chat';
 
 const draft = ref('');
 const loading = ref(false);
@@ -12,6 +12,16 @@ const messages = ref([
     localOnly: true
   }
 ]);
+
+const refreshMessages = async () => {
+  if (!conversationId.value) {
+    return;
+  }
+  const serverMessages = await fetchConversationMessages(conversationId.value);
+  if (serverMessages.length > 0) {
+    messages.value = serverMessages;
+  }
+};
 
 const sendMessage = async () => {
   const content = draft.value.trim();
@@ -32,6 +42,7 @@ const sendMessage = async () => {
       conversationId.value = nextConversationId;
     }
     messages.value.push({ role: 'assistant', content: reply });
+    await refreshMessages();
   } catch (error) {
     messages.value.push({
       role: 'assistant',
@@ -47,7 +58,7 @@ const sendMessage = async () => {
   <main class="chat-page">
     <header class="chat-header">
       <h1>后端对话接口测试窗口</h1>
-      <p>前端仅调用 <code>POST /chat</code> 发送当前输入，历史消息由后端持久化并处理。</p>
+      <p>前端调用 <code>POST /chat</code> 发送消息，并通过 <code>GET /conversation/{id}/messages</code> 拉取后端历史。</p>
     </header>
 
     <section class="chat-panel">

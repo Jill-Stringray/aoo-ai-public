@@ -1,20 +1,10 @@
 const CHAT_API_PATH = '/chat';
 
 /**
- * @typedef {Object} ChatRequest
- * @property {string} message 用户输入文本
- */
-
-/**
- * @typedef {Object} ChatResponse
- * @property {string} reply 助手回复文本
- */
-
-/**
  * 调用聊天接口。
  *
- * @param {ChatRequest} payload
- * @returns {Promise<ChatResponse>}
+ * @param {{message: string, conversationId?: number|null}} payload
+ * @returns {Promise<{reply: string, conversationId?: number}>}
  */
 export async function postChatMessage(payload) {
   const requestBody = buildChatRequest(payload);
@@ -45,12 +35,21 @@ export async function postChatMessage(payload) {
   return data;
 }
 
-/**
- * 将前端消息流标准化为后端 /chat 接口支持的请求体。
- *
- * @param {ChatRequest} payload
- * @returns {ChatRequest}
- */
+export async function fetchConversationMessages(conversationId) {
+  const response = await fetch(`/conversation/${conversationId}/messages`);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: 拉取历史消息失败`);
+  }
+
+  if (!Array.isArray(data)) {
+    throw new Error('接口返回格式错误：消息列表不是数组');
+  }
+
+  return data;
+}
+
 function buildChatRequest(payload) {
   if (!payload || typeof payload !== 'object') {
     throw new Error('请求参数不能为空');

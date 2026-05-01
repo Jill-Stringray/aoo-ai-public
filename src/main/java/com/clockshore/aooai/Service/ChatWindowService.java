@@ -19,6 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
+import java.util.List;
+
 
 @Service
 public class ChatWindowService {
@@ -115,6 +117,17 @@ public class ChatWindowService {
         Conversation cvs = buildConversation(uid);
         conversationMapper.insert(cvs);
         return cvs;
+    }
+
+    public List<ConversationMessage> listMessages(@NotNull Long uid, @NotNull Long conversationId) {
+        Conversation conversation = conversationMapper.selectById(conversationId);
+        if (conversation == null) {
+            throw new IllegalArgumentException("conversation 未找到: " + conversationId);
+        }
+        if (!uid.equals(conversation.getUserId())) {
+            throw new IllegalArgumentException("该conversation不属于用户");
+        }
+        return conversationMessageMapper.selectByConversationId(conversationId);
     }
 
 
