@@ -12,10 +12,9 @@ import java.util.List;
 public interface ConversationMessageMapper {
 
     @Insert("""
-            INSERT INTO conversation_message (conversation_id, content, token_count, role)
-            VALUES (#{conversationId}, #{content}, #{tokenCount}, #{role})
+            INSERT INTO conversation_message (id, conversation_id, content, token_count, role)
+            VALUES (#{id}, #{conversationId}, #{content}, #{tokenCount}, #{role})
             """)
-    @Options(useGeneratedKeys = true, keyProperty = "id")
     Long insert(ConversationMessage message);
 
     @Select("""
@@ -29,7 +28,7 @@ public interface ConversationMessageMapper {
             SELECT id, conversation_id AS conversationId, content, token_count AS tokenCount, created_at AS createdAt, role
             FROM conversation_message
             WHERE conversation_id = #{conversationId}
-            ORDER BY conversation_id ASC
+            ORDER BY created_at ASC, id ASC
             """)
     List<ConversationMessage> selectByConversationId(@Param("conversationId") Long conversationId);
 
