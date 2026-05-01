@@ -1,6 +1,8 @@
 <script setup>
-import { ref } from 'vue';
-import { postChatMessage } from './api/chat';
+import { onMounted, ref, watch } from 'vue';
+import { fetchConversationMessages, postChatMessage } from './api/chat';
+
+const LOCAL_STORAGE_KEY = 'aoo-ai-chat-cache';
 
 const draft = ref('');
 const loading = ref(false);
@@ -12,6 +14,50 @@ const messages = ref([
     localOnly: true
   }
 ]);
+
+onMounted(async () => {
+  restoreLocalCache();
+  await syncHistoryFromServer();
+});
+
+watch([conversationId, messages], () => {
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({
+    conversationId: conversationId.value,
+    messages: messages.value
+  }));
+}, { deep: true });
+
+const restoreLocalCache = () => {
+  const cacheText = localStorage.getItem(LOCAL_STORAGE_KEY);
+  if (!cacheText) {
+    return;
+  }
+  try {
+    const cache = JSON.parse(cacheText);
+    if (cache?.conversationId) {
+      conversationId.value = cache.conversationId;
+    }
+    if (Array.isArray(cache?.messages) && cache.messages.length > 0) {
+      messages.value = cache.messages;
+    }
+  } catch {
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
+  }
+};
+
+const syncHistoryFromServer = async () => {
+  if (!conversationId.value) {
+    return;
+  }
+  try {
+    const serverMessages = await fetchConversationMessages(conversationId.value);
+    if (serverMessages.length > 0) {
+      messages.value = serverMessages;
+    }
+  } catch {
+    // 服务不可用时保留本地缓存，保证页面仍有上下文能力。
+  }
+};
 
 const sendMessage = async () => {
   const content = draft.value.trim();
