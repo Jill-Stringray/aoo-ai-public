@@ -29,7 +29,8 @@ public class ChatMessageEventConsumer {
         deepSeekChatService.chat(
                 ChatRequest.builder()
                         .message(event.getContent())
-                        .messages(conversationMessageMapper.selectByConversationId(event.getConversationId()))
+                        .messages(conversationMessageMapper.toChatRequestMessages(
+                                conversationMessageMapper.selectByConversationId(event.getConversationId())))
                         .build()
         );
     }
