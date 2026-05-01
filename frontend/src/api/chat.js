@@ -17,7 +17,7 @@ export async function postChatMessage(payload) {
     body: JSON.stringify(requestBody)
   });
 
-  const data = await response.json();
+  const data = await parseJsonResponse(response, '聊天接口');
 
   if (!response.ok) {
     const message = typeof data?.additionMsg === 'string'
@@ -37,7 +37,7 @@ export async function postChatMessage(payload) {
 
 export async function fetchConversationMessages(conversationId) {
   const response = await fetch(`/conversation/${conversationId}/messages`);
-  const data = await response.json();
+  const data = await parseJsonResponse(response, '历史消息接口');
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: 拉取历史消息失败`);
@@ -48,6 +48,21 @@ export async function fetchConversationMessages(conversationId) {
   }
 
   return data;
+}
+
+async function parseJsonResponse(response, apiName) {
+  const contentType = response.headers.get('content-type') || '';
+  const rawText = await response.text();
+
+  if (!contentType.includes('application/json')) {
+    throw new Error(`${apiName}返回非 JSON 响应，请检查前端代理和后端路由配置`);
+  }
+
+  try {
+    return JSON.parse(rawText);
+  } catch {
+    throw new Error(`${apiName}返回了无效 JSON`);
+  }
 }
 
 function buildChatRequest(payload) {
