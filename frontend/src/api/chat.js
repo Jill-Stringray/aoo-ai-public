@@ -52,22 +52,6 @@ function buildChatRequest(payload) {
     throw new Error('请求参数不能为空');
   }
 
-  if (Array.isArray(payload.messages) && payload.messages.length > 0) {
-    const messages = payload.messages
-      .filter((item) => item && typeof item.content === 'string' && item.content.trim())
-      .map((item) => ({
-        role: typeof item.role === 'string' && item.role.trim() ? item.role.trim() : 'user',
-        content: item.content.trim()
-      }));
-
-    if (messages.length > 0) {
-      return {
-        ...payload,
-        messages
-      };
-    }
-  }
-
   if (typeof payload.message === 'string' && payload.message.trim()) {
     return {
       ...payload,
@@ -75,5 +59,5 @@ function buildChatRequest(payload) {
     };
   }
 
-  throw new Error('请求参数错误：请提供 message 或非空 messages');
+  throw new Error('请求参数错误：请提供 message');
 }

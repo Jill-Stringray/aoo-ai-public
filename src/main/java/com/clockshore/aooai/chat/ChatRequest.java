@@ -14,6 +14,7 @@ import java.util.List;
 @AllArgsConstructor
 public class ChatRequest {
 
+    private Long conversationId;
     private String message;
     private String model;
     private Double temperature;
