@@ -44,7 +44,7 @@ public class ChatMessageEventConsumer {
                         .build()
         );
 
-        // 落库 assistant 消息，保持会话上下文持续可用
+        // 落库 assistant 消息，保持会话上下文持续可用。
         ConversationMessage assistantMessage = ConversationMessage.builder()
                 .id(snowflakeService.nextId())
                 .conversationId(event.getConversationId())
