@@ -69,4 +69,24 @@ CREATE TABLE `conversation_message`  (
   INDEX `idx_message_conversation_created_at`(`conversation_id`, `created_at`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
 
+
+-- ----------------------------
+-- Table structure for local_mq_message
+-- ----------------------------
+DROP TABLE IF EXISTS `local_mq_message`;
+CREATE TABLE `local_mq_message`  (
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `topic` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `routing_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `payload` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'NEW',
+  `retry_count` int(10) UNSIGNED NOT NULL DEFAULT 0,
+  `next_retry_at` timestamp NULL DEFAULT NULL,
+  `fail_reason` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_local_mq_status_retry`(`status`, `next_retry_at`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
+
 SET FOREIGN_KEY_CHECKS = 1;

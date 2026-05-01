@@ -4,13 +4,17 @@ import com.clockshore.aooai.Entity.Conversation;
 import com.clockshore.aooai.Entity.ConversationMessage;
 import com.clockshore.aooai.Mapper.ConversationMapper;
 import com.clockshore.aooai.Mapper.ConversationMessageMapper;
+import com.clockshore.aooai.Mapper.LocalMqMessageMapper;
 import com.clockshore.aooai.enums.ConversationStatus;
+import com.clockshore.aooai.Entity.LocalMqMessage;
 import com.clockshore.aooai.mq.ChatMessageEvent;
+import com.clockshore.aooai.mq.ChatMqConfig;
 import com.clockshore.aooai.enums.Role;
 import jakarta.annotation.Resource;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import org.springframework.context.ApplicationEventPublisher;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -29,7 +33,10 @@ public class ChatWindowService {
     private ConversationMessageMapper conversationMessageMapper;
 
     @Resource
-    private ApplicationEventPublisher applicationEventPublisher;
+    private LocalMqMessageMapper localMqMessageMapper;
+
+    @Resource
+    private ObjectMapper objectMapper;
 
 
     @Transactional
@@ -55,9 +62,24 @@ public class ChatWindowService {
 
         ConversationMessage message = buildConversationMessage(conversationId,content,Role.USER.getValue());
         conversationMessageMapper.insert(message);
-        applicationEventPublisher.publishEvent(new ChatMessageEvent(conversationId, message.getId(), uid, content));
+        saveLocalMqMessage(new ChatMessageEvent(conversationId, message.getId(), uid, content));
 
         return conversation;
+    }
+    private void saveLocalMqMessage(ChatMessageEvent event) {
+        try {
+            String payload = objectMapper.writeValueAsString(event);
+            LocalMqMessage localMqMessage = LocalMqMessage.builder()
+                    .topic(ChatMqConfig.CHAT_EXCHANGE)
+                    .routingKey(ChatMqConfig.CHAT_ROUTING_KEY)
+                    .payload(payload)
+                    .status("NEW")
+                    .retryCount(0)
+                    .build();
+            localMqMessageMapper.insert(localMqMessage);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("序列化MQ消息失败", e);
+        }
     }
 
     @Validated
