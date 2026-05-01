@@ -25,7 +25,7 @@ public class ChatMessageEventConsumer {
         log.info("consume chat message event: conversationId={}, messageId={}, userId={},content={}",
                 event.getConversationId(), event.getMessageId(), event.getUserId(), event.getContent());
 
-
+        //请求ai回复
         deepSeekChatService.chat(
                 ChatRequest.builder()
                         .message(event.getContent())
@@ -33,5 +33,7 @@ public class ChatMessageEventConsumer {
                                 conversationMessageMapper.selectByConversationId(event.getConversationId())))
                         .build()
         );
+
+
     }
 }
