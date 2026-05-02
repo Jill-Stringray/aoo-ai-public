@@ -53,10 +53,14 @@ public class ChatController {
     }
 
     @GetMapping("/conversation/{conversationId}/messages")
-    public ResponseEntity<List<ConversationMessageDto>> conversationMessages(@PathVariable Long conversationId,
-                                                                              @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+    public ResponseEntity<List<ConversationMessageDto>> conversationMessages(
+            @PathVariable("conversationId") Long conversationId,
+            @RequestHeader(value = "X-User-Id", required = false) Long userId
+    ) {
         Long effectiveUserId = userId == null ? 1L : userId;
         List<ConversationMessage> messages = chatWindowService.listMessages(effectiveUserId, conversationId);
-        return ResponseEntity.ok(messages.stream().map(ConversationMessageDto::from).toList());
+        return ResponseEntity.ok(
+                messages.stream().map(ConversationMessageDto::from).toList()
+        );
     }
 }
