@@ -7,6 +7,7 @@ import com.clockshore.aooai.Mapper.ConversationMessageMapper;
 import com.clockshore.aooai.chat.ChatRequest;
 import com.clockshore.aooai.enums.ConversationStatus;
 import com.clockshore.aooai.enums.Role;
+import com.clockshore.aooai.mq.ChatMessageEvent;
 import jakarta.annotation.Resource;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -55,6 +56,7 @@ public class ChatWindowService {
 
         ConversationMessage message = buildConversationMessage(conversationId,content,Role.USER.getValue());
         conversationMessageMapper.insert(message);
+        saveLocalMqMessage(new ChatMessageEvent(conversationId, message.getId(), uid, content));
         String reply = deepSeekChatService.chat(request);
         saveAssistantReply(uid, conversation.getId(), reply);
 
