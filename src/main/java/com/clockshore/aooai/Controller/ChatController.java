@@ -43,6 +43,7 @@ public class ChatController {
             Long effectiveUserId = userId == null ? 1L : userId;
             Conversation conversation = chatWindowService.sendMessage(effectiveUserId, request.getConversationId(), request.resolveMessage());
             String reply = deepSeekChatService.chat(request);
+            chatWindowService.saveAssistantReply(effectiveUserId, conversation.getId(), reply);
             return ResponseEntity.ok(new ChatResponse(reply, "请求正常完成", conversation.getId()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new ChatResponse(null, "发生错误：" + e.getMessage()));

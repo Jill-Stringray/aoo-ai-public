@@ -72,7 +72,10 @@ const sendMessage = async () => {
   try {
     const { reply, conversationId: nextConversationId } = await postChatMessage({
       message: content,
-      conversationId: conversationId.value
+      conversationId: conversationId.value,
+      messages: messages.value
+        .filter((item) => item && !item.localOnly && item.role && item.content)
+        .map((item) => ({ role: item.role, content: item.content }))
     });
     if (nextConversationId) {
       conversationId.value = nextConversationId;
