@@ -36,20 +36,13 @@ public class ChatMessageEventConsumer {
         log.info("consume chat message event: conversationId={}, messageId={}, userId={},content={}",
                 event.getConversationId(), event.getMessageId(), event.getUserId(), event.getContent());
 
-        // 基于完整上下文请求 AI 回复
-        String assistantReply = deepSeekChatService.chat(
-                ChatRequest.builder()
-                        .messages(conversationMessageMapper.toChatRequestMessages(
-                                conversationMessageMapper.selectByConversationId(event.getConversationId())))
-                        .build()
-        );
 
         // 落库 assistant 消息，保持会话上下文持续可用。
         ConversationMessage assistantMessage = ConversationMessage.builder()
                 .id(snowflakeService.nextId())
                 .conversationId(event.getConversationId())
                 .role(Role.ASSISTANT.getValue())
-                .content(assistantReply)
+                .content("tobefilled")
                 .build();
         conversationMessageMapper.insert(assistantMessage);
 

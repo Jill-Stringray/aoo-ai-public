@@ -4,6 +4,7 @@ import com.clockshore.aooai.Entity.Conversation;
 import com.clockshore.aooai.Entity.ConversationMessage;
 import com.clockshore.aooai.Mapper.ConversationMapper;
 import com.clockshore.aooai.Mapper.ConversationMessageMapper;
+import com.clockshore.aooai.chat.ChatRequest;
 import com.clockshore.aooai.enums.ConversationStatus;
 import com.clockshore.aooai.enums.Role;
 import jakarta.annotation.Resource;
@@ -21,6 +22,7 @@ public class ChatWindowService {
 
     @Resource
     private ConversationMapper conversationMapper;
+    private DeepSeekChatService deepSeekChatService;
 
     @Resource
     private SnowflakeService snowflakeService;
@@ -30,10 +32,12 @@ public class ChatWindowService {
 
     @Transactional
     @Validated
-    public Conversation sendMessage(@NotNull Long uid, Long conversationId,@NotBlank String content){
+    public Conversation  saveMessage(@NotNull Long uid, @NotNull ChatRequest request){
         //在 Chat 类系统里，应该只有一个核心动作：发消息
         //sendMessage同时兼容第一条和第n条消息
-        //service 核心业务 + 强一致数据写入，不做耗时/不稳定操作,ai回复时长...
+        //保存user消息
+        Long conversationId = request.getConversationId();
+        String content = request.getMessage();
 
         Conversation conversation;
         if (conversationId == null) {
@@ -51,6 +55,9 @@ public class ChatWindowService {
 
         ConversationMessage message = buildConversationMessage(conversationId,content,Role.USER.getValue());
         conversationMessageMapper.insert(message);
+        String reply = deepSeekChatService.chat(request);
+        saveAssistantReply(uid, conversation.getId(), reply);
+
         return conversation;
     }
 

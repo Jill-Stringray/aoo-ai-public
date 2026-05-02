@@ -34,6 +34,9 @@ public class DeepSeekChatService {
     }
 
     public String chat(ChatRequest request) {
+
+        //会自动附带该conversation下的历史对话
+
         if (!StringUtils.hasText(aiProperties.getApiKey())) {
             throw new IllegalStateException("请先在 application.yaml 中配置 deepseek.api-key");
         }

@@ -1,12 +1,11 @@
 <script setup>
-import { onMounted, ref, watch } from 'vue';
+import { onMounted, ref } from 'vue';
 import { fetchConversationMessages, postChatMessage } from './api/chat';
-
-const LOCAL_STORAGE_KEY = 'aoo-ai-chat-cache';
 
 const draft = ref('');
 const loading = ref(false);
 const conversationId = ref(null);
+
 const messages = ref([
   {
     role: 'assistant',
@@ -16,34 +15,8 @@ const messages = ref([
 ]);
 
 onMounted(async () => {
-  restoreLocalCache();
   await syncHistoryFromServer();
 });
-
-watch([conversationId, messages], () => {
-  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({
-    conversationId: conversationId.value,
-    messages: messages.value
-  }));
-}, { deep: true });
-
-const restoreLocalCache = () => {
-  const cacheText = localStorage.getItem(LOCAL_STORAGE_KEY);
-  if (!cacheText) {
-    return;
-  }
-  try {
-    const cache = JSON.parse(cacheText);
-    if (cache?.conversationId) {
-      conversationId.value = cache.conversationId;
-    }
-    if (Array.isArray(cache?.messages) && cache.messages.length > 0) {
-      messages.value = cache.messages;
-    }
-  } catch {
-    localStorage.removeItem(LOCAL_STORAGE_KEY);
-  }
-};
 
 const syncHistoryFromServer = async () => {
   if (!conversationId.value) {
@@ -51,11 +24,11 @@ const syncHistoryFromServer = async () => {
   }
   try {
     const serverMessages = await fetchConversationMessages(conversationId.value);
-    if (serverMessages.length > 0) {
+    if (Array.isArray(serverMessages) && serverMessages.length > 0) {
       messages.value = serverMessages;
     }
   } catch {
-    // 服务不可用时保留本地缓存，保证页面仍有上下文能力。
+    // 后端不可用时忽略，继续使用本地内存状态
   }
 };
 
@@ -65,22 +38,39 @@ const sendMessage = async () => {
     return;
   }
 
-  messages.value.push({ role: 'user', content });
+  // 1️⃣ 立即渲染用户消息
+  messages.value.push({
+    role: 'user',
+    content
+  });
+
   draft.value = '';
   loading.value = true;
 
   try {
+    // 2️⃣ 发送给后端（只传有效上下文）
     const { reply, conversationId: nextConversationId } = await postChatMessage({
       message: content,
       conversationId: conversationId.value,
       messages: messages.value
-        .filter((item) => item && !item.localOnly && item.role && item.content)
-        .map((item) => ({ role: item.role, content: item.content }))
+          .filter(m => m && !m.localOnly && m.role && m.content)
+          .map(m => ({
+            role: m.role,
+            content: m.content
+          }))
     });
+
+    // 3️⃣ 更新会话 ID
     if (nextConversationId) {
       conversationId.value = nextConversationId;
     }
-    messages.value.push({ role: 'assistant', content: reply });
+
+    // 4️⃣ 渲染 AI 回复
+    messages.value.push({
+      role: 'assistant',
+      content: reply
+    });
+
   } catch (error) {
     messages.value.push({
       role: 'assistant',
@@ -96,30 +86,42 @@ const sendMessage = async () => {
   <main class="chat-page">
     <header class="chat-header">
       <h1>后端对话接口测试窗口</h1>
-      <p>前端本地即时渲染消息，同时后端持久化会话；必要时可通过 <code>GET /conversation/{id}/messages</code> 做历史同步。</p>
+      <p>
+        前端仅负责展示状态，历史记录由后端根据
+        <code>conversationId</code> 维护
+      </p>
     </header>
 
     <section class="chat-panel">
       <div class="message-list">
         <article
-          v-for="(item, index) in messages"
-          :key="index"
-          class="message-item"
-          :class="item.role"
+            v-for="(item, index) in messages"
+            :key="index"
+            class="message-item"
+            :class="item.role"
         >
-          <div class="message-role">{{ item.role === 'user' ? '我' : 'AI' }}</div>
-          <div class="message-content">{{ item.content }}</div>
+          <div class="message-role">
+            {{ item.role === 'user' ? '我' : 'AI' }}
+          </div>
+          <div class="message-content">
+            {{ item.content }}
+          </div>
         </article>
       </div>
 
       <div class="composer">
         <textarea
-          v-model="draft"
-          :disabled="loading"
-          placeholder="请输入你要测试的问题..."
-          @keydown.ctrl.enter="sendMessage"
+            v-model="draft"
+            :disabled="loading"
+            placeholder="请输入你要测试的问题..."
+            @keydown.ctrl.enter="sendMessage"
         ></textarea>
-        <button type="button" :disabled="loading || !draft.trim()" @click="sendMessage">
+
+        <button
+            type="button"
+            :disabled="loading || !draft.trim()"
+            @click="sendMessage"
+        >
           {{ loading ? '发送中...' : '发送（Ctrl+Enter）' }}
         </button>
       </div>
