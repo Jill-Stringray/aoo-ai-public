@@ -1,8 +1,7 @@
-package com.clockshore.aooai.Entity;
+package com.clockshore.aooai.entity;
 
 import lombok.*;
 
-import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @Getter
@@ -14,9 +13,9 @@ import java.time.LocalDateTime;
 public class ConversationMessage {
 
     /**
-     * 主键ID
+     * 雪花
      */
-    private Long id;
+    private String messageKey;
 
     /**
      * 会话ID（关联 conversation.id）

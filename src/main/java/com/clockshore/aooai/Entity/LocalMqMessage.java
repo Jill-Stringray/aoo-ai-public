@@ -1,4 +1,4 @@
-package com.clockshore.aooai.Entity;
+package com.clockshore.aooai.entity;
 
 import lombok.*;
 

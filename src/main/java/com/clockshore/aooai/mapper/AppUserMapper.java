@@ -1,6 +1,6 @@
-package com.clockshore.aooai.Mapper;
+package com.clockshore.aooai.mapper;
 
-import com.clockshore.aooai.Entity.AppUser;
+import com.clockshore.aooai.entity.AppUser;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;

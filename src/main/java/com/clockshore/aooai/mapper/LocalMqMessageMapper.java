@@ -1,6 +1,6 @@
-package com.clockshore.aooai.Mapper;
+package com.clockshore.aooai.mapper;
 
-import com.clockshore.aooai.Entity.LocalMqMessage;
+import com.clockshore.aooai.entity.LocalMqMessage;
 import com.clockshore.aooai.enums.LocalMqMessageStatus;
 import org.apache.ibatis.annotations.*;
 

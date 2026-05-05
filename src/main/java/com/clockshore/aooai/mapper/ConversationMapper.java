@@ -1,6 +1,6 @@
-package com.clockshore.aooai.Mapper;
+package com.clockshore.aooai.mapper;
 
-import com.clockshore.aooai.Entity.Conversation;
+import com.clockshore.aooai.entity.Conversation;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
@@ -22,6 +22,14 @@ public interface ConversationMapper {
             WHERE id = #{id}
             """)
     Conversation selectById(@Param("id") Long id);
+
+    @Select("""
+    SELECT id, conversation_key AS conversationKey, user_id AS userId, session_id AS sessionId,
+           title, status, created_at AS createdAt, updated_at AS updatedAt
+    FROM conversation
+    WHERE conversation_key = #{conversationKey}
+            """)
+    Conversation selectByConversationKey(@Param("conversationKey") String conversationKey);
 
     @Select("""
             SELECT id, conversation_key AS conversationKey, user_id AS userId, session_id AS sessionId,

@@ -14,12 +14,14 @@ import java.util.List;
 @AllArgsConstructor
 public class ChatRequest {
 
+    //前端请求体
     private Long conversationId;
+    private String conversationKey;
     private String message;
     private String model;
     private Double temperature;
     private Boolean stream;
-    private List<Message> messages;
+    private List<ChatMessage> messages;
 
     public String resolveMessage() {
         if (StringUtils.hasText(message)) {
@@ -28,7 +30,7 @@ public class ChatRequest {
 
         if (!CollectionUtils.isEmpty(messages)) {
             for (int i = messages.size() - 1; i >= 0; i--) {
-                Message chatMessage = messages.get(i);
+                ChatMessage chatMessage = messages.get(i);
                 if (chatMessage == null) {
                     continue;
                 }
@@ -44,16 +46,5 @@ public class ChatRequest {
         }
 
         return null;
-    }
-
-    @Getter
-    @Setter
-    @ToString
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class Message {
-        private String role;
-        private String content;
     }
 }

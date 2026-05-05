@@ -1,8 +1,7 @@
-package com.clockshore.aooai.Entity;
+package com.clockshore.aooai.entity;
 
 import lombok.*;
 
-import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @Getter
@@ -14,22 +13,22 @@ import java.time.LocalDateTime;
 public class Conversation{
 
     /**
-     * 主键ID
+     * 主键ID 数据库自增
      */
     private Long id;
 
     /**
-     * 会话唯一标识（业务唯一键）
+     * 会话唯一标识（业务唯一键） 雪花id STR
      */
     private String conversationKey;
 
     /**
-     * 用户ID（关联 app_user.id）
+     * 用户ID
      */
     private Long userId;
 
     /**
-     * 会话ID（关联 chat_session.id）
+     * 会话ID（关联 chat_session.id） 暂时弃用
      */
     private Long sessionId;
 
@@ -39,17 +38,17 @@ public class Conversation{
     private String title;
 
     /**
-     * 状态：ACTIVE / CLOSED 等
+     * 状态：ACTIVE / DELETE
      */
     private String status;
 
     /**
-     * 创建时间
+     * 创建时间 数据库default
      */
     private LocalDateTime createdAt;
 
     /**
-     * 更新时间
+     * 更新时间 数据库default
      */
     private LocalDateTime updatedAt;
 }

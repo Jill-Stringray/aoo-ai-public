@@ -1,6 +1,6 @@
 package com.clockshore.aooai.chat;
 
-import com.clockshore.aooai.Entity.ConversationMessage;
+import com.clockshore.aooai.entity.ConversationMessage;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -13,7 +13,7 @@ public class ConversationMessageDto {
 
     public static ConversationMessageDto from(ConversationMessage message) {
         return ConversationMessageDto.builder()
-                .id(message.getId())
+                .id(message.getMessageKey())
                 .role(message.getRole())
                 .content(message.getContent())
                 .build();

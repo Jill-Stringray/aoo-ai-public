@@ -1,7 +1,7 @@
-package com.clockshore.aooai.Service;
+package com.clockshore.aooai.service;
 
 
-import com.clockshore.aooai.Entity.SseMessage;
+import com.clockshore.aooai.entity.SseMessage;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 

@@ -1,17 +1,15 @@
 package com.clockshore.aooai.mq;
 
-import com.clockshore.aooai.Mapper.ConversationMessageMapper;
-import com.clockshore.aooai.Service.SnowflakeService;
-import com.clockshore.aooai.Service.DeepSeekChatService;
-import com.clockshore.aooai.Entity.ConversationMessage;
+import com.clockshore.aooai.service.ChatWindowService;
+import com.clockshore.aooai.service.DeepSeekChatService;
 import com.clockshore.aooai.chat.ChatRequest;
-import com.clockshore.aooai.enums.Role;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 @Component
 public class ChatMessageEventConsumer {
@@ -20,10 +18,7 @@ public class ChatMessageEventConsumer {
     private DeepSeekChatService deepSeekChatService;
 
     @Resource
-    private ConversationMessageMapper conversationMessageMapper;
-
-    @Resource
-    private SnowflakeService snowflakeService;
+    private ChatWindowService chatWindowService;
 
     @Resource
     private ObjectMapper objectMapper;
@@ -36,17 +31,13 @@ public class ChatMessageEventConsumer {
         log.info("consume chat message event: conversationId={}, messageId={}, userId={},content={}",
                 event.getConversationId(), event.getMessageId(), event.getUserId(), event.getContent());
 
-
-        // 落库 assistant 消息，保持会话上下文持续可用。
-        ConversationMessage assistantMessage = ConversationMessage.builder()
-                .id(snowflakeService.nextId())
-                .conversationId(event.getConversationId())
-                .role(Role.ASSISTANT.getValue())
-                .content("tobefilled")
-                .build();
-        conversationMessageMapper.insert(assistantMessage);
-
-
+        ChatRequest chatRequest = chatWindowService.buildChatRequestWithHistory(
+                event.getUserId(), event.getConversationId(), event.getMessageId());
+        String reply = deepSeekChatService.chat(chatRequest);
+        if (!StringUtils.hasText(reply)) {
+            reply = "(模型未返回内容)";
+        }
+        chatWindowService.saveAssistantReply(event.getUserId(), event.getConversationId(), reply);
     }
 
     private ChatMessageEvent parseEvent(String payload) {

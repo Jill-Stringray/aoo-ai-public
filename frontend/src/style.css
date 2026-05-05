@@ -79,6 +79,21 @@ body {
   white-space: pre-wrap;
 }
 
+.stream-caret {
+  display: inline-block;
+  margin-left: 1px;
+  color: #2563eb;
+  font-weight: 300;
+  animation: stream-blink 0.9s step-end infinite;
+  vertical-align: baseline;
+}
+
+@keyframes stream-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
 .composer {
   margin-top: 14px;
   border-top: 1px solid #e2e8f0;

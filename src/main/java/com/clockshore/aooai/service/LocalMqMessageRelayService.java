@@ -1,7 +1,7 @@
-package com.clockshore.aooai.Service;
+package com.clockshore.aooai.service;
 
-import com.clockshore.aooai.Entity.LocalMqMessage;
-import com.clockshore.aooai.Mapper.LocalMqMessageMapper;
+import com.clockshore.aooai.entity.LocalMqMessage;
+import com.clockshore.aooai.mapper.LocalMqMessageMapper;
 import com.clockshore.aooai.enums.LocalMqMessageStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

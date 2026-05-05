@@ -1,4 +1,4 @@
-package com.clockshore.aooai.Service;
+package com.clockshore.aooai.service;
 
 import cn.hutool.core.util.IdUtil;
 import org.springframework.stereotype.Service;

@@ -1,12 +1,11 @@
-package com.clockshore.aooai.Controller;
+package com.clockshore.aooai.controller;
 
 import com.clockshore.aooai.chat.ChatRequest;
 import com.clockshore.aooai.chat.ChatResponse;
 import com.clockshore.aooai.chat.ConversationMessageDto;
-import com.clockshore.aooai.Entity.Conversation;
-import com.clockshore.aooai.Entity.ConversationMessage;
-import com.clockshore.aooai.Service.ChatWindowService;
-import com.clockshore.aooai.Service.DeepSeekChatService;
+import com.clockshore.aooai.entity.Conversation;
+import com.clockshore.aooai.entity.ConversationMessage;
+import com.clockshore.aooai.service.ChatWindowService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
@@ -24,35 +23,31 @@ import java.util.List;
 @RequestMapping("")
 public class ChatController {
 
-    private final DeepSeekChatService deepSeekChatService;
     private final ChatWindowService chatWindowService;
 
-    public ChatController(DeepSeekChatService deepSeekChatService, ChatWindowService chatWindowService) {
-        this.deepSeekChatService = deepSeekChatService;
+    public ChatController(ChatWindowService chatWindowService) {
         this.chatWindowService = chatWindowService;
     }
 
     @PostMapping("/chat")
-    public ResponseEntity<ChatResponse> chat(@RequestBody ChatRequest request,
-                                             @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+    public ResponseEntity<ChatResponse> chat(@RequestBody ChatRequest request) {
         if (request == null || !StringUtils.hasText(request.resolveMessage())) {
-            return ResponseEntity.badRequest().body(new ChatResponse(null, "请输入消息，或提供符合 DeepSeek 格式的 messages 数组"));
+            return ResponseEntity.badRequest().body(new ChatResponse("无内容", "请输入消息，或提供符合 DeepSeek 格式的 messages 数组"));
         }
-
         try {
-            Long effectiveUserId = userId == null ? 1L : userId;
-            Conversation conversation = chatWindowService.sendMessage(effectiveUserId, request);
+            Conversation conversation = chatWindowService.saveMessage(1L, request);
 
-            return ResponseEntity.ok(new ChatResponse(reply, "请求正常完成", conversation.getId()));
+            return ResponseEntity.ok(new ChatResponse("无内容", "消息已保存，正在请求AI回复", conversation.getId()));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(new ChatResponse(null, "发生错误：" + e.getMessage()));
+            return ResponseEntity.badRequest().body(new ChatResponse("无内容", "发生错误：" + e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ChatResponse(null, "调用 DeepSeek 失败：" + e.getMessage()));
+                    .body(new ChatResponse("无内容", "处理失败：" + e.getMessage()));
         }
     }
 
-    @GetMapping("/conversation/{conversationId}/messages")
+    /**
+       @GetMapping("/conversation/{conversationId}/messages")
     public ResponseEntity<List<ConversationMessageDto>> conversationMessages(
             @PathVariable("conversationId") Long conversationId,
             @RequestHeader(value = "X-User-Id", required = false) Long userId
@@ -62,5 +57,5 @@ public class ChatController {
         return ResponseEntity.ok(
                 messages.stream().map(ConversationMessageDto::from).toList()
         );
-    }
+    }*/
 }

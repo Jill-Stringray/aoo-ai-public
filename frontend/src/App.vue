@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, ref } from 'vue';
-import { fetchConversationMessages, postChatMessage } from './api/chat';
+import { fetchConversationMessages, postChatMessageStream } from './api/chat';
 
 const draft = ref('');
 const loading = ref(false);
@@ -47,35 +47,68 @@ const sendMessage = async () => {
   draft.value = '';
   loading.value = true;
 
+  messages.value.push({
+    role: 'assistant',
+    content: '',
+    streaming: true
+  });
+
   try {
-    // 2️⃣ 发送给后端（只传有效上下文）
-    const { reply, conversationId: nextConversationId } = await postChatMessage({
-      message: content,
-      conversationId: conversationId.value,
-      messages: messages.value
-          .filter(m => m && !m.localOnly && m.role && m.content)
-          .map(m => ({
-            role: m.role,
-            content: m.content
-          }))
-    });
-
-    // 3️⃣ 更新会话 ID
-    if (nextConversationId) {
-      conversationId.value = nextConversationId;
-    }
-
-    // 4️⃣ 渲染 AI 回复
-    messages.value.push({
-      role: 'assistant',
-      content: reply
-    });
-
+    await postChatMessageStream(
+      {
+        message: content,
+        conversationId: conversationId.value,
+        messages: messages.value
+            .filter(m => m && !m.localOnly && !m.streaming && m.role && m.content)
+            .map(m => ({
+              role: m.role,
+              content: m.content
+            }))
+      },
+      {
+        onMeta: (data) => {
+          if (data?.conversationId != null) {
+            conversationId.value = data.conversationId;
+          }
+        },
+        onDelta: (data) => {
+          const piece = data?.c;
+          if (typeof piece !== 'string' || !piece) {
+            return;
+          }
+          const last = messages.value[messages.value.length - 1];
+          if (last?.role === 'assistant') {
+            last.content += piece;
+          }
+        },
+        onDone: () => {
+          const last = messages.value[messages.value.length - 1];
+          if (last?.streaming) {
+            delete last.streaming;
+          }
+        },
+        onError: (msg) => {
+          const last = messages.value[messages.value.length - 1];
+          if (last?.role === 'assistant') {
+            if (!last.content) {
+              last.content = msg || '流式请求失败';
+            }
+            delete last.streaming;
+          }
+        }
+      }
+    );
   } catch (error) {
-    messages.value.push({
-      role: 'assistant',
-      content: `请求失败：${error.message}`
-    });
+    const last = messages.value[messages.value.length - 1];
+    if (last?.role === 'assistant' && last?.streaming) {
+      last.content = last.content || `请求失败：${error.message}`;
+      delete last.streaming;
+    } else {
+      messages.value.push({
+        role: 'assistant',
+        content: `请求失败：${error.message}`
+      });
+    }
   } finally {
     loading.value = false;
   }
@@ -87,8 +120,8 @@ const sendMessage = async () => {
     <header class="chat-header">
       <h1>后端对话接口测试窗口</h1>
       <p>
-        前端仅负责展示状态，历史记录由后端根据
-        <code>conversationId</code> 维护
+        使用 <strong>SSE</strong>（<code>POST /chat/stream</code>）流式输出；历史由后端根据
+        <code>conversationId</code> 落库
       </p>
     </header>
 
@@ -104,7 +137,7 @@ const sendMessage = async () => {
             {{ item.role === 'user' ? '我' : 'AI' }}
           </div>
           <div class="message-content">
-            {{ item.content }}
+            {{ item.content }}<span v-if="item.streaming" class="stream-caret" aria-hidden="true">▍</span>
           </div>
         </article>
       </div>
