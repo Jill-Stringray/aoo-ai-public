@@ -1,6 +1,8 @@
 <script setup>
 import { onMounted, ref } from 'vue';
-import { fetchConversationMessages, postChatMessageStream } from './api/chat';
+import { fetchConversationMessages, postChatMessage } from './api/chat';
+
+const CONV_STORAGE_KEY = 'aoo-ai-conversation-id';
 
 const draft = ref('');
 const loading = ref(false);
@@ -9,14 +11,27 @@ const conversationId = ref(null);
 const messages = ref([
   {
     role: 'assistant',
-    content: '你好，我是测试助手。请输入问题后点击发送。',
+    content: '你好。请输入问题后发送；对话会按 conversationId 在后端落库。',
     localOnly: true
   }
 ]);
 
 onMounted(async () => {
+  const saved = localStorage.getItem(CONV_STORAGE_KEY);
+  if (saved) {
+    const id = Number(saved);
+    if (!Number.isNaN(id) && id > 0) {
+      conversationId.value = id;
+    }
+  }
   await syncHistoryFromServer();
 });
+
+const persistConversationId = (id) => {
+  if (id != null && id > 0) {
+    localStorage.setItem(CONV_STORAGE_KEY, String(id));
+  }
+};
 
 const syncHistoryFromServer = async () => {
   if (!conversationId.value) {
@@ -25,7 +40,10 @@ const syncHistoryFromServer = async () => {
   try {
     const serverMessages = await fetchConversationMessages(conversationId.value);
     if (Array.isArray(serverMessages) && serverMessages.length > 0) {
-      messages.value = serverMessages;
+      messages.value = serverMessages.map((m) => ({
+        role: m.role,
+        content: m.content ?? ''
+      }));
     }
   } catch {
     // 后端不可用时忽略，继续使用本地内存状态
@@ -38,7 +56,6 @@ const sendMessage = async () => {
     return;
   }
 
-  // 1️⃣ 立即渲染用户消息
   messages.value.push({
     role: 'user',
     content
@@ -47,68 +64,27 @@ const sendMessage = async () => {
   draft.value = '';
   loading.value = true;
 
-  messages.value.push({
-    role: 'assistant',
-    content: '',
-    streaming: true
-  });
-
   try {
-    await postChatMessageStream(
-      {
-        message: content,
-        conversationId: conversationId.value,
-        messages: messages.value
-            .filter(m => m && !m.localOnly && !m.streaming && m.role && m.content)
-            .map(m => ({
-              role: m.role,
-              content: m.content
-            }))
-      },
-      {
-        onMeta: (data) => {
-          if (data?.conversationId != null) {
-            conversationId.value = data.conversationId;
-          }
-        },
-        onDelta: (data) => {
-          const piece = data?.c;
-          if (typeof piece !== 'string' || !piece) {
-            return;
-          }
-          const last = messages.value[messages.value.length - 1];
-          if (last?.role === 'assistant') {
-            last.content += piece;
-          }
-        },
-        onDone: () => {
-          const last = messages.value[messages.value.length - 1];
-          if (last?.streaming) {
-            delete last.streaming;
-          }
-        },
-        onError: (msg) => {
-          const last = messages.value[messages.value.length - 1];
-          if (last?.role === 'assistant') {
-            if (!last.content) {
-              last.content = msg || '流式请求失败';
-            }
-            delete last.streaming;
-          }
-        }
-      }
-    );
-  } catch (error) {
-    const last = messages.value[messages.value.length - 1];
-    if (last?.role === 'assistant' && last?.streaming) {
-      last.content = last.content || `请求失败：${error.message}`;
-      delete last.streaming;
-    } else {
-      messages.value.push({
-        role: 'assistant',
-        content: `请求失败：${error.message}`
-      });
+    const data = await postChatMessage({
+      message: content,
+      conversationId: conversationId.value
+    });
+
+    if (data?.conversationId != null) {
+      conversationId.value = data.conversationId;
+      persistConversationId(data.conversationId);
     }
+
+    const reply = typeof data?.reply === 'string' ? data.reply : '';
+    messages.value.push({
+      role: 'assistant',
+      content: reply || '（模型返回为空）'
+    });
+  } catch (error) {
+    messages.value.push({
+      role: 'assistant',
+      content: `请求失败：${error.message}`
+    });
   } finally {
     loading.value = false;
   }
@@ -118,10 +94,10 @@ const sendMessage = async () => {
 <template>
   <main class="chat-page">
     <header class="chat-header">
-      <h1>后端对话接口测试窗口</h1>
+      <h1>后端对话测试</h1>
       <p>
-        使用 <strong>SSE</strong>（<code>POST /chat/stream</code>）流式输出；历史由后端根据
-        <code>conversationId</code> 落库
+        使用 <strong>同步</strong> <code>POST /chat</code>：一次请求完成落库用户消息、Spring AI 调用与助手落库；历史通过
+        <code>GET /conversation/{id}/messages</code> 拉取。
       </p>
     </header>
 
@@ -137,7 +113,7 @@ const sendMessage = async () => {
             {{ item.role === 'user' ? '我' : 'AI' }}
           </div>
           <div class="message-content">
-            {{ item.content }}<span v-if="item.streaming" class="stream-caret" aria-hidden="true">▍</span>
+            {{ item.content }}
           </div>
         </article>
       </div>

@@ -1,3 +1,19 @@
+/*
+ Navicat Premium Data Transfer
+
+ Source Server         : navi_kat
+ Source Server Type    : MySQL
+ Source Server Version : 50743
+ Source Host           : localhost:3306
+ Source Schema         : aoo-ai
+
+ Target Server Type    : MySQL
+ Target Server Version : 50743
+ File Encoding         : 65001
+
+ Date: 06/05/2026 17:46:56
+*/
+
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
@@ -6,13 +22,13 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- ----------------------------
 DROP TABLE IF EXISTS `app_user`;
 CREATE TABLE `app_user`  (
- `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
- `user_name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL,
- `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
- `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- `balance` bigint(20) NOT NULL DEFAULT 0,
- `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
- PRIMARY KEY (`id`) USING BTREE
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `balance` bigint(20) NOT NULL DEFAULT 0,
+  `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  PRIMARY KEY (`id`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -20,16 +36,16 @@ CREATE TABLE `app_user`  (
 -- ----------------------------
 DROP TABLE IF EXISTS `chat_session`;
 CREATE TABLE `chat_session`  (
- `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
- `session_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
- `user_id` bigint(20) UNSIGNED NULL DEFAULT NULL,
- `expires_at` timestamp NULL DEFAULT NULL,
- `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
- `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- PRIMARY KEY (`id`) USING BTREE,
- UNIQUE INDEX `uk_chat_session_session_key`(`session_key`) USING BTREE,
- INDEX `idx_chat_session_user_id`(`user_id`) USING BTREE,
- CONSTRAINT `fk_chat_session_user_id` FOREIGN KEY (`user_id`) REFERENCES `app_user` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `session_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `user_id` bigint(20) UNSIGNED NULL DEFAULT NULL,
+  `expires_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_chat_session_session_key`(`session_key`) USING BTREE,
+  INDEX `idx_chat_session_user_id`(`user_id`) USING BTREE,
+  CONSTRAINT `fk_chat_session_user_id` FOREIGN KEY (`user_id`) REFERENCES `app_user` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -50,22 +66,22 @@ CREATE TABLE `conversation`  (
   INDEX `idx_conversation_user_id`(`user_id`) USING BTREE,
   INDEX `idx_conversation_session_id`(`session_id`) USING BTREE,
   INDEX `idx_conversation_updated_at`(`updated_at`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 25 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for conversation_message
 -- ----------------------------
 DROP TABLE IF EXISTS `conversation_message`;
 CREATE TABLE `conversation_message`  (
-  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `message_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `conversation_id` bigint(20) UNSIGNED NOT NULL,
   `content` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `token_count` int(10) UNSIGNED NULL DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `role` enum('system','user','assistant','tool') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  PRIMARY KEY (`id`) USING BTREE,
+  PRIMARY KEY (`message_key`) USING BTREE,
   INDEX `idx_message_conversation_created_at`(`conversation_id`, `created_at`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 7 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for local_mq_message
@@ -86,6 +102,6 @@ CREATE TABLE `local_mq_message`  (
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_local_mq_event_key`(`event_key`) USING BTREE,
   INDEX `idx_local_mq_status_retry`(`status`, `next_retry_at`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 6 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 38 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = DYNAMIC;
 
 SET FOREIGN_KEY_CHECKS = 1;
