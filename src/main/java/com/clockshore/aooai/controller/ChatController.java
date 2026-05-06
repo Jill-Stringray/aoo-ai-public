@@ -47,7 +47,7 @@ public class ChatController {
                     .userId(DEFAULT_USER_ID)
                     .build();
             String reply = deepSeekChatService.nonStreamChat(forModel);
-            deepSeekChatService.saveAssistantMessage(forModel, reply);
+            deepSeekChatService.enqueueAssistantMessage(forModel, reply);
             return ResponseEntity.ok(new ChatResponse(reply, "", conversation.getId()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new ChatResponse("", e.getMessage()));

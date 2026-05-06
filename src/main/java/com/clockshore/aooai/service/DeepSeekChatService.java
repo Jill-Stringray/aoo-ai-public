@@ -4,6 +4,8 @@ import com.clockshore.aooai.chat.ChatRequest;
 import com.clockshore.aooai.entity.ConversationMessage;
 import com.clockshore.aooai.enums.Role;
 import com.clockshore.aooai.mapper.ConversationMessageMapper;
+import com.clockshore.aooai.mq.ChatMessageEvent;
+import com.clockshore.aooai.mq.ChatMessageMqProducer;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -22,13 +24,16 @@ public class DeepSeekChatService {
     private final ChatClient chatClient;
     private final ConversationMessageMapper conversationMessageMapper;
     private final SnowflakeService snowflakeService;
+    private final ChatMessageMqProducer chatMessageMqProducer;
 
     public DeepSeekChatService(ChatClient.Builder builder,
                                ConversationMessageMapper conversationMessageMapper,
-                               SnowflakeService snowflakeService) {
+                               SnowflakeService snowflakeService,
+                               ChatMessageMqProducer chatMessageMqProducer) {
         this.chatClient = builder.build();
         this.conversationMessageMapper = conversationMessageMapper;
         this.snowflakeService = snowflakeService;
+        this.chatMessageMqProducer = chatMessageMqProducer;
     }
 
 
@@ -55,7 +60,29 @@ public class DeepSeekChatService {
                 })
                 .doOnComplete(() -> {
                     String fullReply = replyBuffer.toString();
+                    if (!fullReply.isBlank()) {
+                        chatMessageMqProducer.publishPersist(ChatMessageEvent.builder()
+                                .messageKey(snowflakeService.nextIdStr())
+                                .conversationId(chatRequest.getConversationId())
+                                .userId(chatRequest.getUserId())
+                                .role(Role.ASSISTANT.getValue())
+                                .content(fullReply)
+                                .build());
+                    }
                 });
+    }
+
+    public void enqueueAssistantMessage(ChatRequest chatRequest, String reply) {
+        if (reply == null || reply.isBlank()) {
+            return;
+        }
+        chatMessageMqProducer.publishPersist(ChatMessageEvent.builder()
+                .messageKey(snowflakeService.nextIdStr())
+                .conversationId(chatRequest.getConversationId())
+                .userId(chatRequest.getUserId())
+                .role(Role.ASSISTANT.getValue())
+                .content(reply)
+                .build());
     }
 
     @Transactional

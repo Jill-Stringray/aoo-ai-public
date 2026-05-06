@@ -12,9 +12,9 @@ import java.io.Serializable;
 public class ChatMessageEvent implements Serializable {
 
     private Long conversationId;
-    private Long messageId;
+    private String messageKey;
     private Long userId;
-    private String Role;
+    private String role;
     private String content;
 
 }
