@@ -55,9 +55,7 @@ public class DeepSeekChatService {
                 })
                 .doOnComplete(() -> {
                     String fullReply = replyBuffer.toString();
-                    saveAssistantMessage(chatRequest,fullReply);
-                    sendMq(conversationId, assistantMsgId, fullReply);
-                })
+                });
     }
 
     @Transactional

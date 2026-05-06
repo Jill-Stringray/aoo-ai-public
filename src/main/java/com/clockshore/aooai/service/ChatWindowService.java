@@ -7,6 +7,8 @@ import com.clockshore.aooai.enums.ConversationStatus;
 import com.clockshore.aooai.enums.Role;
 import com.clockshore.aooai.mapper.ConversationMapper;
 import com.clockshore.aooai.mapper.ConversationMessageMapper;
+import com.clockshore.aooai.mq.ChatMessageEvent;
+import com.clockshore.aooai.mq.ChatMessageMqProducer;
 import jakarta.annotation.Resource;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,9 @@ public class ChatWindowService {
 
     @Resource
     private SnowflakeService snowflakeService;
+
+    @Resource
+    private ChatMessageMqProducer chatMessageMqProducer;
 
     @Resource
     private ConversationMessageMapper conversationMessageMapper;
@@ -57,14 +62,14 @@ public class ChatWindowService {
             }
         }
 
-        ConversationMessage message = ConversationMessage.builder()
-                .messageKey(snowflakeService.nextIdStr())
+        String messageKey = snowflakeService.nextIdStr();
+        chatMessageMqProducer.publishPersist(ChatMessageEvent.builder()
+                .messageKey(messageKey)
                 .conversationId(c.getId())
-                .content(text.trim())
+                .userId(uid)
                 .role(Role.USER.getValue())
-                .build();
-
-        conversationMessageMapper.insert(message);
+                .content(text.trim())
+                .build());
         return c;
     }
 

@@ -43,8 +43,11 @@ public class ChatController {
             Conversation conversation = chatWindowService.saveUserMessage(DEFAULT_USER_ID, request);
             ChatRequest forModel = ChatRequest.builder()
                     .conversationId(conversation.getId())
+                    .message(request.resolveMessage())
+                    .userId(DEFAULT_USER_ID)
                     .build();
-            String reply = deepSeekChatService.saveAssistantMessage(forModel);
+            String reply = deepSeekChatService.nonStreamChat(forModel);
+            deepSeekChatService.saveAssistantMessage(forModel, reply);
             return ResponseEntity.ok(new ChatResponse(reply, "", conversation.getId()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new ChatResponse("", e.getMessage()));
