@@ -38,7 +38,7 @@ public class AppUser {
     private Long balance;
 
     /**
-     * 密码（建议存 Bcrypt 加密后的值）
+     * 密码（存 Bcrypt 加密后的值）
      */
     private String password;
 }

@@ -8,7 +8,13 @@ export default defineConfig({
     proxy: {
       '/chat': {
         target: 'http://localhost:8080',
-        changeOrigin: true
+        changeOrigin: true,
+        configure(proxy) {
+          proxy.on('proxyRes', (proxyRes) => {
+            proxyRes.headers['cache-control'] = 'no-cache, no-transform';
+            proxyRes.headers['x-accel-buffering'] = 'no';
+          });
+        }
       },
       '/conversation': {
         target: 'http://localhost:8080',

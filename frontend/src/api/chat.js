@@ -120,7 +120,10 @@ export function postChatMessageStream(payload, handlers = {}) {
               finish(resolve, evt.data ?? {});
               return;
             } else if (evt.event === 'error') {
-              const msg = evt.data?.message || '流式请求失败';
+              const msg =
+                typeof evt.data === 'string'
+                  ? evt.data
+                  : evt.data?.message || evt.data?.raw || '流式请求失败';
               handlers.onError?.(msg);
               finish(reject, new Error(msg));
               return;
@@ -140,7 +143,10 @@ export function postChatMessageStream(payload, handlers = {}) {
             return;
           }
           if (evt?.event === 'error') {
-            const msg = evt.data?.message || '流式请求失败';
+            const msg =
+              typeof evt.data === 'string'
+                ? evt.data
+                : evt.data?.message || evt.data?.raw || '流式请求失败';
             handlers.onError?.(msg);
             finish(reject, new Error(msg));
             return;

@@ -1,6 +1,7 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
 import { fetchConversationMessages, postChatMessageStream } from './api/chat';
+import { renderMarkdown } from './utils/markdown';
 
 const CONV_STORAGE_KEY = 'aoo-ai-conversation-id';
 
@@ -66,10 +67,12 @@ const sendMessage = async () => {
   loading.value = true;
 
   try {
-    const assistantDraft = {
+    // 必须用 reactive：push 进 ref 数组后，普通对象的局部引用与数组内的响应式代理脱节，
+    // 流式期间改 assistantDraft.content 不会驱动模板更新。
+    const assistantDraft = reactive({
       role: 'assistant',
       content: ''
-    };
+    });
     messages.value.push(assistantDraft);
     streaming.value = true;
 
@@ -140,9 +143,12 @@ const sendMessage = async () => {
           <div class="message-role">
             {{ item.role === 'user' ? '我' : 'AI' }}
           </div>
-          <div class="message-content">
-            {{ item.content }}
-          </div>
+          <div
+              v-if="item.role === 'assistant'"
+              class="message-content markdown-body"
+              v-html="renderMarkdown(item.content)"
+          ></div>
+          <div v-else class="message-content">{{ item.content }}</div>
         </article>
       </div>
 
