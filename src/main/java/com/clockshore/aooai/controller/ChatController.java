@@ -16,7 +16,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.publisher.Flux;
 
+import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -54,6 +57,52 @@ public class ChatController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ChatResponse("", "处理失败：" + e.getMessage()));
+        }
+    }
+
+    @PostMapping(value = "/chat/stream", produces = "text/event-stream")
+    public SseEmitter chatStream(@RequestBody ChatRequest request) {
+        SseEmitter emitter = new SseEmitter(0L);
+        if (request == null || !StringUtils.hasText(request.resolveMessage())) {
+            trySend(emitter, "error", "请输入 message，或提供含用户内容的 messages 数组");
+            emitter.complete();
+            return emitter;
+        }
+
+        try {
+            Conversation conversation = chatWindowService.saveUserMessage(DEFAULT_USER_ID, request);
+            ChatRequest forModel = ChatRequest.builder()
+                    .conversationId(conversation.getId())
+                    .message(request.resolveMessage())
+                    .userId(DEFAULT_USER_ID)
+                    .build();
+
+            trySend(emitter, "meta", conversation.getId());
+
+            Flux<String> stream = deepSeekChatService.streamChat(forModel);
+            stream.subscribe(
+                    delta -> trySend(emitter, "delta", delta),
+                    error -> {
+                        trySend(emitter, "error", error.getMessage());
+                        emitter.complete();
+                    },
+                    () -> {
+                        trySend(emitter, "done", conversation.getId());
+                        emitter.complete();
+                    }
+            );
+        } catch (Exception e) {
+            trySend(emitter, "error", e.getMessage());
+            emitter.complete();
+        }
+        return emitter;
+    }
+
+    private void trySend(SseEmitter emitter, String event, Object data) {
+        try {
+            emitter.send(SseEmitter.event().name(event).data(data));
+        } catch (IOException e) {
+            emitter.completeWithError(e);
         }
     }
 

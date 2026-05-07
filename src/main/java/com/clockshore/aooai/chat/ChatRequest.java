@@ -18,6 +18,7 @@ public class ChatRequest {
     private Long conversationId;
     private String conversationKey;
     private String message;
+    private Long userId;
     private String model;
     private Double temperature;
     private Boolean stream;

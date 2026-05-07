@@ -1,11 +1,12 @@
 <script setup>
 import { onMounted, ref } from 'vue';
-import { fetchConversationMessages, postChatMessage } from './api/chat';
+import { fetchConversationMessages, postChatMessageStream } from './api/chat';
 
 const CONV_STORAGE_KEY = 'aoo-ai-conversation-id';
 
 const draft = ref('');
 const loading = ref(false);
+const streaming = ref(false);
 const conversationId = ref(null);
 
 const messages = ref([
@@ -65,21 +66,42 @@ const sendMessage = async () => {
   loading.value = true;
 
   try {
-    const data = await postChatMessage({
-      message: content,
-      conversationId: conversationId.value
-    });
-
-    if (data?.conversationId != null) {
-      conversationId.value = data.conversationId;
-      persistConversationId(data.conversationId);
-    }
-
-    const reply = typeof data?.reply === 'string' ? data.reply : '';
-    messages.value.push({
+    const assistantDraft = {
       role: 'assistant',
-      content: reply || '（模型返回为空）'
-    });
+      content: ''
+    };
+    messages.value.push(assistantDraft);
+    streaming.value = true;
+
+    await postChatMessageStream(
+      {
+        message: content,
+        conversationId: conversationId.value
+      },
+      {
+        onMeta(meta) {
+          const id = Number(meta?.conversationId ?? meta);
+          if (!Number.isNaN(id) && id > 0) {
+            conversationId.value = id;
+            persistConversationId(id);
+          }
+        },
+        onDelta(delta) {
+          const chunk = typeof delta === 'string' ? delta : delta?.delta ?? delta?.content ?? '';
+          assistantDraft.content += chunk;
+        },
+        onDone(done) {
+          const id = Number(done?.conversationId ?? done);
+          if (!Number.isNaN(id) && id > 0) {
+            conversationId.value = id;
+            persistConversationId(id);
+          }
+          if (!assistantDraft.content) {
+            assistantDraft.content = '（模型返回为空）';
+          }
+        }
+      }
+    );
   } catch (error) {
     messages.value.push({
       role: 'assistant',
@@ -87,6 +109,7 @@ const sendMessage = async () => {
     });
   } finally {
     loading.value = false;
+    streaming.value = false;
   }
 };
 </script>
@@ -96,7 +119,7 @@ const sendMessage = async () => {
     <header class="chat-header">
       <h1>后端对话测试</h1>
       <p>
-        使用 <strong>同步</strong> <code>POST /chat</code>：一次请求完成落库用户消息、Spring AI 调用与助手落库；历史通过
+        使用 <strong>流式</strong> <code>POST /chat/stream</code>：一次请求完成落库用户消息、Spring AI 调用与助手落库；历史通过
         <code>GET /conversation/{id}/messages</code> 拉取。
       </p>
     </header>
@@ -131,7 +154,7 @@ const sendMessage = async () => {
             :disabled="loading || !draft.trim()"
             @click="sendMessage"
         >
-          {{ loading ? '发送中...' : '发送（Ctrl+Enter）' }}
+          {{ loading ? (streaming ? '流式输出中...' : '发送中...') : '发送（Ctrl+Enter）' }}
         </button>
       </div>
     </section>
