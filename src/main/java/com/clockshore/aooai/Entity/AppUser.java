@@ -33,7 +33,7 @@ public class AppUser {
     private LocalDateTime updatedAt;
 
     /**
-     * 余额（单位：分 / 最小货币单位）
+     * 余额（单位是：积分）
      */
     private Long balance;
 
