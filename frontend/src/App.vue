@@ -87,7 +87,12 @@ const sendMessage = async () => {
           }
         },
         onDelta(delta) {
-          const chunk = typeof delta === 'string' ? delta : delta?.delta ?? delta?.content ?? delta?.raw ?? '';
+          const chunk =
+            typeof delta === 'string'
+              ? delta
+              : typeof delta === 'number' || typeof delta === 'boolean'
+                ? String(delta)
+                : delta?.delta ?? delta?.content ?? delta?.raw ?? '';
           assistantDraft.content += chunk;
         },
         onDone(done) {
