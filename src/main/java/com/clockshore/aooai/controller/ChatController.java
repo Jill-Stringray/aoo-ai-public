@@ -2,7 +2,7 @@ package com.clockshore.aooai.controller;
 
 import com.clockshore.aooai.chat.ChatRequest;
 import com.clockshore.aooai.chat.ChatResponse;
-import com.clockshore.aooai.chat.ConversationMessageDto;
+import com.clockshore.aooai.dto.ConversationMessageDto;
 import com.clockshore.aooai.entity.Conversation;
 import com.clockshore.aooai.entity.ConversationMessage;
 import com.clockshore.aooai.service.ChatWindowService;

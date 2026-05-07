@@ -1,4 +1,4 @@
-package com.clockshore.aooai.chat;
+package com.clockshore.aooai.dto;
 
 import com.clockshore.aooai.entity.ConversationMessage;
 import lombok.AllArgsConstructor;
