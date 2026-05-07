@@ -99,7 +99,7 @@ export function postChatMessageStream(payload, handlers = {}) {
             buffer += decoder.decode(value, { stream: true });
           }
 
-          const parts = buffer.split('\n\n');
+          const parts = buffer.split(/\r?\n\r?\n/);
           buffer = parts.pop() ?? '';
 
           for (const raw of parts) {
