@@ -6,6 +6,7 @@ import com.clockshore.aooai.enums.Role;
 import com.clockshore.aooai.mapper.ConversationMessageMapper;
 import com.clockshore.aooai.mq.ChatMessageEvent;
 import com.clockshore.aooai.mq.ChatMessageMqProducer;
+import jakarta.annotation.Resource;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -25,15 +26,19 @@ public class DeepSeekChatService {
     private final ConversationMessageMapper conversationMessageMapper;
     private final SnowflakeService snowflakeService;
     private final ChatMessageMqProducer chatMessageMqProducer;
+    private final RagService ragService;
 
     public DeepSeekChatService(ChatClient.Builder builder,
                                ConversationMessageMapper conversationMessageMapper,
                                SnowflakeService snowflakeService,
-                               ChatMessageMqProducer chatMessageMqProducer) {
+                               ChatMessageMqProducer chatMessageMqProducer,
+                               RagService ragService) {
+
         this.chatClient = builder.build();
         this.conversationMessageMapper = conversationMessageMapper;
         this.snowflakeService = snowflakeService;
         this.chatMessageMqProducer = chatMessageMqProducer;
+        this.ragService = ragService;
     }
 
 
@@ -52,7 +57,7 @@ public class DeepSeekChatService {
         StringBuilder replyBuffer = new StringBuilder();
 
         return chatClient.prompt()
-                .user(chatRequest.getMessage())
+                .messages(buildMessages(chatRequest))
                 .stream()
                 .content()
                 .doOnNext(delta -> {
@@ -98,6 +103,10 @@ public class DeepSeekChatService {
 
     public List<Message> buildMessages(ChatRequest chatRequest){
         List<Message> messages = new ArrayList<>();
+        String ragContext = ragService.buildContext(chatRequest.resolveMessage());
+        if (!ragContext.isBlank()) {
+            messages.add(new SystemMessage(ragContext));
+        }
         messages.addAll(buildHistory(chatRequest));
         return messages;
     }

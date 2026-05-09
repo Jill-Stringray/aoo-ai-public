@@ -31,3 +31,14 @@ spring:
           password: ${POSTGRES_PASSWORD}
           driver-class-name: org.postgresql.Driver
         dimensions: 1536
+app:
+  rag:
+    enabled: true
+    top-k: 3
+    docs:
+      - title: "退换货政策"
+        content: "7天内支持无理由退货，商品需保持完好。"
+      - title: "会员权益"
+        content: "会员可享受95折优惠，满200元包邮。"
+      - title: "技术支持"
+        content: "工作日9:00-18:00可通过在线工单联系技术支持。"
