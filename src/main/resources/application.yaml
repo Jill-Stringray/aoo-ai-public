@@ -8,6 +8,7 @@ spring:
     username: ${RABBITMQ_USERNAME}
     password: ${RABBITMQ_PASSWORD}
 
+  # 主数据源：业务库（MySQL）
   datasource:
     url: jdbc:mysql://localhost:3306/aoo-ai?useSSL=false&useUnicode=true&characterEncoding=UTF-8
     username: ${MYSQL_USERNAME}
@@ -25,13 +26,26 @@ spring:
     vectorstore:
       pgvector:
         initialize-schema: true
+        # 向量库的数据源统一复用 app.datasource.pgvector 的配置
         datasource:
-          url: jdbc:postgresql://localhost:5432/rag
+          url: ${app.datasource.pgvector.url}
           username: ${POSTGRES_USERNAME}
           password: ${POSTGRES_PASSWORD}
-          driver-class-name: org.postgresql.Driver
+          driver-class-name: ${app.datasource.pgvector.driver-class-name}
         dimensions: 1536
+
 app:
+  # 第二数据源：向量库（PostgreSQL + pgvector）
+  datasource:
+    pgvector:
+      url: jdbc:postgresql://localhost:5432/rag
+      username: ${POSTGRES_USERNAME}
+      password: ${POSTGRES_PASSWORD}
+      driver-class-name: org.postgresql.Driver
+      hikari:
+        maximum-pool-size: 10
+        minimum-idle: 2
+
   rag:
     enabled: true
     top-k: 3
