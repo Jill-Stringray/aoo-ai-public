@@ -1,16 +1,23 @@
 package com.clockshore.aooai.controller;
 
+import com.clockshore.aooai.auth.HttpSessionAuth;
 import com.clockshore.aooai.chat.ChatRequest;
 import com.clockshore.aooai.chat.ChatResponse;
+import com.clockshore.aooai.dto.ConversationCreateDto;
 import com.clockshore.aooai.dto.ConversationMessageDto;
+import com.clockshore.aooai.dto.ConversationPatchDto;
+import com.clockshore.aooai.dto.ConversationSummaryDto;
 import com.clockshore.aooai.entity.Conversation;
 import com.clockshore.aooai.entity.ConversationMessage;
 import com.clockshore.aooai.service.ChatWindowService;
 import com.clockshore.aooai.service.DeepSeekChatService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -21,12 +28,11 @@ import reactor.core.publisher.Flux;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("")
 public class ChatController {
-
-    private static final long DEFAULT_USER_ID = 1L;
 
     private final ChatWindowService chatWindowService;
     private final DeepSeekChatService deepSeekChatService;
@@ -36,18 +42,104 @@ public class ChatController {
         this.deepSeekChatService = deepSeekChatService;
     }
 
+    @GetMapping("/conversations")
+    public ResponseEntity<List<ConversationSummaryDto>> listConversations(HttpServletRequest httpRequest) {
+        Long uid = HttpSessionAuth.currentUserId(httpRequest);
+        if (uid == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        List<ConversationSummaryDto> list = chatWindowService.listConversationsForUser(uid).stream()
+                .map(ConversationSummaryDto::from)
+                .toList();
+        return ResponseEntity.ok(list);
+    }
+
+    @PostMapping("/conversations")
+    public ResponseEntity<?> createConversation(
+            @RequestBody(required = false) ConversationCreateDto body,
+            HttpServletRequest httpRequest) {
+        Long uid = HttpSessionAuth.currentUserId(httpRequest);
+        if (uid == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            String title = body != null ? body.getTitle() : null;
+            Conversation c = chatWindowService.createConversation(uid, title);
+            return ResponseEntity.status(HttpStatus.CREATED).body(ConversationSummaryDto.from(c));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/conversations/{conversationId}")
+    public ResponseEntity<?> getConversation(
+            @PathVariable("conversationId") Long conversationId,
+            HttpServletRequest httpRequest) {
+        Long uid = HttpSessionAuth.currentUserId(httpRequest);
+        if (uid == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            Conversation c = chatWindowService.getConversation(uid, conversationId);
+            return ResponseEntity.ok(ConversationSummaryDto.from(c));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PatchMapping("/conversations/{conversationId}")
+    public ResponseEntity<?> patchConversation(
+            @PathVariable("conversationId") Long conversationId,
+            @RequestBody ConversationPatchDto body,
+            HttpServletRequest httpRequest) {
+        Long uid = HttpSessionAuth.currentUserId(httpRequest);
+        if (uid == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null || body.getTitle() == null) {
+            return ResponseEntity.badRequest().body(Map.of("message", "请提供 title 字段（可为空字符串）"));
+        }
+        try {
+            Conversation c = chatWindowService.updateConversationTitle(uid, conversationId, body.getTitle());
+            return ResponseEntity.ok(ConversationSummaryDto.from(c));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/conversations/{conversationId}")
+    public ResponseEntity<?> deleteConversation(
+            @PathVariable("conversationId") Long conversationId,
+            HttpServletRequest httpRequest) {
+        Long uid = HttpSessionAuth.currentUserId(httpRequest);
+        if (uid == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            chatWindowService.deleteConversation(uid, conversationId);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", e.getMessage()));
+        }
+    }
+
     @PostMapping("/chat")
-    public ResponseEntity<ChatResponse> chat(@RequestBody ChatRequest request) {
+    public ResponseEntity<ChatResponse> chat(@RequestBody ChatRequest request, HttpServletRequest httpRequest) {
+        Long uid = HttpSessionAuth.currentUserId(httpRequest);
+        if (uid == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ChatResponse("", "请先登录"));
+        }
         if (request == null || !StringUtils.hasText(request.resolveMessage())) {
             return ResponseEntity.badRequest()
                     .body(new ChatResponse("", "请输入 message，或提供含用户内容的 messages 数组"));
         }
         try {
-            Conversation conversation = chatWindowService.saveUserMessage(DEFAULT_USER_ID, request);
+            Conversation conversation = chatWindowService.saveUserMessage(uid, request);
             ChatRequest forModel = ChatRequest.builder()
                     .conversationId(conversation.getId())
                     .message(request.resolveMessage())
-                    .userId(DEFAULT_USER_ID)
+                    .userId(uid)
                     .build();
             String reply = deepSeekChatService.nonStreamChat(forModel);
             deepSeekChatService.enqueueAssistantMessage(forModel, reply);
@@ -61,8 +153,14 @@ public class ChatController {
     }
 
     @PostMapping(value = "/chat/stream", produces = "text/event-stream")
-    public SseEmitter chatStream(@RequestBody ChatRequest request) {
+    public SseEmitter chatStream(@RequestBody ChatRequest request, HttpServletRequest httpRequest) {
         SseEmitter emitter = new SseEmitter(0L);
+        Long uid = HttpSessionAuth.currentUserId(httpRequest);
+        if (uid == null) {
+            trySend(emitter, "error", "请先登录");
+            emitter.complete();
+            return emitter;
+        }
         if (request == null || !StringUtils.hasText(request.resolveMessage())) {
             trySend(emitter, "error", "请输入 message，或提供含用户内容的 messages 数组");
             emitter.complete();
@@ -70,11 +168,11 @@ public class ChatController {
         }
 
         try {
-            Conversation conversation = chatWindowService.saveUserMessage(DEFAULT_USER_ID, request);
+            Conversation conversation = chatWindowService.saveUserMessage(uid, request);
             ChatRequest forModel = ChatRequest.builder()
                     .conversationId(conversation.getId())
                     .message(request.resolveMessage())
-                    .userId(DEFAULT_USER_ID)
+                    .userId(uid)
                     .build();
 
             trySend(emitter, "meta", conversation.getId());
@@ -108,9 +206,14 @@ public class ChatController {
 
     @GetMapping("/conversation/{conversationId}/messages")
     public ResponseEntity<List<ConversationMessageDto>> conversationMessages(
-            @PathVariable("conversationId") Long conversationId) {
+            @PathVariable("conversationId") Long conversationId,
+            HttpServletRequest httpRequest) {
+        Long uid = HttpSessionAuth.currentUserId(httpRequest);
+        if (uid == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         try {
-            List<ConversationMessage> rows = chatWindowService.listMessages(DEFAULT_USER_ID, conversationId);
+            List<ConversationMessage> rows = chatWindowService.listMessages(uid, conversationId);
             return ResponseEntity.ok(rows.stream().map(ConversationMessageDto::from).toList());
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(List.of());

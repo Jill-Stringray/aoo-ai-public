@@ -35,7 +35,7 @@ public interface ConversationMapper {
             SELECT id, conversation_key AS conversationKey, user_id AS userId, session_id AS sessionId,
                    title, status, created_at AS createdAt, updated_at AS updatedAt
             FROM conversation
-            WHERE user_id = #{userId}
+            WHERE user_id = #{userId} AND UPPER(TRIM(status)) = 'ACTIVE'
             ORDER BY updated_at DESC
             """)
     List<Conversation> selectByUserId(@Param("userId") Long userId);
@@ -49,6 +49,16 @@ public interface ConversationMapper {
             WHERE id = #{id}
             """)
     int updateById(Conversation conversation);
+
+    @Update("""
+            UPDATE conversation
+            SET status = #{status}
+            WHERE id = #{id} AND user_id = #{userId}
+            """)
+    int updateStatusForUser(
+            @Param("id") Long id,
+            @Param("userId") Long userId,
+            @Param("status") String status);
 
     @Delete("DELETE FROM conversation WHERE id = #{id}")
     int deleteById(@Param("id") Long id);

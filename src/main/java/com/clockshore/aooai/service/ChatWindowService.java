@@ -43,13 +43,7 @@ public class ChatWindowService {
 
         Conversation c;
         if (request.getConversationId() != null) {
-            c = conversationMapper.selectById(request.getConversationId());
-            if (c == null) {
-                throw new IllegalArgumentException("conversation 未找到: " + request.getConversationId());
-            }
-            if (!uid.equals(c.getUserId())) {
-                throw new IllegalArgumentException("该 conversation 不属于当前用户");
-            }
+            c = requireOwnedActiveConversation(uid, request.getConversationId());
         } else {
             c = conversationMapper.selectByConversationKey(request.getConversationKey());
             if (request.getConversationKey() == null || c == null) {
@@ -74,13 +68,71 @@ public class ChatWindowService {
     }
 
     public List<ConversationMessage> listMessages(@NotNull Long uid, @NotNull Long conversationId) {
-        Conversation conversation = conversationMapper.selectById(conversationId);
-        if (conversation == null) {
+        requireOwnedActiveConversation(uid, conversationId);
+        return conversationMessageMapper.selectByConversationId(conversationId);
+    }
+
+    public List<Conversation> listConversationsForUser(@NotNull Long uid) {
+        return conversationMapper.selectByUserId(uid);
+    }
+
+    @Transactional
+    public Conversation createConversation(@NotNull Long uid, String title) {
+        Conversation c = Conversation.builder()
+                .conversationKey(snowflakeService.nextIdStr())
+                .userId(uid)
+                .title(StringUtils.hasText(title) ? title.trim() : null)
+                .status(ConversationStatus.ACTIVE.getValue())
+                .build();
+        conversationMapper.insert(c);
+        return conversationMapper.selectById(c.getId());
+    }
+
+    public Conversation getConversation(@NotNull Long uid, @NotNull Long conversationId) {
+        return requireOwnedActiveConversation(uid, conversationId);
+    }
+
+    @Transactional
+    public Conversation updateConversationTitle(@NotNull Long uid, @NotNull Long conversationId, String title) {
+        Conversation c = requireOwnedActiveConversation(uid, conversationId);
+        c.setTitle(StringUtils.hasText(title) ? title.trim() : null);
+        conversationMapper.updateById(c);
+        return conversationMapper.selectById(conversationId);
+    }
+
+    @Transactional
+    public void deleteConversation(@NotNull Long uid, @NotNull Long conversationId) {
+        Conversation c = conversationMapper.selectById(conversationId);
+        if (c == null) {
             throw new IllegalArgumentException("conversation 未找到: " + conversationId);
         }
-        if (!uid.equals(conversation.getUserId())) {
+        if (!uid.equals(c.getUserId())) {
             throw new IllegalArgumentException("该 conversation 不属于当前用户");
         }
-        return conversationMessageMapper.selectByConversationId(conversationId);
+        int n = conversationMapper.updateStatusForUser(
+                conversationId,
+                uid,
+                ConversationStatus.DELETED.getValue());
+        if (n == 0) {
+            throw new IllegalArgumentException("删除会话失败");
+        }
+    }
+
+    private Conversation requireOwnedActiveConversation(@NotNull Long uid, @NotNull Long conversationId) {
+        Conversation c = conversationMapper.selectById(conversationId);
+        if (c == null) {
+            throw new IllegalArgumentException("conversation 未找到: " + conversationId);
+        }
+        if (!uid.equals(c.getUserId())) {
+            throw new IllegalArgumentException("该 conversation 不属于当前用户");
+        }
+        if (!isActiveConversationStatus(c.getStatus())) {
+            throw new IllegalArgumentException("该会话已删除或不可用");
+        }
+        return c;
+    }
+
+    private boolean isActiveConversationStatus(String status) {
+        return status != null && "ACTIVE".equalsIgnoreCase(status.trim());
     }
 }

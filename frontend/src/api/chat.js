@@ -15,6 +15,7 @@ export async function postChatMessage(payload) {
     headers: {
       'Content-Type': 'application/json'
     },
+    credentials: 'include',
     body: JSON.stringify(requestBody)
   });
 
@@ -65,6 +66,7 @@ export function postChatMessageStream(payload, handlers = {}) {
             'Content-Type': 'application/json',
             Accept: 'text/event-stream'
           },
+          credentials: 'include',
           body: JSON.stringify(requestBody)
         });
 
@@ -205,8 +207,119 @@ export async function pollUntilAssistantReply(conversationId, options = {}) {
   throw new Error('等待 AI 回复超时，请稍后刷新或重试');
 }
 
+export async function fetchConversations() {
+  const response = await fetch('/conversations', {
+    credentials: 'include'
+  });
+  const data = await parseJsonResponse(response, '会话列表接口');
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: 拉取会话列表失败`);
+  }
+
+  if (!Array.isArray(data)) {
+    throw new Error('接口返回格式错误：会话列表不是数组');
+  }
+
+  return data;
+}
+
+/** 新建会话（可选 title） */
+export async function createConversation(payload = {}) {
+  const response = await fetch('/conversations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(payload)
+  });
+  const data = await parseJsonResponse(response, '创建会话接口');
+
+  if (response.status === 401) {
+    throw new Error('请先登录');
+  }
+  if (!response.ok) {
+    const msg = typeof data?.message === 'string' ? data.message : `HTTP ${response.status}`;
+    throw new Error(msg);
+  }
+
+  return data;
+}
+
+/** 查询单个会话摘要 */
+export async function fetchConversation(conversationId) {
+  const response = await fetch(`/conversations/${conversationId}`, {
+    credentials: 'include'
+  });
+  const data = await parseJsonResponse(response, '会话详情接口');
+
+  if (response.status === 401) {
+    throw new Error('请先登录');
+  }
+  if (response.status === 404) {
+    throw new Error(typeof data?.message === 'string' ? data.message : '会话不存在');
+  }
+  if (!response.ok) {
+    throw new Error(typeof data?.message === 'string' ? data.message : `HTTP ${response.status}`);
+  }
+
+  return data;
+}
+
+/** 修改会话标题（title 可为空字符串表示清空标题） */
+export async function patchConversation(conversationId, { title }) {
+  const response = await fetch(`/conversations/${conversationId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ title })
+  });
+  const data = await parseJsonResponse(response, '更新会话接口');
+
+  if (response.status === 401) {
+    throw new Error('请先登录');
+  }
+  if (!response.ok) {
+    const msg = typeof data?.message === 'string' ? data.message : `HTTP ${response.status}`;
+    throw new Error(msg);
+  }
+
+  return data;
+}
+
+/** 删除会话（服务端软删除） */
+export async function deleteConversation(conversationId) {
+  const response = await fetch(`/conversations/${conversationId}`, {
+    method: 'DELETE',
+    credentials: 'include'
+  });
+
+  if (response.ok) {
+    return;
+  }
+
+  const text = await response.text();
+  let message = `HTTP ${response.status}`;
+  if (text) {
+    try {
+      const j = JSON.parse(text);
+      if (typeof j.message === 'string') {
+        message = j.message;
+      }
+    } catch {
+      message = text;
+    }
+  }
+
+  if (response.status === 401) {
+    throw new Error('请先登录');
+  }
+  throw new Error(message);
+}
+
 export async function fetchConversationMessages(conversationId) {
-  const response = await fetch(`/conversation/${conversationId}/messages`);
+  const response = await fetch(`/conversation/${conversationId}/messages`, {
+    credentials: 'include'
+  });
   const data = await parseJsonResponse(response, '历史消息接口');
 
   if (!response.ok) {

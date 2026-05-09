@@ -19,6 +19,26 @@ export default defineConfig({
       '/conversation': {
         target: 'http://localhost:8080',
         changeOrigin: true
+      },
+      '/login': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
+      },
+      '/register': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
+      },
+      '/me': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
+      },
+      '/logout': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
+      },
+      '/conversations': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
       }
     }
   }
