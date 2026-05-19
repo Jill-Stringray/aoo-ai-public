@@ -2,6 +2,10 @@ spring:
   application:
     name: aoo-ai
 
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration
+
   rabbitmq:
     host: localhost
     port: 5672
