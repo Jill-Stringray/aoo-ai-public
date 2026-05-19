@@ -41,6 +41,7 @@ spring:
       maximum-pool-size: 10
       minimum-idle: 2
 
+app:
   rag:
     enabled: true
     top-k: 3
