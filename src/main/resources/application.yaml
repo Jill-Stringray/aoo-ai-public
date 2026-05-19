@@ -34,14 +34,12 @@ spring:
           driver-class-name: ${app.datasource.pgvector.driver-class-name}
         dimensions: 1536
 
-app:
-  # 第二数据源：向量库（PostgreSQL + pgvector）
-  datasource:
-    pgvector:
-      url: jdbc:postgresql://localhost:5432/rag
-      username: ${POSTGRES_USERNAME}
-      password: ${POSTGRES_PASSWORD}
-      driver-class-name: org.postgresql.Driver
+spring:
+  datasource-pg:
+    url: jdbc:postgresql://localhost:5432/rag
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: org.postgresql.Driver
       hikari:
         maximum-pool-size: 10
         minimum-idle: 2
