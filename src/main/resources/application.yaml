@@ -28,15 +28,14 @@ spring:
         initialize-schema: true
         dimensions: 1536
 
-spring:
   datasource-pg:
     url: jdbc:postgresql://localhost:5432/rag
     username: ${MYSQL_USERNAME}
     password: ${MYSQL_PASSWORD}
     driver-class-name: org.postgresql.Driver
-      hikari:
-        maximum-pool-size: 10
-        minimum-idle: 2
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
 
   rag:
     enabled: true
