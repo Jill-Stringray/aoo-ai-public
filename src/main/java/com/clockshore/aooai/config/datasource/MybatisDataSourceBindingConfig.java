@@ -16,7 +16,7 @@ import javax.sql.DataSource;
 public class MybatisDataSourceBindingConfig {
 
     @Bean(name = "mysqlSqlSessionFactory")
-    public SqlSessionFactory mysqlSqlSessionFactory(@Qualifier("datasource") DataSource dataSource) throws Exception {
+    public SqlSessionFactory mysqlSqlSessionFactory(@Qualifier("dataSource") DataSource dataSource) throws Exception {
         SqlSessionFactoryBean factoryBean = new SqlSessionFactoryBean();
         factoryBean.setDataSource(dataSource);
         return factoryBean.getObject();

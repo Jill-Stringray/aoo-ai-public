@@ -11,7 +11,7 @@ import javax.sql.DataSource;
 public class MySqlDataSourceConfig {
 
     @Primary
-    @Bean(name = "datasource")
+    @Bean(name = "dataSource")
     public DataSource dataSource() {
         return DataSourceBuilder.create()
                 .url("jdbc:mysql://localhost:3306/aoo-ai?useSSL=false&useUnicode=true&characterEncoding=UTF-8")
