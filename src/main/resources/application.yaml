@@ -26,12 +26,6 @@ spring:
     vectorstore:
       pgvector:
         initialize-schema: true
-        # 向量库的数据源统一复用 app.datasource.pgvector 的配置
-        datasource:
-          url: ${app.datasource.pgvector.url}
-          username: ${POSTGRES_USERNAME}
-          password: ${POSTGRES_PASSWORD}
-          driver-class-name: ${app.datasource.pgvector.driver-class-name}
         dimensions: 1536
 
 spring:
