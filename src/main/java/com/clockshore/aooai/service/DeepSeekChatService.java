@@ -135,6 +135,10 @@ public class DeepSeekChatService {
             messages.add(new SystemMessage(ragContext));
         }
         messages.addAll(buildHistory(chatRequest));
+        String currentMessage = chatRequest.resolveMessage();
+        if (currentMessage != null && !currentMessage.isBlank()) {
+            messages.add(new UserMessage(currentMessage));
+        }
         return messages;
     }
 
