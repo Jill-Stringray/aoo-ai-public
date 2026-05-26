@@ -1,15 +1,16 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { fetchSessionUser, logoutSession } from './api/auth';
 import AuthPage from './views/AuthPage.vue';
-import ChatPage from './views/ChatPage.vue';
-import HomePage from './views/HomePage.vue';
-import RoleWorkshopPage from './views/RoleWorkshopPage.vue';
-import ProfilePage from './views/ProfilePage.vue';
 
 const currentUser = ref(null);
 const sessionChecked = ref(false);
-const currentView = ref('home');
+
+const route = useRoute();
+const router = useRouter();
+
+const currentView = computed(() => route.name ?? 'home');
 
 onMounted(async () => {
   try {
@@ -19,8 +20,23 @@ onMounted(async () => {
   }
 });
 
+watch(
+  [sessionChecked, currentUser],
+  ([checked, user]) => {
+    if (checked && !user && route.name !== 'auth') {
+      router.replace({ name: 'auth' });
+      return;
+    }
+    if (checked && user && route.name === 'auth') {
+      router.replace({ name: 'home' });
+    }
+  },
+  { immediate: true }
+);
+
 const onLoggedIn = (user) => {
   currentUser.value = user;
+  router.replace({ name: 'home' });
 };
 
 const logout = async () => {
@@ -30,11 +46,17 @@ const logout = async () => {
     /* 忽略网络错误，仍退出本地状态 */
   }
   currentUser.value = null;
-  currentView.value = 'home';
+  router.replace({ name: 'auth' });
 };
 
 const startChatWithRole = () => {
-  currentView.value = 'chat';
+  router.push({ name: 'chat' });
+};
+
+const goTo = (name) => {
+  if (name !== route.name) {
+    router.push({ name });
+  }
 };
 </script>
 
@@ -44,17 +66,16 @@ const startChatWithRole = () => {
   <main v-else class="portal-layout">
     <aside class="portal-nav">
       <nav class="portal-tabs" aria-label="页面导航">
-        <button :class="['portal-tab', { active: currentView === 'home' }]" @click="currentView = 'home'">主页</button>
-        <button :class="['portal-tab', { active: currentView === 'chat' }]" @click="currentView = 'chat'">聊天页面</button>
-        <button :class="['portal-tab', { active: currentView === 'workshop' }]" @click="currentView = 'workshop'">角色工坊</button>
-        <button :class="['portal-tab', { active: currentView === 'profile' }]" @click="currentView = 'profile'">我的</button>
+        <button :class="['portal-tab', { active: currentView === 'home' }]" @click="goTo('home')">主页</button>
+        <button :class="['portal-tab', { active: currentView === 'chat' }]" @click="goTo('chat')">聊天页面</button>
+        <button :class="['portal-tab', { active: currentView === 'workshop' }]" @click="goTo('workshop')">角色工坊</button>
+        <button :class="['portal-tab', { active: currentView === 'profile' }]" @click="goTo('profile')">我的</button>
       </nav>
       <button type="button" class="btn-ghost portal-logout" @click="logout">退出登录</button>
     </aside>
 
-    <HomePage v-if="currentView === 'home'" @start-chat="startChatWithRole" />
-    <ChatPage v-else-if="currentView === 'chat'" :user-name="currentUser.userName ?? ''" @logout="logout" />
-    <RoleWorkshopPage v-else-if="currentView === 'workshop'" />
-    <ProfilePage v-else :user="currentUser" />
+    <router-view v-slot="{ Component }">
+      <component :is="Component" :user="currentUser" :user-name="currentUser?.userName ?? ''" @start-chat="startChatWithRole" @logout="logout" />
+    </router-view>
   </main>
 </template>
