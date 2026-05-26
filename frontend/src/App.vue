@@ -55,6 +55,6 @@ const startChatWithRole = () => {
     <HomePage v-if="currentView === 'home'" @start-chat="startChatWithRole" />
     <ChatPage v-else-if="currentView === 'chat'" :user-name="currentUser.userName ?? ''" @logout="logout" />
     <RoleWorkshopPage v-else-if="currentView === 'workshop'" />
-    <ProfilePage v-else :user-name="currentUser.userName ?? ''" />
+    <ProfilePage v-else :user="currentUser" />
   </main>
 </template>

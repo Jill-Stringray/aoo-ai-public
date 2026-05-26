@@ -55,3 +55,16 @@ export async function fetchSessionUser() {
 export async function logoutSession() {
   await fetch('/logout', { method: 'POST', credentials: 'include' });
 }
+
+
+export async function fetchMyProfile() {
+  const res = await fetch('/me', { credentials: 'include' });
+  if (res.status === 401 || res.status === 403) {
+    throw new Error('登录已失效，请重新登录');
+  }
+  const data = await parseBody(res);
+  if (!res.ok) {
+    throw new Error(data.message ?? '获取个人中心信息失败');
+  }
+  return data;
+}

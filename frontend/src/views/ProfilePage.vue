@@ -1,56 +1,51 @@
 <script setup>
-defineProps({
-  userName: {
-    type: String,
-    default: ''
+import { onMounted, ref } from 'vue';
+import { fetchMyProfile } from '../api/auth';
+
+const props = defineProps({
+  user: {
+    type: Object,
+    default: null
   }
 });
 
-const personalMessages = [
-  {
-    id: 1,
-    title: '系统通知',
-    content: '你的角色卡「代码评审官」已同步完成。'
-  },
-  {
-    id: 2,
-    title: '学习提醒',
-    content: '本周建议完成 2 次模拟面试和 1 次项目复盘。'
-  },
-  {
-    id: 3,
-    title: '活动消息',
-    content: '你已获得一次企业级代码规范专项练习机会。'
+const loading = ref(false);
+const error = ref('');
+const profile = ref(null);
+
+const loadProfile = async () => {
+  loading.value = true;
+  error.value = '';
+  try {
+    profile.value = await fetchMyProfile();
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '获取个人中心信息失败';
+  } finally {
+    loading.value = false;
   }
-];
+};
+
+onMounted(loadProfile);
 </script>
 
 <template>
   <section class="profile-page">
     <h2>我的</h2>
-    <p class="muted">你好，{{ userName }}。这里是你的个人中心。</p>
+    <p class="muted">你好，{{ profile?.userName || props.user?.userName || '用户' }}。这里是你的个人中心。</p>
 
-    <div class="profile-grid">
+    <p v-if="loading" class="muted">正在加载个人中心数据…</p>
+    <p v-else-if="error" class="auth-error">{{ error }}</p>
+
+    <div v-else class="profile-grid">
       <article class="profile-card">
         <h3>余额</h3>
-        <p class="profile-balance">¥ 128.50</p>
-        <p class="muted">可用于功能体验与增值服务。</p>
-      </article>
-
-      <article class="profile-card">
-        <h3>账号信息</h3>
-        <p>用户名：{{ userName || '未设置' }}</p>
-        <p>账号状态：正常</p>
+        <p class="profile-balance">¥ {{ ((profile?.balance ?? props.user?.balance ?? 0) / 100).toFixed(2) }}</p>
+        <p class="muted">数据来源：后端接口 /me</p>
       </article>
 
       <article class="profile-card profile-card-wide">
         <h3>个人消息</h3>
-        <ul class="profile-message-list">
-          <li v-for="message in personalMessages" :key="message.id" class="profile-message-item">
-            <strong>{{ message.title }}：</strong>
-            <span>{{ message.content }}</span>
-          </li>
-        </ul>
+        <p class="muted">暂无新消息</p>
       </article>
     </div>
   </section>
