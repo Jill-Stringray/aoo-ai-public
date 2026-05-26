@@ -11,7 +11,7 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-public class ChatResponse {
+public class ChatResponse123 {
 
     @Getter(AccessLevel.NONE)
     @Setter(AccessLevel.NONE)
@@ -20,15 +20,15 @@ public class ChatResponse {
     private String additionMsg;
     private Long conversationId;
 
-    public ChatResponse() {
+    public ChatResponse123() {
     }
 
-    public ChatResponse(String reply, String additionMsg) {
+    public ChatResponse123(String reply, String additionMsg) {
         this.reply = reply == null ? "" : reply;
         this.additionMsg = additionMsg;
     }
 
-    public ChatResponse(String reply, String additionMsg, Long conversationId) {
+    public ChatResponse123(String reply, String additionMsg, Long conversationId) {
         this.reply = reply == null ? "" : reply;
         this.additionMsg = additionMsg;
         this.conversationId = conversationId;

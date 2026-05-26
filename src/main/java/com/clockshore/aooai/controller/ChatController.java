@@ -2,7 +2,7 @@ package com.clockshore.aooai.controller;
 
 import com.clockshore.aooai.auth.HttpSessionAuth;
 import com.clockshore.aooai.chat.ChatRequest;
-import com.clockshore.aooai.chat.ChatResponse;
+import com.clockshore.aooai.chat.ChatResponse123;
 import com.clockshore.aooai.dto.ConversationCreateDto;
 import com.clockshore.aooai.dto.ConversationMessageDto;
 import com.clockshore.aooai.dto.ConversationPatchDto;
@@ -12,6 +12,7 @@ import com.clockshore.aooai.entity.ConversationMessage;
 import com.clockshore.aooai.service.ChatWindowService;
 import com.clockshore.aooai.service.DeepSeekChatService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
@@ -124,15 +125,15 @@ public class ChatController {
     }
 
     @PostMapping("/chat")
-    public ResponseEntity<ChatResponse> chat(@RequestBody ChatRequest request, HttpServletRequest httpRequest) {
+    public ResponseEntity<ChatResponse123> chat(@RequestBody ChatRequest request, HttpServletRequest httpRequest) {
         Long uid = HttpSessionAuth.currentUserId(httpRequest);
         if (uid == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new ChatResponse("", "请先登录"));
+                    .body(new ChatResponse123("", "请先登录"));
         }
         if (request == null || !StringUtils.hasText(request.resolveMessage())) {
             return ResponseEntity.badRequest()
-                    .body(new ChatResponse("", "请输入 message，或提供含用户内容的 messages 数组"));
+                    .body(new ChatResponse123("", "请输入 message，或提供含用户内容的 messages 数组"));
         }
         try {
             Conversation conversation = chatWindowService.saveUserMessage(uid, request);
@@ -143,12 +144,12 @@ public class ChatController {
                     .build();
             String reply = deepSeekChatService.nonStreamChat(forModel);
             deepSeekChatService.enqueueAssistantMessage(forModel, reply);
-            return ResponseEntity.ok(new ChatResponse(reply, "", conversation.getId()));
+            return ResponseEntity.ok(new ChatResponse123(reply, "", conversation.getId()));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(new ChatResponse("", e.getMessage()));
+            return ResponseEntity.badRequest().body(new ChatResponse123("", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ChatResponse("", "处理失败：" + e.getMessage()));
+                    .body(new ChatResponse123("", "处理失败：" + e.getMessage()));
         }
     }
 
@@ -177,7 +178,7 @@ public class ChatController {
 
             trySend(emitter, "meta", conversation.getId());
 
-            Flux<String> stream = deepSeekChatService.streamChat(forModel);
+            Flux<ChatResponse> stream = deepSeekChatService.streamChat(forModel);
             stream.subscribe(
                     delta -> trySend(emitter, "delta", delta),
                     error -> {

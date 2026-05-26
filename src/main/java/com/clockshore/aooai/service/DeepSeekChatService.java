@@ -12,6 +12,7 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
@@ -52,7 +53,7 @@ public class DeepSeekChatService {
                 .content();
     }
 
-    public Flux<String> streamChat(ChatRequest chatRequest){
+    /*public Flux<String> streamChat(ChatRequest chatRequest){
 
         StringBuilder replyBuffer = new StringBuilder();
 
@@ -62,6 +63,32 @@ public class DeepSeekChatService {
                 .content()
                 .doOnNext(delta -> {
                     replyBuffer.append(delta);
+                })
+                .doOnComplete(() -> {
+                    String fullReply = replyBuffer.toString();
+                    if (!fullReply.isBlank()) {
+                        chatMessageMqProducer.publishPersist(ChatMessageEvent.builder()
+                                .messageKey(snowflakeService.nextIdStr())
+                                .conversationId(chatRequest.getConversationId())
+                                .userId(chatRequest.getUserId())
+                                .role(Role.ASSISTANT.getValue())
+                                .content(fullReply)
+                                .build());
+                    }
+                });
+    }*/
+
+    public Flux<ChatResponse> streamChat(ChatRequest chatRequest){
+
+        StringBuilder replyBuffer = new StringBuilder();
+
+        return chatClient.prompt()
+                .messages(buildMessages(chatRequest))
+                .stream()
+                .chatResponse()
+                .doOnNext(delta -> {
+                    replyBuffer.append(delta);
+                    System.out.println(delta);
                 })
                 .doOnComplete(() -> {
                     String fullReply = replyBuffer.toString();
