@@ -579,10 +579,26 @@ button:disabled {
 
 .portal-tab {
   border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  padding: 8px 14px;
+  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
   background: white;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.portal-tab-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+
+.portal-tab.active .portal-tab-dot {
+  background: #fff;
 }
 
 .portal-tab.active {
@@ -641,4 +657,24 @@ button:disabled {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 14px;
+}
+
+
+.profile-balance {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 8px 0 6px;
+}
+
+.profile-card-wide {
+  grid-column: 1 / -1;
+}
+
+.profile-message-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.profile-message-item {
+  margin: 8px 0;
 }

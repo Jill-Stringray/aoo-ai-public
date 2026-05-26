@@ -9,7 +9,7 @@ import ProfilePage from './views/ProfilePage.vue';
 
 const currentUser = ref(null);
 const sessionChecked = ref(false);
-const currentView = ref('profile');
+const currentView = ref('home');
 
 onMounted(async () => {
   try {
@@ -30,7 +30,7 @@ const logout = async () => {
     /* 忽略网络错误，仍退出本地状态 */
   }
   currentUser.value = null;
-  currentView.value = 'profile';
+  currentView.value = 'home';
 };
 
 const startChatWithRole = () => {
@@ -43,18 +43,26 @@ const startChatWithRole = () => {
   <AuthPage v-else-if="!currentUser" @logged-in="onLoggedIn" />
   <main v-else class="portal-layout">
     <aside class="portal-nav">
-      <nav class="portal-tabs">
-        <button :class="['portal-tab', { active: currentView === 'profile' }]" @click="currentView = 'profile'">我的</button>
-        <button :class="['portal-tab', { active: currentView === 'home' }]" @click="currentView = 'home'">主页</button>
-        <button :class="['portal-tab', { active: currentView === 'chat' }]" @click="currentView = 'chat'">聊天页面</button>
-        <button :class="['portal-tab', { active: currentView === 'workshop' }]" @click="currentView = 'workshop'">角色工坊</button>
+      <nav class="portal-tabs" aria-label="页面导航">
+        <button :class="['portal-tab', { active: currentView === 'home' }]" aria-label="主页" @click="currentView = 'home'">
+          <span class="portal-tab-dot" />
+        </button>
+        <button :class="['portal-tab', { active: currentView === 'chat' }]" aria-label="聊天页面" @click="currentView = 'chat'">
+          <span class="portal-tab-dot" />
+        </button>
+        <button :class="['portal-tab', { active: currentView === 'workshop' }]" aria-label="角色工坊" @click="currentView = 'workshop'">
+          <span class="portal-tab-dot" />
+        </button>
+        <button :class="['portal-tab', { active: currentView === 'profile' }]" aria-label="我的" @click="currentView = 'profile'">
+          <span class="portal-tab-dot" />
+        </button>
       </nav>
       <button type="button" class="btn-ghost portal-logout" @click="logout">退出登录</button>
     </aside>
 
-    <ProfilePage v-if="currentView === 'profile'" :user-name="currentUser.userName ?? ''" />
-    <HomePage v-else-if="currentView === 'home'" @start-chat="startChatWithRole" />
+    <HomePage v-if="currentView === 'home'" @start-chat="startChatWithRole" />
     <ChatPage v-else-if="currentView === 'chat'" :user-name="currentUser.userName ?? ''" @logout="logout" />
-    <RoleWorkshopPage v-else />
+    <RoleWorkshopPage v-else-if="currentView === 'workshop'" />
+    <ProfilePage v-else :user-name="currentUser.userName ?? ''" />
   </main>
 </template>

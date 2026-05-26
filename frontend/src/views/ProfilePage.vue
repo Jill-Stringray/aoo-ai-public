@@ -5,6 +5,24 @@ defineProps({
     default: ''
   }
 });
+
+const personalMessages = [
+  {
+    id: 1,
+    title: '系统通知',
+    content: '你的角色卡「代码评审官」已同步完成。'
+  },
+  {
+    id: 2,
+    title: '学习提醒',
+    content: '本周建议完成 2 次模拟面试和 1 次项目复盘。'
+  },
+  {
+    id: 3,
+    title: '活动消息',
+    content: '你已获得一次企业级代码规范专项练习机会。'
+  }
+];
 </script>
 
 <template>
@@ -14,18 +32,25 @@ defineProps({
 
     <div class="profile-grid">
       <article class="profile-card">
+        <h3>余额</h3>
+        <p class="profile-balance">¥ 128.50</p>
+        <p class="muted">可用于功能体验与增值服务。</p>
+      </article>
+
+      <article class="profile-card">
         <h3>账号信息</h3>
         <p>用户名：{{ userName || '未设置' }}</p>
+        <p>账号状态：正常</p>
       </article>
 
-      <article class="profile-card">
-        <h3>学习目标</h3>
-        <p>建议把本周目标拆成可执行任务：需求分析、编码实践、复盘总结。</p>
-      </article>
-
-      <article class="profile-card">
-        <h3>最近使用</h3>
-        <p>你可以从「聊天页面」继续对话，或在「角色工坊」管理角色卡。</p>
+      <article class="profile-card profile-card-wide">
+        <h3>个人消息</h3>
+        <ul class="profile-message-list">
+          <li v-for="message in personalMessages" :key="message.id" class="profile-message-item">
+            <strong>{{ message.title }}：</strong>
+            <span>{{ message.content }}</span>
+          </li>
+        </ul>
       </article>
     </div>
   </section>
