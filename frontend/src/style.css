@@ -580,25 +580,11 @@ button:disabled {
 .portal-tab {
   border: 1px solid #cbd5e1;
   border-radius: 10px;
-  width: 40px;
-  height: 40px;
-  padding: 0;
+  padding: 8px 14px;
+  min-height: 40px;
   background: white;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.portal-tab-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #94a3b8;
-}
-
-.portal-tab.active .portal-tab-dot {
-  background: #fff;
+  color: #334155;
 }
 
 .portal-tab.active {

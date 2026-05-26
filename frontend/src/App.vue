@@ -44,18 +44,10 @@ const startChatWithRole = () => {
   <main v-else class="portal-layout">
     <aside class="portal-nav">
       <nav class="portal-tabs" aria-label="页面导航">
-        <button :class="['portal-tab', { active: currentView === 'home' }]" aria-label="主页" @click="currentView = 'home'">
-          <span class="portal-tab-dot" />
-        </button>
-        <button :class="['portal-tab', { active: currentView === 'chat' }]" aria-label="聊天页面" @click="currentView = 'chat'">
-          <span class="portal-tab-dot" />
-        </button>
-        <button :class="['portal-tab', { active: currentView === 'workshop' }]" aria-label="角色工坊" @click="currentView = 'workshop'">
-          <span class="portal-tab-dot" />
-        </button>
-        <button :class="['portal-tab', { active: currentView === 'profile' }]" aria-label="我的" @click="currentView = 'profile'">
-          <span class="portal-tab-dot" />
-        </button>
+        <button :class="['portal-tab', { active: currentView === 'home' }]" @click="currentView = 'home'">主页</button>
+        <button :class="['portal-tab', { active: currentView === 'chat' }]" @click="currentView = 'chat'">聊天页面</button>
+        <button :class="['portal-tab', { active: currentView === 'workshop' }]" @click="currentView = 'workshop'">角色工坊</button>
+        <button :class="['portal-tab', { active: currentView === 'profile' }]" @click="currentView = 'profile'">我的</button>
       </nav>
       <button type="button" class="btn-ghost portal-logout" @click="logout">退出登录</button>
     </aside>
