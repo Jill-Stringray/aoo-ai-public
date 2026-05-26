@@ -38,8 +38,8 @@ onMounted(loadProfile);
 
     <div v-else class="profile-grid">
       <article class="profile-card">
-        <h3>余额</h3>
-        <p class="profile-balance">¥ {{ ((profile?.balance ?? props.user?.balance ?? 0) / 100).toFixed(2) }}</p>
+        <h3>积分</h3>
+        <p class="profile-balance">{{ ((profile?.balance ?? props.user?.balance ?? 0)).toFixed(2) }}</p>
         <p class="muted">数据来源：后端接口 /me</p>
       </article>
 
