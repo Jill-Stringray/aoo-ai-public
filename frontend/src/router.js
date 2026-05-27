@@ -1,21 +1,15 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import AuthPage from './views/AuthPage.vue';
+import OverviewPage from './views/OverviewPage.vue';
+import KnowledgePage from './views/KnowledgePage.vue';
 import ChatPage from './views/ChatPage.vue';
-import HomePage from './views/HomePage.vue';
-import ProfilePage from './views/ProfilePage.vue';
-import RoleWorkshopPage from './views/RoleWorkshopPage.vue';
+import AdminPage from './views/AdminPage.vue';
 
-const routes = [
-  { path: '/auth', name: 'auth', component: AuthPage },
-  { path: '/', name: 'home', component: HomePage },
-  { path: '/chat', name: 'chat', component: ChatPage },
-  { path: '/workshop', name: 'workshop', component: RoleWorkshopPage },
-  { path: '/profile', name: 'profile', component: ProfilePage }
-];
-
-const router = createRouter({
+export default createRouter({
   history: createWebHistory(),
-  routes
+  routes: [
+    { path: '/', component: OverviewPage },
+    { path: '/knowledge', component: KnowledgePage },
+    { path: '/chat', component: ChatPage },
+    { path: '/admin', component: AdminPage }
+  ]
 });
-
-export default router;
