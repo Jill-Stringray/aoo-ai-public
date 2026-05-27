@@ -1,5 +1,23 @@
-body { margin: 0; font-family: Arial, sans-serif; }
-.layout { max-width: 1000px; margin: 0 auto; padding: 16px; }
-.topbar { display: flex; justify-content: space-between; align-items: center; }
-.topbar nav { display: flex; gap: 12px; }
-textarea { width: 100%; }
+:root {
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #1f2937;
+  background: #f3f6fb;
+}
+
+body { margin: 0; }
+
+.app-shell { max-width: 1100px; margin: 0 auto; padding: 24px; }
+.hero { background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff; padding: 24px; border-radius: 16px; }
+.badge { display: inline-block; background: rgba(255,255,255,.2); padding: 4px 10px; border-radius: 12px; font-size: 12px; }
+.subtitle { opacity: .9; }
+.nav { margin-top: 14px; display: flex; gap: 12px; flex-wrap: wrap; }
+.nav a { color: white; text-decoration: none; padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.25); }
+.nav a.router-link-active { background: rgba(255,255,255,.2); }
+.panel { margin-top: 18px; background: white; border-radius: 14px; padding: 20px; box-shadow: 0 8px 24px rgba(16,24,40,.08); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; background: #fafcff; }
+input, textarea, button, select { font: inherit; }
+input, textarea, select { width: 100%; padding: 10px; margin-bottom: 8px; border: 1px solid #d1d5db; border-radius: 10px; box-sizing: border-box; }
+button { background: #2563eb; color: #fff; border: none; padding: 9px 14px; border-radius: 10px; cursor: pointer; }
+button:hover { background: #1d4ed8; }
+.muted { color: #6b7280; font-size: 14px; }
