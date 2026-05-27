@@ -15,7 +15,6 @@ import { RouterLink, RouterView } from 'vue-router';
         <RouterLink to="/knowledge">知识资产</RouterLink>
         <RouterLink to="/chat">智能问答</RouterLink>
         <RouterLink to="/admin">运维治理</RouterLink>
-        <RouterLink to="/login">登录</RouterLink>
         <RouterLink to="/profile">个人中心</RouterLink>
       </nav>
     </header>
