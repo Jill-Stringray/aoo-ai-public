@@ -1,25 +1,32 @@
 package com.clockshore.aooai.controller;
 
-import com.clockshore.aooai.domain.enums.DocumentStatus;
+import com.clockshore.aooai.domain.model.DocumentInfo;
+import com.clockshore.aooai.service.DocumentService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/documents")
+@RequiredArgsConstructor
 public class DocumentController {
 
-    @PostMapping("/upload")
-    public Map<String, Object> upload() {
-        return Map.of(
-                "documentId", 1,
-                "status", DocumentStatus.UPLOADING,
-                "message", "文档上传接口已预留，后续接入 OSS + 异步解析任务"
-        );
+    private final DocumentService documentService;
+
+    @PostMapping
+    public DocumentInfo create(@RequestBody Map<String, String> payload) {
+        return documentService.create(Long.valueOf(payload.get("knowledgeBaseId")), payload.get("fileName"));
     }
 
-    @GetMapping("/{documentId}/status")
-    public Map<String, Object> status(@PathVariable Long documentId) {
-        return Map.of("documentId", documentId, "status", DocumentStatus.PARSING);
+    @GetMapping
+    public List<DocumentInfo> list(@RequestParam Long knowledgeBaseId) {
+        return documentService.listByKnowledgeBase(knowledgeBaseId);
+    }
+
+    @PatchMapping("/{documentId}/status")
+    public DocumentInfo status(@PathVariable Long documentId, @RequestBody Map<String, String> payload) {
+        return documentService.updateStatus(documentId, payload.get("status"));
     }
 }
