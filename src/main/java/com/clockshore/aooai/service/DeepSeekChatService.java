@@ -2,6 +2,7 @@ package com.clockshore.aooai.service;
 
 import com.clockshore.aooai.chat.ChatRequest;
 import com.clockshore.aooai.entity.ConversationMessage;
+import com.clockshore.aooai.entity.UsageDto;
 import com.clockshore.aooai.enums.Role;
 import com.clockshore.aooai.mapper.ConversationMessageMapper;
 import com.clockshore.aooai.mq.ChatMessageEvent;
@@ -81,24 +82,32 @@ public class DeepSeekChatService {
     public Flux<ChatResponse> streamChat(ChatRequest chatRequest){
 
         StringBuilder replyBuffer = new StringBuilder();
+        UsageDto u = new UsageDto();
 
         return chatClient.prompt()
                 .messages(buildMessages(chatRequest))
                 .stream()
                 .chatResponse()
                 .doOnNext(delta -> {
-                    replyBuffer.append(delta);
-                    System.out.println(delta);
+                    replyBuffer.append(delta.getResult().getOutput().getText());
+                    if(delta.getMetadata().getUsage() != null){
+                        //usage 记录
+                        u.setPromptTokens(delta.getMetadata().getUsage().getPromptTokens());
+                        u.setCompletionTokens(delta.getMetadata().getUsage().getCompletionTokens());
+                        u.setTotalTokens(delta.getMetadata().getUsage().getTotalTokens());
+                    }
                 })
                 .doOnComplete(() -> {
                     String fullReply = replyBuffer.toString();
                     if (!fullReply.isBlank()) {
+                        //发mq通知存储
                         chatMessageMqProducer.publishPersist(ChatMessageEvent.builder()
                                 .messageKey(snowflakeService.nextIdStr())
                                 .conversationId(chatRequest.getConversationId())
                                 .userId(chatRequest.getUserId())
                                 .role(Role.ASSISTANT.getValue())
                                 .content(fullReply)
+                                .tokenUsed(u)
                                 .build());
                     }
                 });
@@ -130,10 +139,6 @@ public class DeepSeekChatService {
 
     public List<Message> buildMessages(ChatRequest chatRequest){
         List<Message> messages = new ArrayList<>();
-        String ragContext = ragService.buildContext(chatRequest.resolveMessage());
-        if (!ragContext.isBlank()) {
-            messages.add(new SystemMessage(ragContext));
-        }
         messages.addAll(buildHistory(chatRequest));
         String currentMessage = chatRequest.resolveMessage();
         if (currentMessage != null && !currentMessage.isBlank()) {

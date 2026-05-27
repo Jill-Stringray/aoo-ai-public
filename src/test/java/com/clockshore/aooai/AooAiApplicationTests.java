@@ -24,8 +24,7 @@ class AooAiApplicationTests {
 
         deepSeekChatService.streamChat(request)
                 .doOnNext(response -> {
-                    System.out.println("=========");
-                    System.out.println(response);
+                    System.out.println("=========" + response.getResult().getOutput().getText());
                 })
                 .blockLast();
     }
