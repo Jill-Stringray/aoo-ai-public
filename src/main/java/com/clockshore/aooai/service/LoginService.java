@@ -43,7 +43,5 @@ public class LoginService {
         return ApiResponse.success("LOGIN_SUCCESS", "登录成功", LoginUserVO.from(user));
     }
 
-    public ApiResponse<LoginUserVO> register() {
 
-    }
 }
