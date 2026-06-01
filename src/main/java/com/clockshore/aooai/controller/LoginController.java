@@ -2,9 +2,9 @@ package com.clockshore.aooai.controller;
 
 import com.clockshore.aooai.common.ApiResponse;
 import com.clockshore.aooai.dto.auth.LoginRequest;
-import com.clockshore.aooai.dto.auth.LoginUserVO;
+import com.clockshore.aooai.dto.auth.UserVO;
 import com.clockshore.aooai.dto.auth.RegisterRequest;
-import com.clockshore.aooai.service.LoginService;
+import com.clockshore.aooai.service.UserService;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -19,11 +19,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class LoginController {
 
     @Resource
-    private LoginService loginService;
+    private UserService userService;
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginUserVO>> login(@Valid @RequestBody LoginRequest request) {
-        ApiResponse<LoginUserVO> response = loginService.login(request.getUsername(), request.getPassword());
+    public ResponseEntity<ApiResponse<UserVO>> login(@Valid @RequestBody LoginRequest request) {
+        ApiResponse<UserVO> response = userService.login(request.getUsername(), request.getPassword());
         if (response.isSuccess()) {
             return ResponseEntity.ok(response);
         }
@@ -31,8 +31,8 @@ public class LoginController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<LoginUserVO>> register(@Valid @RequestBody RegisterRequest request) {
-        ApiResponse<LoginUserVO> response = loginService.register(request);
+    public ResponseEntity<ApiResponse<UserVO>> register(@Valid @RequestBody RegisterRequest request) {
+        ApiResponse<UserVO> response = userService.register(request);
         if (response.isSuccess()) {
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         }

@@ -1,7 +1,7 @@
 package com.clockshore.aooai.service;
 
 import com.clockshore.aooai.common.ApiResponse;
-import com.clockshore.aooai.dto.auth.LoginUserVO;
+import com.clockshore.aooai.dto.auth.UserVO;
 import com.clockshore.aooai.dto.auth.RegisterRequest;
 import com.clockshore.aooai.entity.AppUser;
 import com.clockshore.aooai.mapper.AppUserMapper;
@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 @Service
-public class LoginService {
+public class UserService {
 
     private static final String ACTIVE_STATUS = "ACTIVE";
 
@@ -22,7 +22,7 @@ public class LoginService {
     @Resource
     private PasswordEncoder passwordEncoder;
 
-    public ApiResponse<LoginUserVO> register(RegisterRequest request) {
+    public ApiResponse<UserVO> register(RegisterRequest request) {
         String username = request.getUsername().trim();
         if (appUserMapper.selectByUsername(username) != null) {
             return ApiResponse.failure("USERNAME_EXISTS", "用户名已存在");
@@ -42,10 +42,10 @@ public class LoginService {
                 .build();
 
         appUserMapper.insert(user);
-        return ApiResponse.success("REGISTER_SUCCESS", "注册成功", LoginUserVO.from(user));
+        return ApiResponse.success("REGISTER_SUCCESS", "注册成功", UserVO.from(user));
     }
 
-    public ApiResponse<LoginUserVO> login(String username, String rawPassword) {
+    public ApiResponse<UserVO> login(String username, String rawPassword) {
         if (!StringUtils.hasText(username) || !StringUtils.hasText(rawPassword)) {
             return ApiResponse.failure("INVALID_LOGIN_PARAM", "用户名和密码不能为空");
         }
@@ -64,7 +64,7 @@ public class LoginService {
 
         user.setLastLoginAt(LocalDateTime.now());
         appUserMapper.update(user);
-        return ApiResponse.success("LOGIN_SUCCESS", "登录成功", LoginUserVO.from(user));
+        return ApiResponse.success("LOGIN_SUCCESS", "登录成功", UserVO.from(user));
     }
 
 

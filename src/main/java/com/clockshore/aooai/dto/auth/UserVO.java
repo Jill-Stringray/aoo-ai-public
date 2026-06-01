@@ -11,7 +11,7 @@ import lombok.Data;
  */
 @Data
 @Builder
-public class LoginUserVO {
+public class UserVO {
 
     /**
      * 用户ID。
@@ -43,8 +43,8 @@ public class LoginUserVO {
      */
     private String role;
 
-    public static LoginUserVO from(AppUser user) {
-        return LoginUserVO.builder()
+    public static UserVO from(AppUser user) {
+        return UserVO.builder()
                 .userId(user.getId())
                 .username(user.getUsername())
                 .displayName(user.getDisplayName())

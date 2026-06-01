@@ -7,7 +7,7 @@ import lombok.Data;
  * 全站统一接口响应包装。
  *
  * <p>企业项目通常会抽一个通用响应壳，避免每个业务都重复声明 success/code/message。
- * 具体业务只需要把自己的数据模型放到 data 字段里，例如 {@code ApiResponse<LoginUserVO>}。</p>
+ * 具体业务只需要把自己的数据模型放到 data 字段里，例如 {@code ApiResponse<UserVO>}。</p>
  */
 @Data
 @Builder
