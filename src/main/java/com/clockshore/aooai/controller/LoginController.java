@@ -3,6 +3,7 @@ package com.clockshore.aooai.controller;
 import com.clockshore.aooai.common.ApiResponse;
 import com.clockshore.aooai.dto.auth.LoginRequest;
 import com.clockshore.aooai.dto.auth.LoginUserVO;
+import com.clockshore.aooai.dto.auth.RegisterRequest;
 import com.clockshore.aooai.service.LoginService;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
@@ -27,5 +28,14 @@ public class LoginController {
             return ResponseEntity.ok(response);
         }
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<LoginUserVO>> register(@Valid @RequestBody RegisterRequest request) {
+        ApiResponse<LoginUserVO> response = loginService.register(request);
+        if (response.isSuccess()) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 }
