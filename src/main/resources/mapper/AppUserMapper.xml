@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.clockshore.aooai.mapper.AppUserMapper">
+
+    <insert id="insert" parameterType="com.clockshore.aooai.entity.AppUser" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO app_user
+        (department_id, username, password_hash, display_name, email, mobile, status, last_login_at, created_at, updated_at)
+        VALUES
+            (#{departmentId}, #{username}, #{passwordHash}, #{displayName}, #{email}, #{mobile}, #{status}, #{lastLoginAt}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update" parameterType="com.clockshore.aooai.entity.AppUser">
+        UPDATE app_user
+        SET
+            department_id = #{departmentId},
+            username = #{username},
+            password_hash = #{passwordHash},
+            display_name = #{displayName},
+            email = #{email},
+            mobile = #{mobile},
+            status = #{status},
+            last_login_at = #{lastLoginAt},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="long">
+        DELETE FROM app_user WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" parameterType="long" resultType="com.clockshore.aooai.entity.AppUser">
+        SELECT * FROM app_user WHERE id = #{id}
+    </select>
+
+    <select id="selectByUsername" parameterType="string" resultType="com.clockshore.aooai.entity.AppUser">
+        SELECT * FROM app_user WHERE username = #{username}
+    </select>
+
+    <select id="selectAll" resultType="com.clockshore.aooai.entity.AppUser">
+        SELECT * FROM app_user
+    </select>
+
+</mapper>
