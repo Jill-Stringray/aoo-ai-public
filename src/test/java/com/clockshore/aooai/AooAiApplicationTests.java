@@ -1,5 +1,6 @@
 package com.clockshore.aooai;
 
+import com.clockshore.aooai.mapper.AppUserMapper;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClientRequest;
@@ -10,22 +11,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 class AooAiApplicationTests {
 
     /*@Resource
-    private DeepSeekChatService deepSeekChatService;
-
+    private AppUserMapper appUserMapper;
 
     @Test
-    void testStreamChat() {
+    void test() {
+        appUserMapper.selectById(1L);
 
-        ChatRequest request = new ChatRequest();
-        request.setConversationId(1L);
-        request.setUserId(1L);
-        request.setMessage("你好");
-
-        deepSeekChatService.streamChat(request)
-                .doOnNext(response -> {
-                    System.out.println("=========" + response.getResult().getOutput().getText());
-                })
-                .blockLast();
     }*/
 
 }
