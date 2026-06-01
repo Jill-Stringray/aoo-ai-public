@@ -2,11 +2,11 @@
 -- 设计目标：支撑某公司内部“部门用户 + 知识库 + 文档解析切分 + RAG 问答 + 审计治理”的基础闭环。
 -- 注意：按当前需求，本脚本不显式创建任何二级索引、唯一索引或全文索引；仅保留关系型表必需的主键与外键约束。
 
-CREATE DATABASE IF NOT EXISTS `aoo_ai`
+CREATE DATABASE IF NOT EXISTS `aoo-ai`
   DEFAULT CHARACTER SET utf8mb4
   DEFAULT COLLATE utf8mb4_general_ci;
 
-USE `aoo_ai`;
+USE `aoo-ai`;
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
