@@ -10,13 +10,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest
 class AooAiApplicationTests {
 
-    /*@Resource
+    @Resource
     private AppUserMapper appUserMapper;
 
     @Test
     void test() {
         appUserMapper.selectById(1L);
 
-    }*/
+    }
 
 }

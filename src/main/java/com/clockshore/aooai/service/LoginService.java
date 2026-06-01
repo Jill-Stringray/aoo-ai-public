@@ -25,7 +25,6 @@ public class LoginService {
         if (!StringUtils.hasText(username) || !StringUtils.hasText(rawPassword)) {
             return ApiResponse.failure("INVALID_LOGIN_PARAM", "用户名和密码不能为空");
         }
-
         AppUser user = appUserMapper.selectByUsername(username.trim());
         if (user == null || !StringUtils.hasText(user.getPasswordHash())) {
             return ApiResponse.failure("BAD_CREDENTIALS", "用户名或密码错误");
@@ -40,9 +39,11 @@ public class LoginService {
         }
 
         user.setLastLoginAt(LocalDateTime.now());
-        user.setUpdatedAt(LocalDateTime.now());
         appUserMapper.update(user);
-
         return ApiResponse.success("LOGIN_SUCCESS", "登录成功", LoginUserVO.from(user));
+    }
+
+    public ApiResponse<LoginUserVO> register(String username, String rawPassword) {
+
     }
 }

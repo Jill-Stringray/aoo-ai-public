@@ -1,23 +1,13 @@
 spring:
-  application:
-    name: aoo-ai
-  profiles:
-    active: local
+  datasource:
+    url: jdbc:mysql://localhost:3306/aoo-ai?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
 
-server:
-  port: 8080
-
-app:
-  rag:
-    chunk:
-      max-tokens: 500
-      overlap: 80
-    retrieval:
-      top-k: 8
-      hybrid-weight:
-        vector: 0.7
-        bm25: 0.3
 mybatis:
+  mapper-locations: classpath*:mapper/**/*.xml
   configuration:
     map-underscore-to-camel-case: true
+
 
