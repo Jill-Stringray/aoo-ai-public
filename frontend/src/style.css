@@ -21,3 +21,6 @@ input, textarea, select { width: 100%; padding: 10px; margin-bottom: 8px; border
 button { background: #2563eb; color: #fff; border: none; padding: 9px 14px; border-radius: 10px; cursor: pointer; }
 button:hover { background: #1d4ed8; }
 .muted { color: #6b7280; font-size: 14px; }
+button:disabled { background: #93c5fd; cursor: not-allowed; }
+.success { color: #047857; font-weight: 600; }
+.error { color: #b91c1c; font-weight: 600; }

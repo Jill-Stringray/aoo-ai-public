@@ -19,7 +19,7 @@ const loadProfile = async () => {
 
 const submit = async () => {
   loginResult.value = await login(form.value);
-  if (loginResult.value?.username) {
+  if (loginResult.value?.success && loginResult.value?.username) {
     currentUsername.value = loginResult.value.username;
     localStorage.setItem('demo_user', loginResult.value.username);
     form.value = { username: '', password: '' };
@@ -47,7 +47,8 @@ onMounted(loadProfile);
         <input v-model="form.username" placeholder="用户名，如 zhangsan" />
         <input v-model="form.password" type="password" placeholder="密码" />
         <button @click="submit">登录</button>
-        <p v-if="loginResult">登录成功：{{ loginResult.displayName }}（{{ loginResult.role }}）</p>
+        <p v-if="loginResult?.success" class="success">登录成功：{{ loginResult.displayName }}（{{ loginResult.role }}）</p>
+        <p v-else-if="loginResult" class="error">登录失败：{{ loginResult.message }}</p>
       </div>
     </template>
 
