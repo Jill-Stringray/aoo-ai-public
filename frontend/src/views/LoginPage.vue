@@ -11,8 +11,8 @@ const submit = async () => {
   result.value = await login(form.value);
   loading.value = false;
 
-  if (result.value?.success && result.value?.username) {
-    localStorage.setItem('demo_user', result.value.username);
+  if (result.value?.success && result.value?.data?.username) {
+    localStorage.setItem('demo_user', result.value.data.username);
   }
 };
 </script>
@@ -27,7 +27,7 @@ const submit = async () => {
       <button :disabled="loading" @click="submit">{{ loading ? '登录中...' : '登录' }}</button>
 
       <p v-if="result?.success" class="success">
-        登录成功：{{ result.displayName }}（{{ result.role }}）
+        登录成功：{{ result.data.displayName }}（{{ result.data.role }}）
       </p>
       <p v-else-if="result" class="error">
         登录失败：{{ result.message }}

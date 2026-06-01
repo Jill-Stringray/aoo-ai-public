@@ -1,6 +1,7 @@
 package com.clockshore.aooai.service;
 
-import com.clockshore.aooai.dto.auth.LoginResponse;
+import com.clockshore.aooai.common.ApiResponse;
+import com.clockshore.aooai.dto.auth.LoginUserVO;
 import com.clockshore.aooai.entity.AppUser;
 import com.clockshore.aooai.mapper.AppUserMapper;
 import jakarta.annotation.Resource;
@@ -20,28 +21,28 @@ public class LoginService {
     @Resource
     private PasswordEncoder passwordEncoder;
 
-    public LoginResponse login(String username, String rawPassword) {
+    public ApiResponse<LoginUserVO> login(String username, String rawPassword) {
         if (!StringUtils.hasText(username) || !StringUtils.hasText(rawPassword)) {
-            return LoginResponse.failure("INVALID_LOGIN_PARAM", "用户名和密码不能为空");
+            return ApiResponse.failure("INVALID_LOGIN_PARAM", "用户名和密码不能为空");
         }
 
         AppUser user = appUserMapper.selectByUsername(username.trim());
         if (user == null || !StringUtils.hasText(user.getPasswordHash())) {
-            return LoginResponse.failure("BAD_CREDENTIALS", "用户名或密码错误");
+            return ApiResponse.failure("BAD_CREDENTIALS", "用户名或密码错误");
         }
 
         if (!ACTIVE_STATUS.equals(user.getStatus())) {
-            return LoginResponse.failure("ACCOUNT_UNAVAILABLE", "账号当前不可用，请联系管理员");
+            return ApiResponse.failure("ACCOUNT_UNAVAILABLE", "账号当前不可用，请联系管理员");
         }
 
         if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
-            return LoginResponse.failure("BAD_CREDENTIALS", "用户名或密码错误");
+            return ApiResponse.failure("BAD_CREDENTIALS", "用户名或密码错误");
         }
 
         user.setLastLoginAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
         appUserMapper.update(user);
 
-        return LoginResponse.success(user);
+        return ApiResponse.success("LOGIN_SUCCESS", "登录成功", LoginUserVO.from(user));
     }
 }

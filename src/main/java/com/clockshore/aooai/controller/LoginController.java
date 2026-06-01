@@ -1,7 +1,8 @@
 package com.clockshore.aooai.controller;
 
+import com.clockshore.aooai.common.ApiResponse;
 import com.clockshore.aooai.dto.auth.LoginRequest;
-import com.clockshore.aooai.dto.auth.LoginResponse;
+import com.clockshore.aooai.dto.auth.LoginUserVO;
 import com.clockshore.aooai.service.LoginService;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
@@ -20,8 +21,8 @@ public class LoginController {
     private LoginService loginService;
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        LoginResponse response = loginService.login(request.getUsername(), request.getPassword());
+    public ResponseEntity<ApiResponse<LoginUserVO>> login(@Valid @RequestBody LoginRequest request) {
+        ApiResponse<LoginUserVO> response = loginService.login(request.getUsername(), request.getPassword());
         if (response.isSuccess()) {
             return ResponseEntity.ok(response);
         }
