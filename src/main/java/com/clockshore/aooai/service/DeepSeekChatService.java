@@ -4,6 +4,8 @@ package com.clockshore.aooai.service;
 import cn.hutool.core.util.IdUtil;
 import com.clockshore.aooai.dto.message.ChatRequest;
 import com.clockshore.aooai.entity.ConversationMessage;
+import com.clockshore.aooai.mapper.ConversationMapper;
+import com.clockshore.aooai.mapper.ConversationMessageMapper;
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -24,6 +26,9 @@ public class DeepSeekChatService {
 
     private final ChatClient chatClient;
     private Usage usage;
+
+    private ConversationMapper conversationMapper;
+    private ConversationMessageMapper conversationMessageMapper;
 
     public DeepSeekChatService(ChatClient chatClient) {
         this.chatClient = chatClient;
