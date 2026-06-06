@@ -4,6 +4,7 @@ package com.clockshore.aooai.service;
 import cn.hutool.core.util.IdUtil;
 import com.clockshore.aooai.dto.message.ChatRequest;
 import com.clockshore.aooai.entity.ConversationMessage;
+import com.clockshore.aooai.enumType.CharacterRole;
 import com.clockshore.aooai.mapper.ConversationMapper;
 import com.clockshore.aooai.mapper.ConversationMessageMapper;
 import jakarta.annotation.Resource;
@@ -23,15 +24,18 @@ import java.util.List;
 
 @Service
 public class DeepSeekChatService {
-
-    private final ChatClient chatClient;
+    private ChatClient chatClient;
     private Usage usage;
 
+    @Resource
     private ConversationMapper conversationMapper;
+    @Resource
     private ConversationMessageMapper conversationMessageMapper;
 
-    public DeepSeekChatService(ChatClient chatClient) {
-        this.chatClient = chatClient;
+    public DeepSeekChatService(ChatClient.Builder builder,
+                               ConversationMessageMapper conversationMessageMapper
+    ){  this.chatClient = builder.build();
+        this.conversationMessageMapper = conversationMessageMapper;
     }
 
     public String nonStreamChat(ChatRequest chatRequest) {
@@ -106,7 +110,7 @@ public class DeepSeekChatService {
                 .messageKey(IdUtil.getSnowflakeNextIdStr())
                 .conversationId(chatRequest.getConversationId())
                 .content(reply)
-                .role(Role.ASSISTANT.getValue())
+                .role(CharacterRole.ASSISTANT.getValue())
                 .build();
         return conversationMessageMapper.insert(conversationMessage);
     }
@@ -127,11 +131,11 @@ public class DeepSeekChatService {
         List<ConversationMessage> messagesList = conversationMessageMapper.selectByConversationId(chatRequest.getConversationId());
         for (ConversationMessage msg : messagesList) {
             String role = msg.getRole();
-            if (Role.USER.getValue().equals(role)) {
+            if (CharacterRole.USER.getValue().equals(role)) {
                 history.add(new UserMessage(msg.getContent()));
-            } else if (Role.ASSISTANT.getValue().equals(role)) {
+            } else if (CharacterRole.ASSISTANT.getValue().equals(role)) {
                 history.add(new AssistantMessage(msg.getContent()));
-            } else if (Role.SYSTEM.getValue().equals(role)) {
+            } else if (CharacterRole.SYSTEM.getValue().equals(role)) {
                 history.add(new SystemMessage(msg.getContent()));
             }
         }
