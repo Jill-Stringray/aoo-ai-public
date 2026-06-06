@@ -21,6 +21,10 @@ public class DeepSeekChatService {
 
     private final ChatClient chatClient;
 
+    public DeepSeekChatService(ChatClient chatClient) {
+        this.chatClient = chatClient;
+    }
+
     public String nonStreamChat(ChatRequest chatRequest) {
 
         //Advisor = ChatClient 的“拦截器 / 增强器 / 插件系统”
