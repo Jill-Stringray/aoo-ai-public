@@ -1,6 +1,7 @@
 package com.clockshore.aooai.service;
 
 
+import cn.hutool.core.util.IdUtil;
 import com.clockshore.aooai.dto.message.ChatRequest;
 import com.clockshore.aooai.entity.ConversationMessage;
 import jakarta.annotation.Resource;
@@ -97,7 +98,7 @@ public class DeepSeekChatService {
     @Transactional
     public Long saveAssistantMessage(ChatRequest chatRequest,String reply){
         ConversationMessage conversationMessage = ConversationMessage.builder()
-                .messageKey(snowflakeService.nextIdStr())
+                .messageKey(IdUtil.getSnowflakeNextIdStr())
                 .conversationId(chatRequest.getConversationId())
                 .content(reply)
                 .role(Role.ASSISTANT.getValue())
