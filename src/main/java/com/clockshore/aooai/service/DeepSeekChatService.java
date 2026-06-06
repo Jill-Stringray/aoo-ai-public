@@ -1,6 +1,7 @@
 package com.clockshore.aooai.service;
 
 
+import com.clockshore.aooai.dto.message.ChatRequest;
 import com.clockshore.aooai.entity.ConversationMessage;
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.client.ChatClient;
@@ -8,6 +9,7 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +22,7 @@ import java.util.List;
 public class DeepSeekChatService {
 
     private final ChatClient chatClient;
+    private Usage usage;
 
     public DeepSeekChatService(ChatClient chatClient) {
         this.chatClient = chatClient;
@@ -63,7 +66,6 @@ public class DeepSeekChatService {
     public Flux<ChatResponse> streamChat(ChatRequest chatRequest){
 
         StringBuilder replyBuffer = new StringBuilder();
-        UsageDto u = new UsageDto();
 
         return chatClient.prompt()
                 .messages(buildMessages(chatRequest))
@@ -73,23 +75,14 @@ public class DeepSeekChatService {
                     replyBuffer.append(delta.getResult().getOutput().getText());
                     if(delta.getMetadata().getUsage() != null){
                         //usage 记录
-                        u.setPromptTokens(delta.getMetadata().getUsage().getPromptTokens());
-                        u.setCompletionTokens(delta.getMetadata().getUsage().getCompletionTokens());
-                        u.setTotalTokens(delta.getMetadata().getUsage().getTotalTokens());
+                        usage = delta.getMetadata().getUsage();
                     }
                 })
                 .doOnComplete(() -> {
                     String fullReply = replyBuffer.toString();
                     if (!fullReply.isBlank()) {
                         //发mq通知存储
-                        chatMessageMqProducer.publishPersist(ChatMessageEvent.builder()
-                                .messageKey(snowflakeService.nextIdStr())
-                                .conversationId(chatRequest.getConversationId())
-                                .userId(chatRequest.getUserId())
-                                .role(Role.ASSISTANT.getValue())
-                                .content(fullReply)
-                                .tokenUsed(u)
-                                .build());
+                        //todo 还没实现MQ
                     }
                 });
     }
@@ -98,13 +91,7 @@ public class DeepSeekChatService {
         if (reply == null || reply.isBlank()) {
             return;
         }
-        chatMessageMqProducer.publishPersist(ChatMessageEvent.builder()
-                .messageKey(snowflakeService.nextIdStr())
-                .conversationId(chatRequest.getConversationId())
-                .userId(chatRequest.getUserId())
-                .role(Role.ASSISTANT.getValue())
-                .content(reply)
-                .build());
+        //todo 还没实现MQ
     }
 
     @Transactional
