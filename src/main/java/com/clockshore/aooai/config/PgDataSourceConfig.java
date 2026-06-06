@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+//给spring ai的vectorStore使用
 @Configuration
 public class PgDataSourceConfig {
 

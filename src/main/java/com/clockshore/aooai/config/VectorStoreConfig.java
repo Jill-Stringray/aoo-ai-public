@@ -19,6 +19,7 @@ public class VectorStoreConfig {
 
     @Bean
     public VectorStore vectorStore(
+            //创建 VectorStore 时，不要用默认的 DataSource，而是用名字为 pgDataSource 的那个 Bean
             @Qualifier("pgDataSource")
             DataSource pgDataSource) {
 
