@@ -1,6 +1,7 @@
 package com.clockshore.aooai.mq;
 
 import com.clockshore.aooai.entity.LocalMqMessage;
+import com.clockshore.aooai.enumType.LocalMqMessageStatus;
 import com.clockshore.aooai.enums.LocalMqMessageStatus;
 import com.clockshore.aooai.mapper.LocalMqMessageMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
