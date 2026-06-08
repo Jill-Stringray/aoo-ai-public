@@ -5,10 +5,10 @@ import lombok.Getter;
 @Getter
 public enum LocalMqMessageStatus {
 
-    NEW("new"),
-    SENDING("sending"),
-    SENT("sent"),
-    FAILED("failed");
+    NEW("NEW"),
+    SENDING("SENDING"),
+    SENT("SENT"),
+    FAILED("FAILED");
 
     private final String value;
 

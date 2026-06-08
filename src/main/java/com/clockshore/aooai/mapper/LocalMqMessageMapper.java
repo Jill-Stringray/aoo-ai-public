@@ -1,7 +1,7 @@
 package com.clockshore.aooai.mapper;
 
 import com.clockshore.aooai.entity.LocalMqMessage;
-import com.clockshore.aooai.enums.LocalMqMessageStatus;
+import com.clockshore.aooai.enumType.LocalMqMessageStatus;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
@@ -30,9 +30,9 @@ public interface LocalMqMessageMapper {
 
     @Update("""
             UPDATE local_mq_message
-            SET status = #{sendingStatus}
+            SET status = #{sendingStatus.value}
             WHERE id = #{id}
-              AND status IN (#{newStatus}, #{failedStatus})
+              AND status IN (#{newStatus.value}, #{failedStatus.value})
             """)
     int tryMarkSending(@Param("id") Long id,
                        @Param("sendingStatus") LocalMqMessageStatus sendingStatus,
@@ -41,7 +41,7 @@ public interface LocalMqMessageMapper {
 
     @Update("""
             UPDATE local_mq_message
-            SET status = #{sentStatus},
+            SET status = #{sentStatus.value},
                 fail_reason = NULL
             WHERE id = #{id}
             """)
@@ -49,7 +49,7 @@ public interface LocalMqMessageMapper {
 
     @Update("""
             UPDATE local_mq_message
-            SET status = #{failedStatus},
+            SET status = #{failedStatus.value},
                 retry_count = retry_count + 1,
                 next_retry_at = DATE_ADD(NOW(), INTERVAL #{retryMinutes} MINUTE),
                 fail_reason = #{failReason}
