@@ -27,7 +27,7 @@ public class ChatMessageMqListener {
                 .conversationId(event.getConversationId())
                 .content(event.getContent())
                 .role(event.getRole())
-                .tokenCount(event.getTokenUsed().getTotalTokens())
+                .totalTokens(event.getUsage().getTotalTokens())
                 .build();
         conversationMessageMapper.insert(conversationMessage);
     }
