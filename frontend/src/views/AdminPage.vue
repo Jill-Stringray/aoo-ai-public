@@ -2,10 +2,10 @@
   <section class="page-section">
     <div class="section-header">
       <div>
-        <h2>治理中心</h2>
-        <p class="muted">用于承载系统监控、审计和成本治理。未接入的指标保持为空。</p>
+        <h2>管理员控制台</h2>
+        <p class="muted">管理员端用于承载系统监控、审计、权限和成本治理；用户端内容不在此处混合展示。</p>
       </div>
-      <span class="status-pill">监控接口未接入</span>
+      <span class="status-pill">管理员端</span>
     </div>
 
     <div class="grid">

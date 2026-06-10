@@ -11,7 +11,7 @@ const upcomingActions = [
     <div class="section-header">
       <div>
         <h2>知识库管理</h2>
-        <p class="muted">用于维护企业知识来源。当前知识库与文档接口未接入，因此列表保持为空。</p>
+        <p class="muted">管理员端用于维护企业知识来源。用户端不会展示知识库治理能力。</p>
       </div>
       <button disabled>新建知识库</button>
     </div>
@@ -20,7 +20,7 @@ const upcomingActions = [
       <article class="card">
         <h3>知识库</h3>
         <p class="metric">—</p>
-        <p class="muted">接口接入后展示可访问的知识库数量。</p>
+        <p class="muted">接口接入后展示管理员可维护的知识库数量。</p>
       </article>
       <article class="card">
         <h3>文档</h3>
@@ -46,7 +46,7 @@ const upcomingActions = [
         <div>
           <div class="empty-icon">◇</div>
           <h3>暂无知识库</h3>
-          <p class="muted">后端知识库接口接入后，可在这里创建、检索和维护企业知识资产。</p>
+          <p class="muted">后端知识库接口接入后，管理员可在这里创建、检索和维护企业知识资产。</p>
         </div>
       </div>
     </article>

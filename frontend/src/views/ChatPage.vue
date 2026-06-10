@@ -9,9 +9,9 @@ const question = ref('');
     <div class="section-header">
       <div>
         <h2>智能问答</h2>
-        <p class="muted">用于面向企业知识发起问题。问答接口未接入前，输入区仅保留为产品界面。</p>
+        <p class="muted">用户端用于面向企业知识发起问题；管理员治理与知识库维护不在此处展示。</p>
       </div>
-      <span class="status-pill">问答接口未接入</span>
+      <span class="status-pill">用户端</span>
     </div>
 
     <div class="grid">
@@ -24,7 +24,7 @@ const question = ref('');
       <article class="card">
         <h3>回答设置</h3>
         <select disabled>
-          <option>全部可访问知识库</option>
+          <option>当前用户可访问知识库</option>
         </select>
         <select disabled>
           <option>标准回答</option>

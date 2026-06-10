@@ -228,3 +228,21 @@ button:disabled { background: #bfdbfe; color: #475569; cursor: not-allowed; }
   .topbar { flex-direction: column; }
   .wide-card { grid-column: auto; }
 }
+
+.account-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.account-entry.as-button {
+  min-height: auto;
+  border: 1px solid rgba(255,255,255,.32);
+  background: rgba(255,255,255,.12);
+}
+.account-entry.as-button:hover { background: rgba(255,255,255,.22); }
+.muted-entry { color: rgba(255,255,255,.86); }
+.login-hero .grid { align-items: stretch; }
+.login-card, .identity-card { min-height: 280px; }
+.identity-card .status-pill { white-space: nowrap; }
