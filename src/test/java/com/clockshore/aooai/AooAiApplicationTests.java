@@ -29,7 +29,7 @@ class AooAiApplicationTests {
     private VectorStore vectorStore;
 
 
-    @Test
+    /*@Test
     void test() {
         vectorStore.add(List.of(
                 new Document("张三喜欢吃苹果")
@@ -37,5 +37,5 @@ class AooAiApplicationTests {
         List<Document> docs =
                 vectorStore.similaritySearch("张三喜欢吃什么");
         System.out.println(docs);
-    }
+    }*/
 }

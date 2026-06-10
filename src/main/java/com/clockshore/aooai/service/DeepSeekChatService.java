@@ -66,8 +66,10 @@ public class DeepSeekChatService {
                 .stream()
                 .chatResponse()
                 .doOnNext(delta -> {
+                    //对输出增量进行保存
                     replyBuffer.append(delta.getResult().getOutput().getText());
                     if(delta.getMetadata() != null && delta.getMetadata().getUsage() != null){
+                        //循环检测是否为最后一个数据块，获得使用数据
                         usageRef.set(delta.getMetadata().getUsage());
                     }
                 })
