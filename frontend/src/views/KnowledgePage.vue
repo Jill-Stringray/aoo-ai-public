@@ -1,62 +1,64 @@
 <script setup>
-import { onMounted, ref } from 'vue';
-import { createDocument, createKnowledgeBase, listDocuments, listKnowledgeBases } from '../api/knowledge';
-
-const list = ref([]);
-const docs = ref([]);
-const form = ref({ name: '', description: '', owner: 'student' });
-const docForm = ref({ knowledgeBaseId: '', fileName: '', scene: '入职培训资料' });
-
-const load = async () => (list.value = await listKnowledgeBases());
-const onCreateKb = async () => {
-  await createKnowledgeBase(form.value);
-  form.value = { name: '', description: '', owner: 'student' };
-  await load();
-};
-const onLoadDocs = async (id) => {
-  docs.value = await listDocuments(id);
-  docForm.value.knowledgeBaseId = String(id);
-};
-const onCreateDoc = async () => {
-  await createDocument({ knowledgeBaseId: Number(docForm.value.knowledgeBaseId), fileName: `${docForm.value.scene}-${docForm.value.fileName}` });
-  await onLoadDocs(Number(docForm.value.knowledgeBaseId));
-  docForm.value.fileName = '';
-};
-onMounted(load);
+const upcomingActions = [
+  '新建知识库',
+  '上传企业文档',
+  '查看解析与向量化状态'
+];
 </script>
 
 <template>
-  <section>
-    <h2>知识资产工作台</h2>
-    <p class="muted">先定义业务语义，再做技术实现：每份文档都应指向明确业务场景。</p>
+  <section class="page-section">
+    <div class="section-header">
+      <div>
+        <h2>知识库管理</h2>
+        <p class="muted">用于维护企业知识来源。当前知识库与文档接口未接入，因此列表保持为空。</p>
+      </div>
+      <button disabled>新建知识库</button>
+    </div>
+
     <div class="grid">
       <article class="card">
-        <h3>1）创建知识库</h3>
-        <input v-model="form.name" placeholder="示例：售后支持知识库" />
-        <input v-model="form.description" placeholder="示例：覆盖安装、报警处理、维护手册" />
-        <input v-model="form.owner" placeholder="负责人" />
-        <button @click="onCreateKb">创建知识库</button>
+        <h3>知识库</h3>
+        <p class="metric">—</p>
+        <p class="muted">接口接入后展示可访问的知识库数量。</p>
       </article>
       <article class="card">
-        <h3>2）录入文档占位</h3>
-        <input v-model="docForm.knowledgeBaseId" placeholder="知识库ID" />
-        <select v-model="docForm.scene">
-          <option>入职培训资料</option><option>售后排障资料</option><option>财务制度资料</option>
-        </select>
-        <input v-model="docForm.fileName" placeholder="文件名，如 SOP-v1.pdf" />
-        <button @click="onCreateDoc">录入文档</button>
+        <h3>文档</h3>
+        <p class="metric">—</p>
+        <p class="muted">接口接入后展示已上传、解析中和失败文档。</p>
+      </article>
+      <article class="card">
+        <h3>索引状态</h3>
+        <p class="metric">—</p>
+        <p class="muted">接口接入后展示切分、Embedding 与入库进度。</p>
       </article>
     </div>
 
-    <h3>知识库列表</h3>
-    <ul>
-      <li v-for="item in list" :key="item.id">#{{ item.id }} {{ item.name }}（{{ item.owner }}） - {{ item.description }}
-        <button @click="onLoadDocs(item.id)">查看文档</button></li>
-    </ul>
+    <article class="card">
+      <div class="section-header">
+        <div>
+          <h3>知识库列表</h3>
+          <p class="muted">真实接口可用前不填充临时数据。</p>
+        </div>
+        <span class="status-pill">未接入</span>
+      </div>
+      <div class="empty-state">
+        <div>
+          <div class="empty-icon">◇</div>
+          <h3>暂无知识库</h3>
+          <p class="muted">后端知识库接口接入后，可在这里创建、检索和维护企业知识资产。</p>
+        </div>
+      </div>
+    </article>
 
-    <h3>文档列表</h3>
-    <ul>
-      <li v-for="doc in docs" :key="doc.id">#{{ doc.id }} {{ doc.fileName }} · 状态：{{ doc.status }}</li>
-    </ul>
+    <article class="card">
+      <h3>待开放操作</h3>
+      <ul class="list">
+        <li v-for="item in upcomingActions" :key="item">
+          <span>{{ item }}</span>
+          <span class="status-pill">等待接口</span>
+        </li>
+      </ul>
+    </article>
   </section>
 </template>

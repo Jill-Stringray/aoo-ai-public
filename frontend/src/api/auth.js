@@ -21,8 +21,3 @@ export async function login(payload) {
   });
   return parseJsonResponse(res);
 }
-
-export async function fetchProfile(username) {
-  const res = await fetch(`/api/v1/auth/profile?username=${encodeURIComponent(username)}`);
-  return parseJsonResponse(res);
-}

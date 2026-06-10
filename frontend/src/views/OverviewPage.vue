@@ -1,20 +1,40 @@
 <template>
-  <section>
-    <h2>产品蓝图（可直接用于需求评审）</h2>
-    <p class="muted">不是只列“有啥功能”，而是明确“谁在什么场景下、为什么要用、预期结果是什么”。</p>
+  <section class="page-section">
+    <div class="section-header">
+      <div>
+        <h2>今日工作台</h2>
+        <p class="muted">这里聚合已接入的业务入口；未接入的数据保持为空，不再展示模拟内容。</p>
+      </div>
+      <RouterLink class="button secondary" to="/knowledge">管理知识库</RouterLink>
+    </div>
+
     <div class="grid">
       <article class="card">
-        <h3>场景 A：新员工入职学习</h3>
-        <p>上传《员工手册》《流程规范》后，员工可提问“报销流程怎么走”，系统返回步骤 + 来源页码。</p>
+        <p class="eyebrow">Knowledge</p>
+        <h3>知识资产</h3>
+        <p class="metric">—</p>
+        <p class="muted">等待知识库接口接入后展示文档、索引和更新时间。</p>
       </article>
       <article class="card">
-        <h3>场景 B：售后知识检索</h3>
-        <p>客服提问“设备E02报警如何排查”，系统结合 FAQ + 维修手册，输出分步排查建议。</p>
+        <p class="eyebrow">Assistant</p>
+        <h3>问答服务</h3>
+        <p class="metric">—</p>
+        <p class="muted">等待问答接口接入后展示最近会话与可追溯来源。</p>
       </article>
       <article class="card">
-        <h3>场景 C：管理层复盘</h3>
-        <p>管理员查看高频问题与 Token 使用，识别知识缺口并推动文档补全。</p>
+        <p class="eyebrow">Governance</p>
+        <h3>系统治理</h3>
+        <p class="metric">—</p>
+        <p class="muted">等待监控接口接入后展示任务、审计和成本指标。</p>
       </article>
+    </div>
+
+    <div class="empty-state">
+      <div>
+        <div class="empty-icon">⌁</div>
+        <h3>暂无业务动态</h3>
+        <p class="muted">完成知识库、问答或治理接口接入后，工作台会显示真实的待办、告警和最近活动。</p>
+      </div>
     </div>
   </section>
 </template>

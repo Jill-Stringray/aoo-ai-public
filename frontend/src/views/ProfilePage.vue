@@ -1,81 +1,97 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
-import { fetchProfile, login } from '../api/auth';
+import { computed, ref } from 'vue';
+import { login } from '../api/auth';
+
+const readStoredProfile = () => {
+  try {
+    return JSON.parse(localStorage.getItem('aoo_user_profile') || 'null');
+  } catch {
+    return null;
+  }
+};
 
 const form = ref({ username: '', password: '' });
 const loginResult = ref(null);
-const profile = ref(null);
+const loading = ref(false);
+const currentUsername = ref(localStorage.getItem('aoo_user') || '');
+const localProfile = ref(readStoredProfile());
 
-const currentUsername = ref(localStorage.getItem('demo_user') || '');
-const isLoggedIn = computed(() => !!currentUsername.value);
-
-const loadProfile = async () => {
-  if (!isLoggedIn.value) {
-    profile.value = null;
-    return;
-  }
-  profile.value = await fetchProfile(currentUsername.value);
-};
+const isLoggedIn = computed(() => Boolean(currentUsername.value));
 
 const submit = async () => {
-  loginResult.value = await login(form.value);
-  if (loginResult.value?.success && loginResult.value?.data?.username) {
-    currentUsername.value = loginResult.value.data.username;
-    localStorage.setItem('demo_user', loginResult.value.data.username);
-    form.value = { username: '', password: '' };
-    await loadProfile();
+  if (!form.value.username || !form.value.password || loading.value) return;
+
+  loading.value = true;
+  try {
+    loginResult.value = await login(form.value);
+    if (loginResult.value?.success && loginResult.value?.data?.username) {
+      currentUsername.value = loginResult.value.data.username;
+      localProfile.value = loginResult.value.data;
+      localStorage.setItem('aoo_user', loginResult.value.data.username);
+      localStorage.setItem('aoo_user_profile', JSON.stringify(loginResult.value.data));
+      form.value = { username: '', password: '' };
+    }
+  } finally {
+    loading.value = false;
   }
 };
 
 const logout = () => {
-  localStorage.removeItem('demo_user');
+  localStorage.removeItem('aoo_user');
+  localStorage.removeItem('aoo_user_profile');
   currentUsername.value = '';
-  profile.value = null;
+  localProfile.value = null;
   loginResult.value = null;
 };
-
-onMounted(loadProfile);
 </script>
 
 <template>
-  <section>
-    <h2>个人中心</h2>
+  <section class="page-section">
+    <div class="section-header">
+      <div>
+        <h2>个人中心</h2>
+        <p class="muted">查看当前登录账号的基础资料；个人详情接口未接入前仅展示登录返回的信息。</p>
+      </div>
+      <button v-if="isLoggedIn" @click="logout">退出登录</button>
+    </div>
 
     <template v-if="!isLoggedIn">
-      <p class="muted">未登录，请先登录后查看个人信息。</p>
-      <div class="card" style="max-width:480px">
-        <input v-model="form.username" placeholder="用户名，如 zhangsan" />
-        <input v-model="form.password" type="password" placeholder="密码" />
-        <button @click="submit">登录</button>
+      <article class="card" style="max-width: 520px">
+        <h3>请先登录</h3>
+        <p class="muted">登录后可查看当前账号状态。</p>
+        <input v-model="form.username" autocomplete="username" placeholder="用户名" />
+        <input v-model="form.password" autocomplete="current-password" type="password" placeholder="密码" />
+        <button :disabled="loading || !form.username || !form.password" @click="submit">
+          {{ loading ? '登录中...' : '登录' }}
+        </button>
         <p v-if="loginResult?.success" class="success">登录成功：{{ loginResult.data.displayName }}（{{ loginResult.data.role }}）</p>
         <p v-else-if="loginResult" class="error">登录失败：{{ loginResult.message }}</p>
-      </div>
+      </article>
     </template>
 
     <template v-else>
-      <p class="muted">已登录为 {{ currentUsername }}，这里展示你的个人画像与使用情况。</p>
-      <button @click="logout" style="margin-bottom:12px">退出登录</button>
-
-      <div class="grid" v-if="profile">
+      <div class="grid" v-if="localProfile">
         <article class="card">
-          <h3>基础信息</h3>
-          <p>姓名：{{ profile.displayName }}</p>
-          <p>用户名：{{ profile.username }}</p>
-          <p>邮箱：{{ profile.email }}</p>
-          <p>部门：{{ profile.department }}</p>
-          <p>角色：{{ profile.role }}</p>
+          <p class="eyebrow">Profile</p>
+          <h3>{{ localProfile.displayName || currentUsername }}</h3>
+          <p class="muted">{{ localProfile.username || currentUsername }}</p>
+          <p>邮箱：{{ localProfile.email || '—' }}</p>
+          <p>部门：{{ localProfile.department || '—' }}</p>
+          <p>角色：{{ localProfile.role || '—' }}</p>
         </article>
         <article class="card">
           <h3>使用概览</h3>
-          <p>知识库数量：{{ profile.knowledgeBaseCount }}</p>
-          <p>累计会话数：{{ profile.conversationCount }}</p>
+          <p class="metric">—</p>
+          <p class="muted">知识库、会话和最近活动接口接入后展示真实数据。</p>
         </article>
-        <article class="card">
-          <h3>最近活动</h3>
-          <ul>
-            <li v-for="(item, idx) in profile.recentActivities" :key="idx">{{ item }}</li>
-          </ul>
-        </article>
+      </div>
+
+      <div v-else class="empty-state">
+        <div>
+          <div class="empty-icon">●</div>
+          <h3>已登录</h3>
+          <p class="muted">当前账号：{{ currentUsername }}。个人详情接口接入后将在这里展示完整资料。</p>
+        </div>
       </div>
     </template>
   </section>

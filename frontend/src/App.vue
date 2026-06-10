@@ -1,26 +1,58 @@
 <script setup>
-import { RouterLink, RouterView } from 'vue-router';
+import { RouterLink, RouterView, useRoute } from 'vue-router';
+import { computed } from 'vue';
+
+const route = useRoute();
+const pageTitle = computed(() => route.meta.title || 'AOO AI');
+const pageDescription = computed(() => route.meta.description || '企业知识智能助手');
+
+const navItems = [
+  { to: '/', label: '工作台', icon: '⌘' },
+  { to: '/knowledge', label: '知识库', icon: '◇' },
+  { to: '/chat', label: '问答', icon: '✦' },
+  { to: '/admin', label: '治理', icon: '◌' },
+  { to: '/profile', label: '我的', icon: '●' }
+];
 </script>
 
 <template>
   <div class="app-shell">
-    <header class="hero">
-      <div>
-        <p class="badge">Enterprise RAG Platform</p>
-        <h1>企业级 AI 知识库问答平台</h1>
-        <p class="subtitle">你当前看到的是“可持续迭代”的产品雏形：先有完整业务画布，再逐步补真实能力。</p>
-      </div>
-      <nav class="nav">
-        <RouterLink to="/">产品蓝图</RouterLink>
-        <RouterLink to="/knowledge">知识资产</RouterLink>
-        <RouterLink to="/chat">智能问答</RouterLink>
-        <RouterLink to="/admin">运维治理</RouterLink>
-        <RouterLink to="/login">登录</RouterLink>
-        <RouterLink to="/profile">个人中心</RouterLink>
+    <aside class="sidebar">
+      <RouterLink to="/" class="brand" aria-label="回到工作台">
+        <span class="brand-mark">A</span>
+        <span>
+          <strong>AOO AI</strong>
+          <small>Knowledge Copilot</small>
+        </span>
+      </RouterLink>
+
+      <nav class="nav" aria-label="主导航">
+        <RouterLink v-for="item in navItems" :key="item.to" :to="item.to">
+          <span class="nav-icon">{{ item.icon }}</span>
+          <span>{{ item.label }}</span>
+        </RouterLink>
       </nav>
-    </header>
-    <main class="panel">
-      <RouterView />
-    </main>
+
+      <div class="sidebar-card">
+        <p class="eyebrow">当前空间</p>
+        <strong>企业知识中台</strong>
+        <span>接口能力按模块逐步接入</span>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="badge">Enterprise RAG Platform</p>
+          <h1>{{ pageTitle }}</h1>
+          <p class="subtitle">{{ pageDescription }}</p>
+        </div>
+        <RouterLink to="/login" class="account-entry">登录 / 注册</RouterLink>
+      </header>
+
+      <main class="panel">
+        <RouterView />
+      </main>
+    </div>
   </div>
 </template>
