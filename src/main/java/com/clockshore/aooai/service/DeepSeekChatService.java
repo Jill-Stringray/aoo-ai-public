@@ -7,6 +7,8 @@ import com.clockshore.aooai.entity.ConversationMessage;
 import com.clockshore.aooai.enumType.CharacterRole;
 import com.clockshore.aooai.mapper.ConversationMapper;
 import com.clockshore.aooai.mapper.ConversationMessageMapper;
+import com.clockshore.aooai.mq.ChatMessageEvent;
+import com.clockshore.aooai.mq.ChatMessageMqProducer;
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -21,16 +23,19 @@ import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 public class DeepSeekChatService {
     private ChatClient chatClient;
-    private Usage usage;
 
     @Resource
     private ConversationMapper conversationMapper;
     @Resource
     private ConversationMessageMapper conversationMessageMapper;
+
+    @Resource
+    private ChatMessageMqProducer chatMessageMqProducer;
 
     public DeepSeekChatService(ChatClient.Builder builder,
                                ConversationMessageMapper conversationMessageMapper
@@ -41,41 +46,20 @@ public class DeepSeekChatService {
     public String nonStreamChat(ChatRequest chatRequest) {
 
         //Advisor = ChatClient 的“拦截器 / 增强器 / 插件系统”
-
-        return chatClient.prompt()
+        long startedAt = System.currentTimeMillis();
+        String reply = chatClient.prompt()
                 .messages(buildMessages(chatRequest))
                 .call()
                 .content();
+        enqueueAssistantMessage(chatRequest, reply, null, System.currentTimeMillis() - startedAt);
+        return reply;
     }
-
-    /*public Flux<String> streamChat(ChatRequest chatRequest){
-
-        StringBuilder replyBuffer = new StringBuilder();
-
-        return chatClient.prompt()
-                .messages(buildMessages(chatRequest))
-                .stream()
-                .content()
-                .doOnNext(delta -> {
-                    replyBuffer.append(delta);
-                })
-                .doOnComplete(() -> {
-                    String fullReply = replyBuffer.toString();
-                    if (!fullReply.isBlank()) {
-                        chatMessageMqProducer.publishPersist(ChatMessageEvent.builder()
-                                .messageKey(snowflakeService.nextIdStr())
-                                .conversationId(chatRequest.getConversationId())
-                                .userId(chatRequest.getUserId())
-                                .role(Role.ASSISTANT.getValue())
-                                .content(fullReply)
-                                .build());
-                    }
-                });
-    }*/
 
     public Flux<ChatResponse> streamChat(ChatRequest chatRequest){
 
         StringBuilder replyBuffer = new StringBuilder();
+        AtomicReference<Usage> usageRef = new AtomicReference<>();
+        long startedAt = System.currentTimeMillis();
 
         return chatClient.prompt()
                 .messages(buildMessages(chatRequest))
@@ -83,25 +67,34 @@ public class DeepSeekChatService {
                 .chatResponse()
                 .doOnNext(delta -> {
                     replyBuffer.append(delta.getResult().getOutput().getText());
-                    if(delta.getMetadata().getUsage() != null){
-                        //usage 记录
-                        usage = delta.getMetadata().getUsage();
+                    if(delta.getMetadata() != null && delta.getMetadata().getUsage() != null){
+                        usageRef.set(delta.getMetadata().getUsage());
                     }
                 })
-                .doOnComplete(() -> {
-                    String fullReply = replyBuffer.toString();
-                    if (!fullReply.isBlank()) {
-                        //发mq通知存储
-                        //todo 还没实现MQ
-                    }
-                });
+                .doOnComplete(() -> enqueueAssistantMessage(
+                        chatRequest,
+                        replyBuffer.toString(),
+                        usageRef.get(),
+                        System.currentTimeMillis() - startedAt
+                ));
     }
 
-    public void enqueueAssistantMessage(ChatRequest chatRequest, String reply) {
+    public void enqueueAssistantMessage(ChatRequest chatRequest, String reply, Usage usage, long latencyMs) {
         if (reply == null || reply.isBlank()) {
             return;
         }
-        //todo 还没实现MQ
+        ChatMessageEvent event = ChatMessageEvent.builder()
+                .messageKey(IdUtil.getSnowflakeNextIdStr())
+                .conversationId(chatRequest.getConversationId())
+                .role(CharacterRole.ASSISTANT.getValue())
+                .content(reply)
+                .modelName(chatRequest.getModel())
+                .promptTokens(usage == null ? 0 : toInteger(usage.getPromptTokens()))
+                .completionTokens(usage == null ? 0 : toInteger(usage.getCompletionTokens()))
+                .totalTokens(usage == null ? 0 : toInteger(usage.getTotalTokens()))
+                .latencyMs(toInteger(latencyMs))
+                .build();
+        chatMessageMqProducer.publishPersist(event);
     }
 
     @Transactional
@@ -111,8 +104,21 @@ public class DeepSeekChatService {
                 .conversationId(chatRequest.getConversationId())
                 .content(reply)
                 .role(CharacterRole.ASSISTANT.getValue())
+                .promptTokens(0)
+                .completionTokens(0)
+                .totalTokens(0)
                 .build();
         return conversationMessageMapper.insert(conversationMessage);
+    }
+
+    private Integer toInteger(Number value) {
+        if (value == null) {
+            return 0;
+        }
+        if (value.longValue() > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return value.intValue();
     }
 
     public List<Message> buildMessages(ChatRequest chatRequest){

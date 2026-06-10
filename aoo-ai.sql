@@ -11,6 +11,7 @@ USE `aoo-ai`;
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS `local_mq_message`;
 DROP TABLE IF EXISTS `outbox_event`;
 DROP TABLE IF EXISTS `audit_log`;
 DROP TABLE IF EXISTS `qa_feedback`;
@@ -274,5 +275,22 @@ CREATE TABLE `outbox_event` (
   `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='事务外盒事件表';
+
+
+-- 16. 本地 MQ 消息表：业务事务先写本地消息，再由后台任务可靠投递到 RabbitMQ。
+CREATE TABLE `local_mq_message` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '消息ID',
+  `event_key` VARCHAR(128) NOT NULL COMMENT '事件唯一键，建议应用层保证幂等',
+  `topic` VARCHAR(128) NOT NULL COMMENT 'MQ 交换机或主题名称',
+  `routing_key` VARCHAR(128) NOT NULL COMMENT 'MQ 路由键',
+  `payload` JSON NOT NULL COMMENT '消息载荷',
+  `status` VARCHAR(32) NOT NULL DEFAULT 'NEW' COMMENT '状态：NEW/SENDING/SENT/FAILED',
+  `retry_count` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '已重试次数',
+  `next_retry_at` DATETIME(3) NULL COMMENT '下次重试时间',
+  `fail_reason` VARCHAR(2048) NULL COMMENT '失败原因',
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='本地 MQ 消息表';
 
 SET FOREIGN_KEY_CHECKS = 1;

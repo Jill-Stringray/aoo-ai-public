@@ -23,13 +23,23 @@ public class ChatMessageMqListener {
     public void consume(String payload) {
         ChatMessageEvent event = parse(payload);
         ConversationMessage conversationMessage = ConversationMessage.builder()
-                .messageKey(event.getMessageKey())
                 .conversationId(event.getConversationId())
-                .content(event.getContent())
+                .messageKey(event.getMessageKey())
+                .parentMessageId(event.getParentMessageId())
                 .role(event.getRole())
-                .totalTokens(event.getUsage().getTotalTokens())
+                .content(event.getContent())
+                .modelName(event.getModelName())
+                .promptTokens(defaultZero(event.getPromptTokens()))
+                .completionTokens(defaultZero(event.getCompletionTokens()))
+                .totalTokens(defaultZero(event.getTotalTokens()))
+                .latencyMs(event.getLatencyMs())
+                .finishReason(event.getFinishReason())
                 .build();
         conversationMessageMapper.insert(conversationMessage);
+    }
+
+    private Integer defaultZero(Integer value) {
+        return value == null ? 0 : value;
     }
 
     private ChatMessageEvent parse(String payload) {

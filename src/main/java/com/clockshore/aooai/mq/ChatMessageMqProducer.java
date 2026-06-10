@@ -20,6 +20,9 @@ public class ChatMessageMqProducer {
 
     @Transactional
     public void publishPersist(ChatMessageEvent event) {
+        if (localMqMessageMapper.countByEventKey(event.getMessageKey()) > 0) {
+            return;
+        }
         String payload = toJson(event);
         LocalMqMessage localMqMessage = LocalMqMessage.builder()
                 .eventKey(event.getMessageKey())
