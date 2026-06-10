@@ -23,7 +23,7 @@ public class MysqlDataSourceConfig {
         ↓
         MySQL SQL 被 PostgreSQL 执行
         ↓
-        org.postgresql.util.PSQLException
+        org.postgresql.util.PSQLException.
      */
 
     @Bean
