@@ -69,16 +69,6 @@ public class KnowledgeDocument {
     private String sourceType;
 
     /**
-     * 外部来源地址。
-     */
-    private String sourceUrl;
-
-    /**
-     * 文档版本号。
-     */
-    private Integer versionNo;
-
-    /**
      * 状态：UPLOADED/PARSING/CHUNKING/INDEXING/READY/FAILED/DELETED。
      */
     private String status;
