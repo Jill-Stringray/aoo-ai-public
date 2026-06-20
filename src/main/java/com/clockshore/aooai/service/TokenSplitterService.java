@@ -13,7 +13,7 @@ import java.util.List;
 @Service
 public class TokenSplitterService {
 
-    private DocumentSplitter splitter =
+    private final DocumentSplitter splitter =
             DocumentSplitters.recursive(
                     500,
                     100

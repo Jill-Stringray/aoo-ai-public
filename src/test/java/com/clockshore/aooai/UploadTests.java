@@ -57,7 +57,11 @@ class UploadTests {
                         docs.size()
         );
 
+        docs = documentReaderService.normalize(docs);
+
         List<TextSegment> chunks = tokenSplitterService.split(docs);
+
+
 
         System.out.println(
                 "Chunk数量：" +
@@ -72,9 +76,7 @@ class UploadTests {
                             "=========="
                     );
 
-                    System.out.println(
-                            documentReaderService.normalize(chunk.text())
-                    );
+                    System.out.println(chunk);
                     System.out.println("该 chunk 内容长度为：" + chunk.text().length());
                 });
 

@@ -9,6 +9,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -40,13 +41,32 @@ public class DocumentReaderService {
         );
     }
 
-    public String normalize(String text) {
+    public List<Document> normalize(List<Document> rawDocument) {
+        List<Document> normalizedDocument = new ArrayList<>();
 
-        return text
-                .replace("\u00A0", " ")
-                .replaceAll("[ \\t]+", " ")
-                .replaceAll("\\n{3,}", "\n\n")
-                .trim();
+        for(Document raw : rawDocument){
+            if(raw.getText() == null){
+                continue;
+            }
+
+            String cleanText = raw.getText()
+                    .replace("\u00A0", " ")
+                    .replaceAll("[ \\t]+", " ")
+                    .replaceAll("\\n{3,}", "\n\n")
+                    .trim();
+
+            if (cleanText.isBlank()) {
+                continue;
+            }
+
+            Document newDoc = new Document(cleanText,raw.getMetadata());
+            normalizedDocument.add(newDoc);
+        }
+
+
+        return normalizedDocument;
+
     }
+
 }
 
