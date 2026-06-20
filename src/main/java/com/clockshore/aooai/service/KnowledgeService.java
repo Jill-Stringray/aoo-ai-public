@@ -33,6 +33,7 @@ public class KnowledgeService {
 
     private final VectorStore vectorStore;
 
+    //validate使用，检查格式和mime类型是否相等
     private static final Map<String, Set<String>> FILE_TYPE_MAPPING = Map.of(
             "pdf", Set.of("application/pdf"),
             "doc", Set.of("application/msword"),
@@ -69,7 +70,7 @@ public class KnowledgeService {
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
             knowledgeDocumentMapper.insert(KnowledgeDocument.builder()
-                    .knowledgeBaseId(1L)
+                    .knowledgeBaseId(1L)//TODO 等待修改
                     .documentKey(u)
                     .fileName(originalName)
                     .fileType(extension)
@@ -86,7 +87,7 @@ public class KnowledgeService {
         return filePath;
     }
 
-
+    //upload 检测文件是否合法
     private void validate(MultipartFile file) throws IOException{
         if (file.isEmpty()) {
             throw new IllegalArgumentException(

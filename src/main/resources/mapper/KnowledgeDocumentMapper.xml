@@ -43,8 +43,6 @@
             file_size,
             storage_url,
             source_type,
-            source_url,
-            version_no,
             status,
             checksum,
             created_by
@@ -59,8 +57,6 @@
                   #{fileSize},
                   #{storageUrl},
                   #{sourceType},
-                  #{sourceUrl},
-                  #{versionNo},
                   #{status},
                   #{checksum},
                   #{createdBy}

@@ -1,34 +1,19 @@
-# aoo-ai 企业级 AI 知识库问答平台（阶段二）
+# 企业级 AI 知识库问答平台 相关设计内容备忘录
 
-本次迭代目标：
-1. 继续搭建前后端，形成可联调的“知识库 + 文档 + 问答”基础闭环。
-2. 删除历史无用模块，降低工程噪音，统一到当前架构方向。
+## RAG流程 包含Spring AI 和Langchain4j
 
-## 后端现状
-- `knowledge-bases`：支持列表、创建。
-- `documents`：支持新增、按知识库查询、状态更新。
-- `qa`：支持普通问答与 SSE 流式占位。
-
-## 前端现状
-- `Overview`：展示工程进度与实施路线。
-- `Knowledge`：可直接创建知识库、查看文档、创建文档占位。
-- `Chat`：调用后端问答接口。
-- `Admin`：展示企业级模块治理规划。
-
-## 已删除无用内容
-- 历史登录/聊天室/角色工坊等与当前目标不一致页面。
-- 历史后端聊天会话、MQ 中继、双数据源演示等未接入链路代码。
-- 明文敏感配置文件内容（旧 `application.yaml`）。
-
-## 数据库建库脚本
-- 业务主库：`aoo-ai.sql`，提供面向公司内部使用的 MySQL 企业问答知识库核心表，覆盖部门、员工、角色、知识库、文档、切片、索引任务、问答会话、召回来源、反馈、审计和事务外盒。
-- 向量库：`docs/database/pgvector-schema.sql`，提供 PostgreSQL + pgvector 的 embedding 表，与业务库通过 `chunk_key` / `chunk_id` 对齐。
-- 索引策略：当前按需求不显式创建二级索引、唯一索引、全文索引或向量索引，后续可基于慢 SQL 和压测结果再补。
-- 设计说明：`docs/database/schema-design.md`，解释表分层、核心链路、内部系统边界和企业级建表原则。
-
-## 下一阶段建议
-1. 增加统一返回模型（Result<T>）与全局异常处理。
-2. 基于 `aoo-ai.sql` 增加 MyBatis/JPA 实体、Mapper/Repository 和 Service。
-3. 文档上传改为 Multipart + 对象存储。
-4. 接入异步任务：解析、切分、向量化、索引。
-5. 建立企业级测试分层：单测、集成测试、API 合约测试。
+文件
+↓
+Reader Spring AI
+↓
+Document Spring AI
+↓
+Splitter Langchain4j
+↓
+Embedding Spring AI
+↓
+VectorStore Spring AI
+↓
+Retriever 还未实现
+↓
+LLM 还未实现
