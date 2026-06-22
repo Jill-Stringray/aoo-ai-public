@@ -40,6 +40,8 @@
 
     </insert>
 
+
+
     <select id="selectById"
             resultType= "com.clockshore.aooai.entity.DocumentChunk" >
 
@@ -83,4 +85,44 @@
 
     </delete>
 
+    <insert id="batchInsert">
+
+        INSERT INTO document_chunk
+        (
+        knowledge_base_id,
+        document_id,
+        chunk_key,
+        chunk_index,
+        content,
+        content_hash,
+        token_count,
+        page_no,
+        section_title,
+        metadata,
+        status
+        )
+
+        VALUES
+
+        <foreach collection="chunks"
+                 item="chunk"
+                 separator=",">
+
+            (
+            #{chunk.knowledgeBaseId},
+            #{chunk.documentId},
+            #{chunk.chunkKey},
+            #{chunk.chunkIndex},
+            #{chunk.content},
+            #{chunk.contentHash},
+            #{chunk.tokenCount},
+            #{chunk.pageNo},
+            #{chunk.sectionTitle},
+            #{chunk.metadata},
+            #{chunk.status}
+            )
+
+        </foreach>
+
+    </insert>
 </mapper>

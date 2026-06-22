@@ -1,16 +1,23 @@
 package com.clockshore.aooai.service;
 
+import cn.hutool.crypto.digest.DigestUtil;
+import com.clockshore.aooai.entity.DocumentChunk;
 import com.clockshore.aooai.entity.KnowledgeDocument;
+import com.clockshore.aooai.mapper.DocumentChunkMapper;
 import com.clockshore.aooai.mapper.KnowledgeDocumentMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import dev.langchain4j.data.segment.TextSegment;
 import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.tika.Tika;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -28,6 +35,10 @@ public class KnowledgeService {
     private TokenSplitterService tokenSplitterService;
     @Resource
     private KnowledgeDocumentMapper knowledgeDocumentMapper;
+    @Resource
+    private final ObjectMapper objectMapper;
+    @Resource
+    private DocumentChunkMapper documentChunkMapper;
 
     Tika tika = new Tika();
 
@@ -41,6 +52,7 @@ public class KnowledgeService {
             "txt", Set.of("text/plain"),
             "md", Set.of("text/plain", "text/markdown")
     );
+
 
 
     //此函数只进行导入＆保存文件，不处理
@@ -87,7 +99,45 @@ public class KnowledgeService {
         return filePath;
     }
 
-    //upload 检测文件是否合法
+    public int saveChunks(List<TextSegment> segments){
+        List<DocumentChunk> chunks = new ArrayList<>();
+
+        for(TextSegment t : segments) {
+
+            String metadataJson;
+
+            try {
+                metadataJson =
+                        objectMapper.writeValueAsString(
+                                t.metadata()
+                        );
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(
+                        "Metadata序列化失败",
+                        e
+                );
+            }
+
+            DocumentChunk chunk = DocumentChunk.builder()
+                    .knowledgeBaseId(1L)//todo 还没想好怎么开发
+                    .documentId(t.metadata().getLong("documentId"))
+                    .chunkKey(UUID.randomUUID().toString())
+                    .chunkIndex(t.metadata().getInteger("index"))
+                    .content(t.text())
+                    .contentHash(DigestUtil.sha256Hex(t.text()))
+                    .tokenCount(t.text().length())
+                    .pageNo(t.metadata().getInteger("page_number"))
+                    .metadata(metadataJson)
+                    .status("NEW")
+                    .build();
+
+            chunks.add(chunk);
+        }
+        return documentChunkMapper.batchInsert(chunks);
+    }
+
+
+    //用于upload 检测文件是否合法
     private void validate(MultipartFile file) throws IOException{
         if (file.isEmpty()) {
             throw new IllegalArgumentException(

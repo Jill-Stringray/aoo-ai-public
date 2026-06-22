@@ -25,7 +25,7 @@ public class TokenSplitterService {
 
         for (Document doc : docs) {
             segments.addAll(
-                    splitter.split(convert(doc))
+                    splitter.split(StoLConvert(doc))
             );
         }
 
@@ -33,7 +33,7 @@ public class TokenSplitterService {
     }
 
     //链路原因，要将spring ai doc 转化成langchain4j doc
-    private dev.langchain4j.data.document.Document convert(
+    private dev.langchain4j.data.document.Document StoLConvert(
             org.springframework.ai.document.Document doc) {
 
         Metadata metadata = new Metadata();
@@ -47,4 +47,5 @@ public class TokenSplitterService {
                 metadata
         );
     }
+
 }

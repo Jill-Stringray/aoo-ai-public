@@ -1,5 +1,6 @@
 package com.clockshore.aooai.service;
 
+import com.clockshore.aooai.entity.KnowledgeDocument;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.TextReader;
 import org.springframework.ai.reader.pdf.PagePdfDocumentReader;
@@ -39,6 +40,36 @@ public class DocumentReaderService {
         throw new IllegalArgumentException(
                 "暂不支持的文件类型: " + fileName
         );
+    }
+
+    public List<Document> enrichMetadata(
+            List<Document> docs,
+            KnowledgeDocument document) {
+
+        for (Document doc : docs) {
+
+            doc.getMetadata().put(
+                    "knowledgeBaseId",
+                    document.getKnowledgeBaseId()
+            );
+
+            doc.getMetadata().put(
+                    "documentId",
+                    document.getId()
+            );
+
+            doc.getMetadata().put(
+                    "documentKey",
+                    document.getDocumentKey()
+            );
+
+            doc.getMetadata().put(
+                    "fileName",
+                    document.getFileName()
+            );
+        }
+
+        return docs;
     }
 
     public List<Document> normalize(List<Document> rawDocument) {

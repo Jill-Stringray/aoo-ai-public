@@ -11,6 +11,11 @@ public interface DocumentChunkMapper {
 
     int insert(DocumentChunk chunk);
 
+    int batchInsert(
+            @Param("chunks")
+            List<DocumentChunk> chunks
+    );
+
     DocumentChunk selectById(@Param("id") Long id);
 
     List<DocumentChunk> selectByDocumentId(

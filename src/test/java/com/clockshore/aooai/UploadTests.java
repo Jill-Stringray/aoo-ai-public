@@ -35,7 +35,7 @@ class UploadTests {
         MockMultipartFile file =
                 new MockMultipartFile(
                         "file",
-                        "test.pdf",
+                        "demo-knowledge.pdf",
                         "application/pdf",
                         Files.readAllBytes(
                                 Paths.get(

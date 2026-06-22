@@ -19,4 +19,7 @@ o i
 m -
 该 chunk 内容长度为：491
 
-1. [ ] 注意到该chunk异常，之后再进行解决
+1. [ ]  注意到该chunk异常，之后再进行解决
+
+
+做MQ发embedding消息，然后异步embedding
