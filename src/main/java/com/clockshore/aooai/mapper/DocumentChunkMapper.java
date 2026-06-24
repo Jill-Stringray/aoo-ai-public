@@ -18,12 +18,17 @@ public interface DocumentChunkMapper {
 
     DocumentChunk selectById(@Param("id") Long id);
 
-    List<DocumentChunk> selectByDocumentId(
+    List<DocumentChunk> selectNewByDocumentId(
             @Param("documentId") Long documentId
     );
 
     int updateStatus(
             @Param("id") Long id,
+            @Param("status") String status
+    );
+
+    int updateStatusByDocumentId(
+            @Param("documentId") Long documentId,
             @Param("status") String status
     );
 

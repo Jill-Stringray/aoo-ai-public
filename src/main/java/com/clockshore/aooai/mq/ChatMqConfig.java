@@ -29,23 +29,23 @@ public class ChatMqConfig {
         return BindingBuilder.bind(chatQueue).to(chatExchange).with(CHAT_ROUTING_KEY);
     }
 
-    public static final String RAG_PROCESS_EXCHANGE = "ragprocess.message.exchange";
-    public static final String RAG_PROCESS_QUEUE = "ragprocess.message.queue";
-    public static final String RAG_PROCESS_ROUTING_KEY = "ragprocess.message.send";
+    public static final String EMBEDDING_EXCHANGE = "ragprocess.message.exchange";
+    public static final String EMBEDDING_QUEUE = "ragprocess.message.queue";
+    public static final String EMBEDDING_ROUTING_KEY = "ragprocess.message.send";
 
     @Bean
     public  DirectExchange ragProcessExchange(){
-        return new DirectExchange(RAG_PROCESS_EXCHANGE,true,false);
+        return new DirectExchange(EMBEDDING_EXCHANGE,true,false);
     }
 
     @Bean
     public Queue ragProcessQueue(){
-        return new Queue(RAG_PROCESS_QUEUE,true);
+        return new Queue(EMBEDDING_QUEUE,true);
     }
 
     @Bean
     public Binding ragProcessBinding(Queue ragProcessQueue,DirectExchange ragProcessExchange){
-        return BindingBuilder.bind(ragProcessQueue).to(ragProcessExchange).with(RAG_PROCESS_ROUTING_KEY);
+        return BindingBuilder.bind(ragProcessQueue).to(ragProcessExchange).with(EMBEDDING_ROUTING_KEY);
     }
 
 }

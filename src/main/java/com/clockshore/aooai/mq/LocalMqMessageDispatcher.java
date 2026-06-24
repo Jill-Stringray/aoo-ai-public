@@ -24,6 +24,8 @@ public class LocalMqMessageDispatcher {
     @Resource
     private RabbitTemplate rabbitTemplate;
 
+
+
     @Scheduled(fixedDelay = 3000)
     public void dispatch() {
         localMqMessageMapper.recoverTimeoutSending(LocalMqMessageStatus.FAILED, LocalMqMessageStatus.SENDING, 5);

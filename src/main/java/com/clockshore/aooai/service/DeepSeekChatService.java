@@ -96,7 +96,7 @@ public class DeepSeekChatService {
                 .totalTokens(usage == null ? 0 : toInteger(usage.getTotalTokens()))
                 .latencyMs(toInteger(latencyMs))
                 .build();
-        chatMessageMqProducer.publishPersist(event);
+        chatMessageMqProducer.publishMessagePersist(event);
     }
 
     @Transactional

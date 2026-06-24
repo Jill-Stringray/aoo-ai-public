@@ -51,12 +51,12 @@
 
     </select>
 
-    <select id="selectByDocumentId"
+    <select id="selectNewByDocumentId"
             resultType= "com.clockshore.aooai.entity.DocumentChunk">
 
         SELECT *
         FROM document_chunk
-        WHERE document_id = #{documentId}
+        WHERE document_id = #{documentId} and status = 'NEW'
         ORDER BY chunk_index
 
     </select>
@@ -66,6 +66,14 @@
         UPDATE document_chunk
         SET status = #{status}
         WHERE id = #{id}
+
+    </update>
+
+    <update id="updateStatusByDocumentId">
+
+        UPDATE document_chunk
+        SET status = #{status}
+        WHERE document_id = #{documentId}
 
     </update>
 

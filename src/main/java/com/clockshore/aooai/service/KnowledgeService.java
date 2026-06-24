@@ -1,6 +1,7 @@
 package com.clockshore.aooai.service;
 
 import cn.hutool.crypto.digest.DigestUtil;
+import com.clockshore.aooai.Utility.ToJsonUtil;
 import com.clockshore.aooai.entity.DocumentChunk;
 import com.clockshore.aooai.entity.KnowledgeDocument;
 import com.clockshore.aooai.mapper.DocumentChunkMapper;
@@ -36,7 +37,7 @@ public class KnowledgeService {
     @Resource
     private KnowledgeDocumentMapper knowledgeDocumentMapper;
     @Resource
-    private final ObjectMapper objectMapper;
+    private ToJsonUtil toJsonUtil;
     @Resource
     private DocumentChunkMapper documentChunkMapper;
 
@@ -104,19 +105,7 @@ public class KnowledgeService {
 
         for(TextSegment t : segments) {
 
-            String metadataJson;
-
-            try {
-                metadataJson =
-                        objectMapper.writeValueAsString(
-                                t.metadata()
-                        );
-            } catch (JsonProcessingException e) {
-                throw new RuntimeException(
-                        "Metadata序列化失败",
-                        e
-                );
-            }
+            String metadataJson = toJsonUtil.toJson(t.metadata());
 
             DocumentChunk chunk = DocumentChunk.builder()
                     .knowledgeBaseId(1L)//todo 还没想好怎么开发
