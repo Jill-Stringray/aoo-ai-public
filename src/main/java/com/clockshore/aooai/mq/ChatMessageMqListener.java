@@ -1,21 +1,15 @@
 package com.clockshore.aooai.mq;
 
-import com.clockshore.aooai.Utility.ToJsonUtil;
+import com.clockshore.aooai.service.KnowledgeService;
 import com.clockshore.aooai.entity.ConversationMessage;
-import com.clockshore.aooai.entity.DocumentChunk;
 import com.clockshore.aooai.mapper.ConversationMessageMapper;
-import com.clockshore.aooai.mapper.DocumentChunkMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import org.springframework.ai.vectorstore.VectorStore;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
-import org.springframework.ai.document.Document;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Map;
 
 @Component
 public class ChatMessageMqListener {
@@ -24,13 +18,7 @@ public class ChatMessageMqListener {
     private ObjectMapper objectMapper;
 
     @Resource
-    private VectorStore vectorStore;
-
-    @Resource
-    private ToJsonUtil toJsonUtil;
-
-    @Resource
-    private DocumentChunkMapper documentChunkMapper;
+    private KnowledgeService knowledgeService;
 
     @Resource
     private ConversationMessageMapper conversationMessageMapper;
@@ -57,22 +45,7 @@ public class ChatMessageMqListener {
 
     @RabbitListener(queues = ChatMqConfig.EMBEDDING_QUEUE)
     public void embeddingConsume(Long documentId){
-        // 1 查询待向量化 Chunk
-        List<DocumentChunk> chunks =
-                documentChunkMapper.selectNewByDocumentId(documentId);
-
-        // 2 转换成 Spring AI Document
-        List<Document> docs =
-                convertToDocuments(chunks);
-
-        // 3 写入向量库
-        vectorStore.add(docs);
-
-        // 4 更新状态
-        documentChunkMapper.updateStatusByDocumentId(
-                documentId,
-                "EMBEDDED"
-        );
+        knowledgeService.indexNewChunks(documentId);
     }
 
     private Integer defaultZero(Integer value) {
@@ -86,43 +59,5 @@ public class ChatMessageMqListener {
             throw new IllegalStateException("parse chat message event failed", e);
         }
     }
-
-    //转化为document类型插入vector
-    private List<Document> convertToDocuments(
-            List<DocumentChunk> chunks) {
-
-        return chunks.stream()
-                .map(this::convertToDocument)
-                .toList();
-    }
-
-
-    private Document convertToDocument(DocumentChunk chunk) {
-
-        Map<String, Object> metadata;
-
-
-        metadata = toJsonUtil.toMap(chunk.getMetadata());
-
-        // 补充一些检索时常用字段
-        metadata.put("chunkId", chunk.getId());
-        metadata.put("chunkKey", chunk.getChunkKey());
-        metadata.put("documentId", chunk.getDocumentId());
-        metadata.put("knowledgeBaseId", chunk.getKnowledgeBaseId());
-
-        if (chunk.getPageNo() != null) {
-            metadata.put("pageNo", chunk.getPageNo());
-        }
-
-        if (chunk.getSectionTitle() != null) {
-            metadata.put("sectionTitle", chunk.getSectionTitle());
-        }
-
-        return new Document(
-                chunk.getContent(),
-                metadata
-        );
-    }
-
 
 }

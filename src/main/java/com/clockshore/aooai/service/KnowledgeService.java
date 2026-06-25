@@ -6,7 +6,6 @@ import com.clockshore.aooai.entity.DocumentChunk;
 import com.clockshore.aooai.entity.KnowledgeDocument;
 import com.clockshore.aooai.mapper.DocumentChunkMapper;
 import com.clockshore.aooai.mapper.KnowledgeDocumentMapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import dev.langchain4j.data.segment.TextSegment;
 import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
@@ -14,11 +13,9 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.tika.Tika;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -40,6 +37,8 @@ public class KnowledgeService {
     private ToJsonUtil toJsonUtil;
     @Resource
     private DocumentChunkMapper documentChunkMapper;
+    @Resource
+    private DocumentReaderService documentReaderService;
 
     Tika tika = new Tika();
 
@@ -56,10 +55,38 @@ public class KnowledgeService {
 
 
 
+    /**
+     * 完整的 RAG 文档入库链路：上传文件、解析文档、清洗文本、补充元数据、切片、
+     * 保存切片、写入 VectorStore，最后更新文档状态为 READY。
+     */
+    @Transactional
+    public IngestResult ingestAndIndex(MultipartFile file) throws IOException {
+        KnowledgeDocument document = storeUploadedDocument(file);
+        knowledgeDocumentMapper.updateStatus(document.getId(), "PARSING");
+
+        List<Document> docs = documentReaderService.read(Paths.get(document.getStorageUrl()));
+        docs = documentReaderService.normalize(docs);
+        docs = documentReaderService.enrichMetadata(docs, document);
+
+        knowledgeDocumentMapper.updateStatus(document.getId(), "CHUNKING");
+        List<TextSegment> segments = tokenSplitterService.split(docs);
+        int savedChunkCount = saveChunks(segments);
+
+        knowledgeDocumentMapper.updateStatus(document.getId(), "INDEXING");
+        int indexedChunkCount = indexNewChunks(document.getId());
+        knowledgeDocumentMapper.updateStatus(document.getId(), "READY");
+
+        return new IngestResult(document.getId(), savedChunkCount, indexedChunkCount);
+    }
+
     //此函数只进行导入＆保存文件，不处理
     //保存后写入mysql中的knowledge_document表来记录
     @Transactional
     public Path upload(MultipartFile file) throws IOException {
+        return Paths.get(storeUploadedDocument(file).getStorageUrl());
+    }
+
+    private KnowledgeDocument storeUploadedDocument(MultipartFile file) throws IOException {
         validate(file);
         //防止../../../test.pdf
         String originalName = Paths.get(
@@ -82,7 +109,7 @@ public class KnowledgeService {
         try{
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-            knowledgeDocumentMapper.insert(KnowledgeDocument.builder()
+            KnowledgeDocument document = KnowledgeDocument.builder()
                     .knowledgeBaseId(1L)//TODO 等待修改
                     .documentKey(u)
                     .fileName(originalName)
@@ -92,15 +119,19 @@ public class KnowledgeService {
                     .storageUrl(filePath.toString())
                     .sourceType("UPLOAD")
                     .status("UPLOADED")
-                    .build());
+                    .build();
+            knowledgeDocumentMapper.insert(document);
+            return document;
         } catch (Exception ex) {
             Files.deleteIfExists(filePath);
             throw ex;
         }
-        return filePath;
     }
 
     public int saveChunks(List<TextSegment> segments){
+        if (segments.isEmpty()) {
+            return 0;
+        }
         List<DocumentChunk> chunks = new ArrayList<>();
 
         for(TextSegment t : segments) {
@@ -126,6 +157,49 @@ public class KnowledgeService {
     }
 
 
+    /**
+     * 查询指定文档下未入向量库的切片，转换为 Spring AI Document 后写入 VectorStore。
+     */
+    public int indexNewChunks(Long documentId) {
+        List<DocumentChunk> chunks = documentChunkMapper.selectNewByDocumentId(documentId);
+        if (chunks.isEmpty()) {
+            return 0;
+        }
+        vectorStore.add(convertToDocuments(chunks));
+        documentChunkMapper.updateStatusByDocumentId(documentId, "EMBEDDED");
+        return chunks.size();
+    }
+
+    //转化为document类型插入vector
+    public List<Document> convertToDocuments(List<DocumentChunk> chunks) {
+        return chunks.stream()
+                .map(this::convertToDocument)
+                .toList();
+    }
+
+    private Document convertToDocument(DocumentChunk chunk) {
+        Map<String, Object> metadata = toJsonUtil.toMap(chunk.getMetadata());
+
+        metadata.put("chunkId", chunk.getId());
+        metadata.put("chunkKey", chunk.getChunkKey());
+        metadata.put("documentId", chunk.getDocumentId());
+        metadata.put("knowledgeBaseId", chunk.getKnowledgeBaseId());
+
+        if (chunk.getPageNo() != null) {
+            metadata.put("pageNo", chunk.getPageNo());
+        }
+
+        if (chunk.getSectionTitle() != null) {
+            metadata.put("sectionTitle", chunk.getSectionTitle());
+        }
+
+        return new Document(chunk.getContent(), metadata);
+    }
+
+    public record IngestResult(Long documentId, int savedChunkCount, int indexedChunkCount) {
+    }
+
+
     //用于upload 检测文件是否合法
     private void validate(MultipartFile file) throws IOException{
         if (file.isEmpty()) {
@@ -143,7 +217,7 @@ public class KnowledgeService {
         //MIME TYPE校验
         //不使用getContentType获取，可以被修改
         String mimeType = tika.detect(file.getInputStream());
-        Set<String> expectedMimeTypes = FILE_TYPE_MAPPING.get(FilenameUtils.getExtension(fileName));
+        Set<String> expectedMimeTypes = FILE_TYPE_MAPPING.get(FilenameUtils.getExtension(fileName).toLowerCase(Locale.ROOT));
         //检测mimeType是否与文件后缀对应
         if (expectedMimeTypes == null ||
                 !expectedMimeTypes.contains(mimeType)) {

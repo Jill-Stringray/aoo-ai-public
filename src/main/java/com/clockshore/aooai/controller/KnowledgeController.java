@@ -16,7 +16,7 @@ public class KnowledgeController {
 
     @PostMapping("/knowledge/upload")
     public String upload(@RequestParam("file") MultipartFile file) throws IOException {
-        knowledgeService.upload(file);
+        knowledgeService.ingestAndIndex(file);
         return "success";
     }
 }
