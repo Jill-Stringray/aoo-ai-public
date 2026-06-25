@@ -61,6 +61,24 @@ public class KnowledgeService {
      */
     @Transactional
     public IngestResult ingestAndIndex(MultipartFile file) throws IOException {
+        IngestResult preparedResult = ingestAndSaveChunks(file);
+
+        knowledgeDocumentMapper.updateStatus(preparedResult.documentId(), "INDEXING");
+        int indexedChunkCount = indexNewChunks(preparedResult.documentId());
+
+        return new IngestResult(
+                preparedResult.documentId(),
+                preparedResult.savedChunkCount(),
+                indexedChunkCount
+        );
+    }
+
+    /**
+     * 完成向量化前的文档准备链路：上传文件、解析文档、清洗文本、补充元数据、
+     * 切片并保存 Chunk。异步 MQ 消费者可以基于返回的 documentId 继续写入 VectorStore。
+     */
+    @Transactional
+    public IngestResult ingestAndSaveChunks(MultipartFile file) throws IOException {
         KnowledgeDocument document = storeUploadedDocument(file);
         knowledgeDocumentMapper.updateStatus(document.getId(), "PARSING");
 
@@ -72,11 +90,7 @@ public class KnowledgeService {
         List<TextSegment> segments = tokenSplitterService.split(docs);
         int savedChunkCount = saveChunks(segments);
 
-        knowledgeDocumentMapper.updateStatus(document.getId(), "INDEXING");
-        int indexedChunkCount = indexNewChunks(document.getId());
-        knowledgeDocumentMapper.updateStatus(document.getId(), "READY");
-
-        return new IngestResult(document.getId(), savedChunkCount, indexedChunkCount);
+        return new IngestResult(document.getId(), savedChunkCount, 0);
     }
 
     //此函数只进行导入＆保存文件，不处理
@@ -167,6 +181,7 @@ public class KnowledgeService {
         }
         vectorStore.add(convertToDocuments(chunks));
         documentChunkMapper.updateStatusByDocumentId(documentId, "EMBEDDED");
+        knowledgeDocumentMapper.updateStatus(documentId, "READY");
         return chunks.size();
     }
 

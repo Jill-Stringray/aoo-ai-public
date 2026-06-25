@@ -1,5 +1,6 @@
 package com.clockshore.aooai;
 
+import com.clockshore.aooai.mq.ChatMessageMqListener;
 import com.clockshore.aooai.service.KnowledgeService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,8 +18,11 @@ class KnowledgeIngestPipelineTest {
     @Autowired
     private KnowledgeService knowledgeService;
 
+    @Autowired
+    private ChatMessageMqListener chatMessageMqListener;
+
     @Test
-    void testUploadParseSplitAndIndexPipeline() throws Exception {
+    void testUploadParseSplitAndIndexPipelineByMq() throws Exception {
 
         MockMultipartFile file =
                 new MockMultipartFile(
@@ -32,27 +36,32 @@ class KnowledgeIngestPipelineTest {
                         )
                 );
 
-        KnowledgeService.IngestResult result =
-                knowledgeService.ingestAndIndex(file);
+        KnowledgeService.IngestResult preparedResult =
+                knowledgeService.ingestAndSaveChunks(file);
+
+        int indexedChunkCount =
+                chatMessageMqListener.consumeEmbeddingTask(
+                        preparedResult.documentId()
+                );
 
         System.out.println(
                 "Document ID：" +
-                        result.documentId()
+                        preparedResult.documentId()
         );
 
         System.out.println(
                 "保存 Chunk 数量：" +
-                        result.savedChunkCount()
+                        preparedResult.savedChunkCount()
         );
 
         System.out.println(
-                "写入 VectorStore Chunk 数量：" +
-                        result.indexedChunkCount()
+                "MQ 写入 VectorStore Chunk 数量：" +
+                        indexedChunkCount
         );
 
-        assertThat(result.documentId()).isNotNull();
-        assertThat(result.savedChunkCount()).isPositive();
-        assertThat(result.indexedChunkCount())
-                .isEqualTo(result.savedChunkCount());
+        assertThat(preparedResult.documentId()).isNotNull();
+        assertThat(preparedResult.savedChunkCount()).isPositive();
+        assertThat(indexedChunkCount)
+                .isEqualTo(preparedResult.savedChunkCount());
     }
 }

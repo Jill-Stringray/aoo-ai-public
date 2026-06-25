@@ -45,7 +45,11 @@ public class ChatMessageMqListener {
 
     @RabbitListener(queues = ChatMqConfig.EMBEDDING_QUEUE)
     public void embeddingConsume(Long documentId){
-        knowledgeService.indexNewChunks(documentId);
+        consumeEmbeddingTask(documentId);
+    }
+
+    public int consumeEmbeddingTask(Long documentId) {
+        return knowledgeService.indexNewChunks(documentId);
     }
 
     private Integer defaultZero(Integer value) {
