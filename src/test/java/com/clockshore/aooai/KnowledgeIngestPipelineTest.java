@@ -1,6 +1,10 @@
 package com.clockshore.aooai;
 
+import com.clockshore.aooai.entity.LocalMqMessage;
+import com.clockshore.aooai.enumType.LocalMqMessageStatus;
 import com.clockshore.aooai.mq.ChatMessageMqListener;
+import com.clockshore.aooai.mq.ChatMessageMqProducer;
+import com.clockshore.aooai.mq.ChatMqConfig;
 import com.clockshore.aooai.service.KnowledgeService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,10 +23,13 @@ class KnowledgeIngestPipelineTest {
     private KnowledgeService knowledgeService;
 
     @Autowired
+    private ChatMessageMqProducer chatMessageMqProducer;
+
+    @Autowired
     private ChatMessageMqListener chatMessageMqListener;
 
     @Test
-    void testUploadParseSplitAndIndexPipelineByMq() throws Exception {
+    void testUploadParseSplitPublishAndConsumePipelineByMq() throws Exception {
 
         MockMultipartFile file =
                 new MockMultipartFile(
@@ -39,9 +46,14 @@ class KnowledgeIngestPipelineTest {
         KnowledgeService.IngestResult preparedResult =
                 knowledgeService.ingestAndSaveChunks(file);
 
-        int indexedChunkCount =
-                chatMessageMqListener.consumeEmbeddingTask(
+        LocalMqMessage embeddingTaskMessage =
+                chatMessageMqProducer.publishEmbeddingTask(
                         preparedResult.documentId()
+                );
+
+        int indexedChunkCount =
+                chatMessageMqListener.consumeEmbeddingPayload(
+                        embeddingTaskMessage.getPayload()
                 );
 
         System.out.println(
@@ -55,12 +67,24 @@ class KnowledgeIngestPipelineTest {
         );
 
         System.out.println(
+                "本地 MQ 消息 ID：" +
+                        embeddingTaskMessage.getId()
+        );
+
+        System.out.println(
                 "MQ 写入 VectorStore Chunk 数量：" +
                         indexedChunkCount
         );
 
         assertThat(preparedResult.documentId()).isNotNull();
         assertThat(preparedResult.savedChunkCount()).isPositive();
+        assertThat(embeddingTaskMessage.getId()).isNotNull();
+        assertThat(embeddingTaskMessage.getTopic())
+                .isEqualTo(ChatMqConfig.EMBEDDING_EXCHANGE);
+        assertThat(embeddingTaskMessage.getRoutingKey())
+                .isEqualTo(ChatMqConfig.EMBEDDING_ROUTING_KEY);
+        assertThat(embeddingTaskMessage.getStatus())
+                .isEqualTo(LocalMqMessageStatus.NEW.getValue());
         assertThat(indexedChunkCount)
                 .isEqualTo(preparedResult.savedChunkCount());
     }

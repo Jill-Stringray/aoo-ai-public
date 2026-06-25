@@ -44,12 +44,24 @@ public class ChatMessageMqListener {
     }
 
     @RabbitListener(queues = ChatMqConfig.EMBEDDING_QUEUE)
-    public void embeddingConsume(Long documentId){
-        consumeEmbeddingTask(documentId);
+    public void embeddingConsume(String payload){
+        consumeEmbeddingPayload(payload);
+    }
+
+    public int consumeEmbeddingPayload(String payload) {
+        return consumeEmbeddingTask(parseDocumentId(payload));
     }
 
     public int consumeEmbeddingTask(Long documentId) {
         return knowledgeService.indexNewChunks(documentId);
+    }
+
+    private Long parseDocumentId(String payload) {
+        try {
+            return objectMapper.readValue(payload, Long.class);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("parse embedding task payload failed", e);
+        }
     }
 
     private Integer defaultZero(Integer value) {
