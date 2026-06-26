@@ -64,7 +64,8 @@ public class UserService {
 
         user.setLastLoginAt(LocalDateTime.now());
         appUserMapper.update(user);
-        return ApiResponse.success("LOGIN_SUCCESS", "登录成功", UserVO.from(user));
+        String roleCode = appUserMapper.selectPrimaryRoleCodeByUserId(user.getId());
+        return ApiResponse.success("LOGIN_SUCCESS", "登录成功", UserVO.from(user, roleCode));
     }
 
 

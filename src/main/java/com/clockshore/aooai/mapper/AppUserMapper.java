@@ -21,4 +21,6 @@ public interface AppUserMapper {
 
     AppUser selectByUsername(@Param("username") String username);
 
+    String selectPrimaryRoleCodeByUserId(@Param("userId") Long userId);
+
 }

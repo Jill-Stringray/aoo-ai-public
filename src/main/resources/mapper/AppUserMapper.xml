@@ -43,4 +43,24 @@
         SELECT * FROM app_user
     </select>
 
+    <select id="selectPrimaryRoleCodeByUserId" parameterType="long" resultType="string">
+        SELECT r.role_code
+        FROM user_role ur
+                 INNER JOIN role r ON r.id = ur.role_id
+        WHERE ur.user_id = #{userId}
+        ORDER BY CASE r.role_code
+                     WHEN 'ADMIN' THEN 1
+                     WHEN 'SUPER_ADMIN' THEN 2
+                     WHEN 'SYSTEM_ADMIN' THEN 3
+                     WHEN 'MANAGER' THEN 4
+                     WHEN 'KB_MANAGER' THEN 5
+                     WHEN 'DOC_EDITOR' THEN 6
+                     WHEN 'AUDITOR' THEN 7
+                     WHEN 'USER' THEN 99
+                     ELSE 50
+                 END,
+                 ur.id
+        LIMIT 1
+    </select>
+
 </mapper>

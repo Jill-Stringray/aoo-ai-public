@@ -3,6 +3,7 @@ package com.clockshore.aooai.dto.auth;
 import com.clockshore.aooai.entity.AppUser;
 import lombok.Builder;
 import lombok.Data;
+import org.springframework.util.StringUtils;
 
 /**
  * 登录成功后返回给前端的用户视图对象。
@@ -39,18 +40,22 @@ public class UserVO {
     private String status;
 
     /**
-     * 当前前端演示页面需要展示角色，正式 RBAC 接入后可改成角色列表。
+     * 当前前端页面需要展示的主角色；后续可扩展为角色列表。
      */
     private String role;
 
     public static UserVO from(AppUser user) {
+        return from(user, null);
+    }
+
+    public static UserVO from(AppUser user, String roleCode) {
         return UserVO.builder()
                 .userId(user.getId())
                 .username(user.getUsername())
                 .displayName(user.getDisplayName())
                 .email(user.getEmail())
                 .status(user.getStatus())
-                .role("USER")
+                .role(StringUtils.hasText(roleCode) ? roleCode : "USER")
                 .build();
     }
 }
