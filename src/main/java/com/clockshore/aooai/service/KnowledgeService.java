@@ -150,7 +150,7 @@ public class KnowledgeService {
 
         for(TextSegment t : segments) {
 
-            String metadataJson = toJsonUtil.toJson(t.metadata());
+            String metadataJson = toJsonUtil.toJson(t.metadata().toMap());
 
             DocumentChunk chunk = DocumentChunk.builder()
                     .knowledgeBaseId(1L)//todo 还没想好怎么开发

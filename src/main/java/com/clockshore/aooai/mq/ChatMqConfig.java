@@ -25,8 +25,8 @@ public class ChatMqConfig {
     }
 
     @Bean
-    public Binding chatBinding(Queue chatQueue, DirectExchange chatExchange) {
-        return BindingBuilder.bind(chatQueue).to(chatExchange).with(CHAT_ROUTING_KEY);
+    public Binding chatBinding() {
+        return BindingBuilder.bind(chatQueue()).to(chatExchange()).with(CHAT_ROUTING_KEY);
     }
 
     public static final String EMBEDDING_EXCHANGE = "ragprocess.message.exchange";
@@ -44,8 +44,8 @@ public class ChatMqConfig {
     }
 
     @Bean
-    public Binding ragProcessBinding(Queue ragProcessQueue,DirectExchange ragProcessExchange){
-        return BindingBuilder.bind(ragProcessQueue).to(ragProcessExchange).with(EMBEDDING_ROUTING_KEY);
+    public Binding ragProcessBinding(){
+        return BindingBuilder.bind(ragProcessQueue()).to(ragProcessExchange()).with(EMBEDDING_ROUTING_KEY);
     }
 
 }
