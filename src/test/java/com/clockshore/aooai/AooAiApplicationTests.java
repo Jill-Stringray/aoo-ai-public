@@ -17,18 +17,6 @@ import java.util.List;
 @SpringBootTest
 class AooAiApplicationTests {
 
-    @Resource
-    private AppUserMapper appUserMapper;
-    @Resource
-    private BCryptPasswordEncoder bCryptPasswordEncoder;
-
-    @Autowired
-    private EmbeddingModel embeddingModel;
-
-    @Autowired
-    private VectorStore vectorStore;
-
-
 
 }
 
