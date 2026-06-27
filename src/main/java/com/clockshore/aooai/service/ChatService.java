@@ -17,6 +17,7 @@ import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
@@ -26,19 +27,30 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Service
-public class DeepSeekChatService {
+public class ChatService {
+
     private ChatClient chatClient;
 
     @Resource
     private ConversationMapper conversationMapper;
+
+    @Resource
+    private KnowledgeRetrievalService knowledgeRetrievalService;
+
+    @Resource
+    private ContextBuilderService contextBuilderService;
+
+    @Resource
+    private RagPromptService ragPromptService;
+
     @Resource
     private ConversationMessageMapper conversationMessageMapper;
 
     @Resource
     private ChatMessageMqProducer chatMessageMqProducer;
 
-    public DeepSeekChatService(ChatClient.Builder builder,
-                               ConversationMessageMapper conversationMessageMapper
+    public ChatService(ChatClient.Builder builder,
+                       ConversationMessageMapper conversationMessageMapper
     ){  this.chatClient = builder.build();
         this.conversationMessageMapper = conversationMessageMapper;
     }
@@ -113,6 +125,55 @@ public class DeepSeekChatService {
         return conversationMessageMapper.insert(conversationMessage);
     }
 
+    private List<Message> buildRagMessages(ChatRequest request) {
+
+        List<Message> messages = new ArrayList<>();
+
+        //基础提示词
+        messages.add(
+                new SystemMessage("""
+                你是一个专业的 AI 助手。
+                在存在知识库内容时，请优先依据知识库回答。
+                """)
+        );
+
+        // 解析当前问题
+        //todo 加问题改写
+        String question = request.resolveMessage();
+
+        // 检索知识库
+        List<Document> docs =
+                knowledgeRetrievalService.retrieve(
+                        question,
+                        5
+                );
+
+        if(docs != null && !docs.isEmpty()){
+            // 构造知识上下文
+            String context =
+                    contextBuilderService.build(docs);
+
+            // 插入知识库消息
+            if (!context.isBlank()) {
+                messages.add(
+                        new SystemMessage(
+                                ragPromptService.buildPrompt(context)
+                        )
+                );
+            }
+        }
+
+        // 历史消息
+        messages.addAll(buildHistory(request));
+
+        // 加入当前用户问题
+        messages.add(
+                new UserMessage(question)
+        );
+
+        return messages;
+    }
+
     private Integer toInteger(Number value) {
         if (value == null) {
             return 0;
@@ -124,6 +185,8 @@ public class DeepSeekChatService {
     }
 
     public List<Message> buildMessages(ChatRequest chatRequest){
+        //history messages + current message
+        //将当前消息加入
         List<Message> messages = new ArrayList<>();
         messages.addAll(buildHistory(chatRequest));
         String currentMessage = chatRequest.resolveMessage();
@@ -135,6 +198,7 @@ public class DeepSeekChatService {
 
     public List<Message> buildHistory(ChatRequest chatRequest){
         //构建历史消息
+        //不包含当前消息
         List<Message> history = new ArrayList<>();
         List<ConversationMessage> messagesList = conversationMessageMapper.selectByConversationId(chatRequest.getConversationId());
         for (ConversationMessage msg : messagesList) {

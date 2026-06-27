@@ -21,6 +21,7 @@ public class KnowledgeRetrievalService {
             Integer topK
     ) {
 
+
         List<Document> docs =
                 vectorStore.similaritySearch(
                         SearchRequest.builder()
@@ -28,7 +29,6 @@ public class KnowledgeRetrievalService {
                                 .topK(topK)
                                 .build()
                 );
-
         return docs;
     }
 

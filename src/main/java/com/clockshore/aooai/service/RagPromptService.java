@@ -5,27 +5,21 @@ import org.springframework.stereotype.Service;
 @Service
 public class RagPromptService {
 
-    public String buildPrompt(
-            String context,
-            String question
-    ) {
+    public String buildPrompt(String context) {
         return """
-                你是一个知识库问答助手。
+                以下内容来自企业知识库。
 
-                请严格依据提供的知识回答问题。
+                请优先依据知识库内容回答用户问题。
 
-                如果知识中不存在答案，请明确回答：
+                如果知识库中不存在相关信息，
+                请明确说明：
                 "知识库中没有找到相关内容。"
 
-                ===== 知识 =====
-                %s
+                ===== 知识库内容 =====
 
-                ===== 问题 =====
                 %s
                 """
-                .formatted(
-                        context,
-                        question
-                );
+                .formatted(context);
     }
+
 }
