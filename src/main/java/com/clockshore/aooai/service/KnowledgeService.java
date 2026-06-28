@@ -173,7 +173,14 @@ public class KnowledgeService {
 
             chunks.add(chunk);
         }
-        return documentChunkMapper.batchInsert(chunks);
+
+        //防止无内容时报错
+        if(chunks.isEmpty()){
+            return 0;
+        }
+        else{
+            return documentChunkMapper.batchInsert(chunks);
+        }
     }
 
 
