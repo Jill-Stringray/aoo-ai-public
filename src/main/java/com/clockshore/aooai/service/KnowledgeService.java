@@ -174,7 +174,7 @@ public class KnowledgeService {
             chunks.add(chunk);
         }
 
-        //防止无内容时报错
+        //防止chunks无内容时报错
         if(chunks.isEmpty()){
             return 0;
         }
