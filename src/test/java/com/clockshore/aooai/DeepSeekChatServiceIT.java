@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest(classes = AooAiApplication.class)
-class DeepSeekChatServiceTest {
+class DeepSeekChatServiceIT {
 
     @Resource
     private ChatService chatService;

@@ -17,7 +17,7 @@ import java.nio.file.Paths;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(classes = AooAiApplication.class)
-class KnowledgeIngestPipelineTest {
+class KnowledgeIngestPipelineIT {
 
     @Autowired
     private KnowledgeService knowledgeService;

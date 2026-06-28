@@ -1,36 +1,33 @@
 # IDEA 中只运行单个 JUnit 测试的方法
 
-如果在 IntelliJ IDEA 中点击某个测试方法旁边的运行按钮，却发现同一个模块里的其它测试也一起被启动，通常是因为当前 Run Configuration 被配置成了运行整个包、整个模块，或者使用 Maven `test` goal 时没有带上 `-Dtest=类名#方法名`。
+本项目里 `DeepSeekChatServiceIT`、`KnowledgeIngestPipelineIT`、`RetrievalIT`、`UploadIT` 都会启动完整 Spring Boot 上下文，并依赖本机 MySQL、PostgreSQL/pgvector、RabbitMQ 或本地知识库数据。它们更接近手动集成验证，不适合被普通 `mvn test` 自动全量扫描。
 
-## 推荐设置
+之前这些类使用 `*Test` / `*Tests` 命名，Maven Surefire 执行 `mvn test` 时会按默认规则自动发现它们，所以即使你本来只想从 IDEA 运行一个测试，一旦 Run Configuration 实际执行的是整个 Maven `test` goal，就会看到多个测试类依次启动。
 
-1. 打开 **Settings/Preferences | Build, Execution, Deployment | Build Tools | Maven | Runner**。
-2. 如果不需要强制走 Maven，建议把 **Run tests using** 设置为 **IntelliJ IDEA**，这样从测试方法 gutter 图标启动时会精确运行该方法。
-3. 如果项目要求委托给 Maven 执行，请确认 IDEA 生成的命令包含类似参数：
+## 已采用的项目约定
 
-   ```bash
-   mvn -Dtest=UploadTests#testReadAndSplit test
-   ```
+- 普通单元测试继续使用 `*Test` 或 `*Tests` 命名，可被 `mvn test` 自动执行。
+- 需要外部服务、会读写数据库或会调用模型的手动集成验证使用 `*IT` 命名，默认不会被 Maven Surefire 的 `mvn test` 扫描。
+- 当前已将这些手动集成验证改名为：
+  - `DeepSeekChatServiceIT`
+  - `KnowledgeIngestPipelineIT`
+  - `RetrievalIT`
+  - `UploadIT`
 
-   只有执行 `mvn test` 时，Maven Surefire 才会扫描并运行所有符合命名规则的测试类。
+## 在 IDEA 中运行单个测试
 
-## 本项目的 Maven 测试命名规则
+推荐直接点击测试方法左侧的绿色运行按钮，并确认 Run Configuration 的目标是具体的类/方法，而不是整个包、整个模块或 Maven `test` goal。
 
-`pom.xml` 已显式配置 Maven Surefire 只扫描下面两类 JUnit 测试文件：
-
-- `**/*Test.java`
-- `**/*Tests.java`
-
-因此，命令行运行单个测试时请使用：
+如果 IDEA 委托 Maven 执行，需要生成带 `-Dtest=类名#方法名` 的命令，例如：
 
 ```bash
-mvn -Dtest=类名#方法名 test
+mvn -Dtest=UploadIT#testReadAndSplit test
 ```
 
-例如：
+不要只运行：
 
 ```bash
-mvn -Dtest=UploadTests#testReadAndSplit test
+mvn test
 ```
 
-不要只运行 `mvn test`，否则 Maven 会按上述规则发现并执行全部测试类。
+`mvn test` 的语义是运行所有被 Surefire 自动发现的普通测试；它不是“运行当前光标所在的测试方法”。

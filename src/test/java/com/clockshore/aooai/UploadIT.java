@@ -17,7 +17,7 @@ import java.util.IntSummaryStatistics;
 import java.util.List;
 
 @SpringBootTest(classes = AooAiApplication.class)
-class UploadTests {
+class UploadIT {
 
     @Autowired
     private KnowledgeService knowledgeService;
