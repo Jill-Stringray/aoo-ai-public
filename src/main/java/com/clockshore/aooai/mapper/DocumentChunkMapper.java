@@ -40,4 +40,8 @@ public interface DocumentChunkMapper {
     int deleteByDocumentId(
             @Param("documentId") Long documentId
     );
+
+    int findHash(
+            @Param("contentHash")String contentHash
+    );
 }

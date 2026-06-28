@@ -32,13 +32,7 @@ public class ChatService {
     private ChatClient chatClient;
 
     @Resource
-    private ConversationMapper conversationMapper;
-
-    @Resource
     private KnowledgeRetrievalService knowledgeRetrievalService;
-
-    @Resource
-    private ContextBuilderService contextBuilderService;
 
     @Resource
     private RagPromptService ragPromptService;
@@ -60,7 +54,7 @@ public class ChatService {
         //Advisor = ChatClient 的“拦截器 / 增强器 / 插件系统”
         long startedAt = System.currentTimeMillis();
         String reply = chatClient.prompt()
-                .messages(buildMessages(chatRequest))
+                .messages(buildRagMessages(chatRequest))
                 .call()
                 .content();
         enqueueAssistantMessage(chatRequest, reply, null, System.currentTimeMillis() - startedAt);
@@ -111,6 +105,7 @@ public class ChatService {
         chatMessageMqProducer.publishMessagePersist(event);
     }
 
+    //立即保存不走MQ
     @Transactional
     public Long saveAssistantMessage(ChatRequest chatRequest,String reply){
         ConversationMessage conversationMessage = ConversationMessage.builder()
@@ -125,7 +120,7 @@ public class ChatService {
         return conversationMessageMapper.insert(conversationMessage);
     }
 
-    private List<Message> buildRagMessages(ChatRequest request) {
+    public List<Message> buildRagMessages(ChatRequest request) {
 
         List<Message> messages = new ArrayList<>();
 
@@ -133,7 +128,10 @@ public class ChatService {
         messages.add(
                 new SystemMessage("""
                 你是一个专业的 AI 助手。
-                在存在知识库内容时，请优先依据知识库回答。
+                1.只能依据知识库内容回答问题
+                2.如果知识库没有相关信息，请明确说“未找到相关内容”
+                3.不允许编造答案
+                4.请尽量引用原文信息
                 """)
         );
 
@@ -148,28 +146,22 @@ public class ChatService {
                         5
                 );
 
-        if(docs != null && !docs.isEmpty()){
-            // 构造知识上下文
-            String context =
-                    contextBuilderService.build(docs);
+        StringBuilder ragText = new StringBuilder("以下内容为企业知识库召回结果：");
 
-            // 插入知识库消息
-            if (!context.isBlank()) {
-                messages.add(
-                        new SystemMessage(
-                                ragPromptService.buildPrompt(context)
-                        )
-                );
-            }
+        for (Document doc : docs) {
+            ragText.append(ragPromptService.buildAll(doc))
+                    .append("\n\n------------------\n\n");
         }
+
+        messages.add(
+                new SystemMessage(ragText.toString())
+        );
 
         // 历史消息
         messages.addAll(buildHistory(request));
 
         // 加入当前用户问题
-        messages.add(
-                new UserMessage(question)
-        );
+        messages.add(new UserMessage(question));
 
         return messages;
     }

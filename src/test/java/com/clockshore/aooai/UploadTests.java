@@ -2,7 +2,6 @@ package com.clockshore.aooai;
 
 import com.clockshore.aooai.service.DocumentReaderService;
 import com.clockshore.aooai.service.KnowledgeService;
-import com.clockshore.aooai.service.DocumentReaderService;
 import com.clockshore.aooai.service.TokenSplitterService;
 import dev.langchain4j.data.segment.TextSegment;
 import org.junit.jupiter.api.Test;
@@ -17,7 +16,7 @@ import java.nio.file.Paths;
 import java.util.IntSummaryStatistics;
 import java.util.List;
 
-@SpringBootTest
+@SpringBootTest(classes = AooAiApplication.class)
 class UploadTests {
 
     @Autowired

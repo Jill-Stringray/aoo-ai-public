@@ -151,6 +151,12 @@ public class KnowledgeService {
         for(TextSegment t : segments) {
 
             String metadataJson = toJsonUtil.toJson(t.metadata().toMap());
+            String hash = DigestUtil.sha256Hex(t.text());
+
+            //去重跳过
+            if(documentChunkMapper.findHash(hash) > 0){
+                continue;
+            }
 
             DocumentChunk chunk = DocumentChunk.builder()
                     .knowledgeBaseId(1L)//todo 还没想好怎么开发
@@ -158,7 +164,7 @@ public class KnowledgeService {
                     .chunkKey(UUID.randomUUID().toString())
                     .chunkIndex(t.metadata().getInteger("index"))
                     .content(t.text())
-                    .contentHash(DigestUtil.sha256Hex(t.text()))
+                    .contentHash(hash)
                     .tokenCount(t.text().length())
                     .pageNo(t.metadata().getInteger("page_number"))
                     .metadata(metadataJson)

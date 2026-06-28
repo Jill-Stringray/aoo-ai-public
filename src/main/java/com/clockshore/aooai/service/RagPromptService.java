@@ -1,20 +1,20 @@
 package com.clockshore.aooai.service;
 
+import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Service;
+import org.springframework.web.service.invoker.HttpRequestValues;
+
+import java.util.Map;
 
 @Service
 public class RagPromptService {
 
+    public String buildAll(Document document){
+        return buildPrompt(document.getText()) + buildMetadata(document);
+    }
+
     public String buildPrompt(String context) {
         return """
-                以下内容来自企业知识库。
-
-                请优先依据知识库内容回答用户问题。
-
-                如果知识库中不存在相关信息，
-                请明确说明：
-                "知识库中没有找到相关内容。"
-
                 ===== 知识库内容 =====
 
                 %s
@@ -22,4 +22,18 @@ public class RagPromptService {
                 .formatted(context);
     }
 
+    public String buildMetadata(Document document) {
+
+        Map<String, Object> metadata = document.getMetadata();
+
+        return """
+
+            来源：%s 第%s页
+
+            """
+                .formatted(
+                        metadata.getOrDefault("fileName", "未知文档"),
+                        metadata.getOrDefault("pageNo", "-")
+                );
+    }
 }
