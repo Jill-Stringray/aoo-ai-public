@@ -19,7 +19,7 @@ class DeepSeekChatServiceIT {
         ChatRequest c = ChatRequest.builder()
                 .conversationId(1L)
                 .conversationKey("test")
-                .message("Va-11 HALL-A 和 cyberpunkRed 有什么关系？")
+                .message("介绍 jill stingray 在这里面的角色是什么？")
                 .userId(1L)
                 .model("deepseek")
                 .stream(true)
@@ -27,7 +27,7 @@ class DeepSeekChatServiceIT {
 
         System.out.println(chatService.buildRagMessages(c));
         System.out.println(chatService.nonStreamChat(c));
-        //todo 检索质量低
+        System.out.println();
 
         System.out.println("\n\n*******************ChatTest*******************\n\n");
     }

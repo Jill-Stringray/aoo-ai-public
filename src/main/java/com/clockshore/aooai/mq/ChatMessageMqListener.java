@@ -44,16 +44,9 @@ public class ChatMessageMqListener {
     }
 
     @RabbitListener(queues = ChatMqConfig.EMBEDDING_QUEUE)
-    public void embeddingConsume(String payload){
-        consumeEmbeddingPayload(payload);
-    }
-
-    public int consumeEmbeddingPayload(String payload) {
-        return consumeEmbeddingTask(parseDocumentId(payload));
-    }
-
-    public int consumeEmbeddingTask(Long documentId) {
-        return knowledgeService.indexNewChunks(documentId);
+    public void embeddingConsume(String payload) {
+        Long documentId = parseDocumentId(payload);
+        knowledgeService.indexNewChunks(documentId);
     }
 
     private Long parseDocumentId(String payload) {

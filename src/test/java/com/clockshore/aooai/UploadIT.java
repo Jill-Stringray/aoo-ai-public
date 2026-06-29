@@ -31,6 +31,7 @@ class UploadIT {
     @Test
     void testReadAndSplit() throws Exception {
 
+        //此测试不走mysql入表
         MockMultipartFile file =
                 new MockMultipartFile(
                         "file",

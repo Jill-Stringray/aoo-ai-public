@@ -16,6 +16,15 @@ public interface DocumentChunkMapper {
             List<DocumentChunk> chunks
     );
 
+    int markEmbedding(
+            @Param("documentId") Long documentId
+    );
+
+    List<DocumentChunk> selectEmbeddingByDocumentId(
+            @Param("documentId")
+            Long documentId
+    );
+
     DocumentChunk selectById(@Param("id") Long id);
 
     List<DocumentChunk> selectNewByDocumentId(

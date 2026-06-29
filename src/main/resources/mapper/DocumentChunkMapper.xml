@@ -139,4 +139,18 @@
         from document_chunk
         where content_hash = #{contentHash}
     </select>
+
+    <select id="markEmbedding" resultType="int">
+        UPDATE document_chunk
+        SET status='EMBEDDING'
+        WHERE document_id=#{documentId}
+        AND status='NEW'
+    </select>
+
+    <select id="selectEmbeddingByDocumentId" resultType="com.clockshore.aooai.entity.DocumentChunk">
+        SELECT *
+        FROM document_chunk
+        WHERE document_id=#{documentId}
+        AND status='EMBEDDING'
+    </select>
 </mapper>

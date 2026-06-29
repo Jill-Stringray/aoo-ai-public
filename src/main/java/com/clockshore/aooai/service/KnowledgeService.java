@@ -134,6 +134,7 @@ public class KnowledgeService {
                     .sourceType("UPLOAD")
                     .status("UPLOADED")
                     .build();
+
             knowledgeDocumentMapper.insert(document);
             return document;
         } catch (Exception ex) {
@@ -155,6 +156,11 @@ public class KnowledgeService {
 
             //去重跳过
             if(documentChunkMapper.findHash(hash) > 0){
+                continue;
+            }
+
+            //太短的文本视为无效信息
+            if(t.text().length() < 50){
                 continue;
             }
 
@@ -185,16 +191,41 @@ public class KnowledgeService {
 
 
     /**
-     * 查询指定文档下未入向量库的切片，转换为 Spring AI Document 后写入 VectorStore。
+     * 通过MQ发起查询指定文档下未入向量库的切片，转换为 Spring AI Document 后写入 VectorStore。
+     * 无重复校验，只在Mysql入表时进行校验document是否重复。
      */
+    @Transactional
     public int indexNewChunks(Long documentId) {
-        List<DocumentChunk> chunks = documentChunkMapper.selectNewByDocumentId(documentId);
+
+        //抢占式消费
+        int locked =
+                documentChunkMapper.markEmbedding(documentId);
+
+        if (locked == 0) {
+            return 0;
+        }
+
+        List<DocumentChunk> chunks =
+                documentChunkMapper.selectEmbeddingByDocumentId(documentId);
+
         if (chunks.isEmpty()) {
             return 0;
         }
-        vectorStore.add(convertToDocuments(chunks));
-        documentChunkMapper.updateStatusByDocumentId(documentId, "EMBEDDED");
-        knowledgeDocumentMapper.updateStatus(documentId, "READY");
+
+        vectorStore.add(
+                convertToDocuments(chunks)
+        );
+
+        documentChunkMapper.updateStatusByDocumentId(
+                documentId,
+                "EMBEDDED"
+        );
+
+        knowledgeDocumentMapper.updateStatus(
+                documentId,
+                "READY"
+        );
+
         return chunks.size();
     }
 

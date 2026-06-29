@@ -18,6 +18,8 @@ public class RetrievalIT {
     @Test
     void testSimilaritySearch() {
 
+        System.out.println("\n\n******testSimilaritySearch********\n\n");
+
         List<Document> documents =
                 vectorStore.similaritySearch(
                         SearchRequest.builder()
@@ -46,5 +48,7 @@ public class RetrievalIT {
                     doc.getMetadata()
             );
         }
+
+        System.out.println("\n\n******testSimilaritySearch********\n\n");
     }
 }

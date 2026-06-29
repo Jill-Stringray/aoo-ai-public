@@ -33,7 +33,7 @@ public class RagPromptService {
             """
                 .formatted(
                         metadata.getOrDefault("fileName", "未知文档"),
-                        metadata.getOrDefault("pageNo", "-")
+                        metadata.getOrDefault("pageNo", "未知")
                 );
     }
 }
