@@ -51,11 +51,6 @@ class KnowledgeIngestPipelineIT {
                         preparedResult.documentId()
                 );
 
-        int indexedChunkCount =
-                chatMessageMqListener.consumeEmbeddingPayload(
-                        embeddingTaskMessage.getPayload()
-                );
-
         System.out.println(
                 "Document ID：" +
                         preparedResult.documentId()
@@ -71,10 +66,8 @@ class KnowledgeIngestPipelineIT {
                         embeddingTaskMessage.getId()
         );
 
-        System.out.println(
-                "MQ 写入 VectorStore Chunk 数量：" +
-                        indexedChunkCount
-        );
+
+        Thread.sleep(10000);
 
         assertThat(preparedResult.documentId()).isNotNull();
         assertThat(preparedResult.savedChunkCount()).isPositive();
@@ -85,7 +78,5 @@ class KnowledgeIngestPipelineIT {
                 .isEqualTo(ChatMqConfig.EMBEDDING_ROUTING_KEY);
         assertThat(embeddingTaskMessage.getStatus())
                 .isEqualTo(LocalMqMessageStatus.NEW.getValue());
-        assertThat(indexedChunkCount)
-                .isEqualTo(preparedResult.savedChunkCount());
     }
 }

@@ -13,7 +13,7 @@ class DeepSeekChatServiceIT {
     private ChatService chatService;
 
     @Test
-    void chatTest(){
+    void chatTest() throws InterruptedException {
         System.out.println("\n\n*******************ChatTest*******************\n\n");
 
         ChatRequest c = ChatRequest.builder()
@@ -27,7 +27,8 @@ class DeepSeekChatServiceIT {
 
         System.out.println(chatService.buildRagMessages(c));
         System.out.println(chatService.nonStreamChat(c));
-        System.out.println();
+
+        Thread.sleep(10000);
 
         System.out.println("\n\n*******************ChatTest*******************\n\n");
     }

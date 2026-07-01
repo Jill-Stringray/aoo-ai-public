@@ -23,7 +23,7 @@ public class RetrievalIT {
         List<Document> documents =
                 vectorStore.similaritySearch(
                         SearchRequest.builder()
-                                .query("Cyberpunk RED 与 VA-11 HALL-A 的关系是什么？")
+                                .query("介绍 jill stingray 在这里面的角色是什么？")
                                 .topK(5)
                                 .build()
                 );

@@ -140,12 +140,12 @@
         where content_hash = #{contentHash}
     </select>
 
-    <select id="markEmbedding" resultType="int">
+    <update id="markEmbedding">
         UPDATE document_chunk
         SET status='EMBEDDING'
         WHERE document_id=#{documentId}
         AND status='NEW'
-    </select>
+    </update>
 
     <select id="selectEmbeddingByDocumentId" resultType="com.clockshore.aooai.entity.DocumentChunk">
         SELECT *
