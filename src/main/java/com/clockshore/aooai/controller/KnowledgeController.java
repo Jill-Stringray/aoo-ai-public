@@ -23,8 +23,8 @@ public class KnowledgeController {
 
     @PostMapping("/upload")
     public ResponseEntity<ApiResponse<KnowledgeService.IngestResult>> upload(@RequestParam("file") MultipartFile file) throws IOException {
-        KnowledgeService.IngestResult result = knowledgeService.ingestAndIndex(file);
+        KnowledgeService.IngestResult result = knowledgeService.ingestAndPublishEmbeddingTask(file);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("KNOWLEDGE_DOCUMENT_INDEXED", "文档已完成上传、解析和索引", result));
+                .body(ApiResponse.success("KNOWLEDGE_DOCUMENT_EMBEDDING_QUEUED", "文档已完成上传、解析和切片，已提交 MQ 异步索引", result));
     }
 }

@@ -6,6 +6,7 @@ import com.clockshore.aooai.entity.DocumentChunk;
 import com.clockshore.aooai.entity.KnowledgeDocument;
 import com.clockshore.aooai.mapper.DocumentChunkMapper;
 import com.clockshore.aooai.mapper.KnowledgeDocumentMapper;
+import com.clockshore.aooai.mq.ChatMessageMqProducer;
 import dev.langchain4j.data.segment.TextSegment;
 import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,8 @@ public class KnowledgeService {
     private DocumentChunkMapper documentChunkMapper;
     @Resource
     private DocumentReaderService documentReaderService;
+    @Resource
+    private ChatMessageMqProducer chatMessageMqProducer;
 
     Tika tika = new Tika();
 
@@ -70,6 +73,24 @@ public class KnowledgeService {
                 preparedResult.documentId(),
                 preparedResult.savedChunkCount(),
                 indexedChunkCount
+        );
+    }
+
+    /**
+     * 管理端上传入口：上传并保存切片后，只发布 Embedding MQ 任务，
+     * 由异步消费者完成 VectorStore 写入，避免在 HTTP 请求线程内直接向量化。
+     */
+    @Transactional
+    public IngestResult ingestAndPublishEmbeddingTask(MultipartFile file) throws IOException {
+        IngestResult preparedResult = ingestAndSaveChunks(file);
+
+        knowledgeDocumentMapper.updateStatus(preparedResult.documentId(), "INDEXING");
+        chatMessageMqProducer.publishEmbeddingTask(preparedResult.documentId());
+
+        return new IngestResult(
+                preparedResult.documentId(),
+                preparedResult.savedChunkCount(),
+                0
         );
     }
 
