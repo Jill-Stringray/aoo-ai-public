@@ -255,7 +255,18 @@ public class KnowledgeService {
         return new Document(chunk.getContent(), metadata);
     }
 
+    public KnowledgeStats getKnowledgeStats() {
+        return new KnowledgeStats(
+                knowledgeDocumentMapper.countAll(),
+                knowledgeDocumentMapper.countByStatus("READY"),
+                documentChunkMapper.countSearchable()
+        );
+    }
+
     public record IngestResult(Long documentId, int savedChunkCount, int indexedChunkCount) {
+    }
+
+    public record KnowledgeStats(int documentCount, int searchableDocumentCount, int chunkCount) {
     }
 
 

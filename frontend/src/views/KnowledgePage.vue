@@ -1,6 +1,6 @@
 <script setup>
-import { computed, ref } from 'vue';
-import { uploadKnowledgeDocument } from '../api/knowledge';
+import { computed, onMounted, ref } from 'vue';
+import { getKnowledgeStats, uploadKnowledgeDocument } from '../api/knowledge';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const acceptedTypes = ['.pdf', '.doc', '.docx', '.txt', '.md'];
@@ -10,6 +10,13 @@ const uploadState = ref('idle');
 const uploadMessage = ref('');
 const uploadResult = ref(null);
 const uploadedDocuments = ref([]);
+const stats = ref({
+  documentCount: 0,
+  searchableDocumentCount: 0,
+  chunkCount: 0
+});
+const statsState = ref('idle');
+const statsMessage = ref('');
 
 const isUploading = computed(() => uploadState.value === 'uploading');
 const canUpload = computed(() => Boolean(selectedFile.value) && !isUploading.value);
@@ -19,9 +26,30 @@ const statusLabel = computed(() => {
   if (uploadState.value === 'error') return '需处理';
   return '待上传';
 });
-const totalDocuments = computed(() => uploadedDocuments.value.length);
-const readyDocuments = computed(() => uploadedDocuments.value.filter((item) => item.status === 'READY').length);
-const totalChunks = computed(() => uploadedDocuments.value.reduce((sum, item) => sum + item.savedChunkCount, 0));
+const totalDocuments = computed(() => stats.value.documentCount);
+const readyDocuments = computed(() => stats.value.searchableDocumentCount);
+const totalChunks = computed(() => stats.value.chunkCount);
+
+async function loadKnowledgeStats() {
+  statsState.value = 'loading';
+  try {
+    const response = await getKnowledgeStats();
+    if (!response.success) {
+      throw new Error(response.message || '知识库统计获取失败');
+    }
+
+    stats.value = {
+      documentCount: response.data?.documentCount || 0,
+      searchableDocumentCount: response.data?.searchableDocumentCount || 0,
+      chunkCount: response.data?.chunkCount || 0
+    };
+    statsState.value = 'success';
+    statsMessage.value = '';
+  } catch (error) {
+    statsState.value = 'error';
+    statsMessage.value = error.message || '知识库统计获取失败，请稍后重试';
+  }
+}
 
 function formatFileSize(size) {
   if (!size) return '0 B';
@@ -99,6 +127,7 @@ async function submitUpload() {
     };
 
     uploadedDocuments.value = [record, ...uploadedDocuments.value];
+    await loadKnowledgeStats();
     uploadResult.value = result;
     uploadState.value = 'success';
     uploadMessage.value = response.message || '上传成功，文档已完成解析并进入可检索知识库。';
@@ -109,6 +138,8 @@ async function submitUpload() {
     uploadMessage.value = error.message || '上传失败，请稍后重试';
   }
 }
+
+onMounted(loadKnowledgeStats);
 </script>
 
 <template>
@@ -121,21 +152,23 @@ async function submitUpload() {
       <span class="status-pill">管理员端</span>
     </div>
 
+    <p v-if="statsState === 'error'" class="error">{{ statsMessage }}</p>
+
     <div class="grid">
       <article class="card">
         <h3>文档</h3>
         <p class="metric">{{ totalDocuments }}</p>
-        <p class="muted">本次会话已上传并提交处理的企业文档数量。</p>
+        <p class="muted">后端知识库中未删除的企业文档总数。</p>
       </article>
       <article class="card">
         <h3>可检索文档</h3>
         <p class="metric">{{ readyDocuments }}</p>
-        <p class="muted">后端返回成功后，文档已完成索引，可进入问答检索链路。</p>
+        <p class="muted">后端状态为 READY、已完成索引的可检索文档数量。</p>
       </article>
       <article class="card">
         <h3>切片数</h3>
         <p class="metric">{{ totalChunks }}</p>
-        <p class="muted">后端解析并保存的 Chunk 数量，用于评估知识覆盖度。</p>
+        <p class="muted">后端已保存且未删除的 Chunk 总数，用于评估知识覆盖度。</p>
       </article>
     </div>
 

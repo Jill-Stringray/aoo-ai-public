@@ -51,6 +51,8 @@ public interface DocumentChunkMapper {
     );
 
     int findHash(
-            @Param("contentHash")String contentHash
+            @Param("contentHash") String contentHash
     );
+
+    int countSearchable();
 }
