@@ -19,13 +19,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         // 不需要登录
-                        .requestMatchers(
-                                "/api/v1/auth/login",
-                                "/api/v1/auth/register",
-                                "/api/v1/knowledge/upload"
-                        ).permitAll()
-                        // 其他接口都需要登录
-                        .anyRequest().authenticated());
+                        //todo 这里先把拦截禁用
+                        .anyRequest().permitAll());
 
         return http.build();
     }
