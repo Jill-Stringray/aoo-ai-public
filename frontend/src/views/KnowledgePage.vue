@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { getKnowledgeStats, uploadKnowledgeDocument } from '../api/knowledge';
+import { getKnowledgeStats, missingKnowledgeEndpoints, uploadKnowledgeDocument } from '../api/knowledge';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const acceptedTypes = ['.pdf', '.doc', '.docx', '.txt', '.md'];
@@ -10,6 +10,7 @@ const uploadState = ref('idle');
 const uploadMessage = ref('');
 const uploadResult = ref(null);
 const uploadedDocuments = ref([]);
+const unsupportedFeatures = missingKnowledgeEndpoints;
 const stats = ref({
   documentCount: 0,
   searchableDocumentCount: 0,
@@ -148,11 +149,27 @@ onMounted(loadKnowledgeStats);
       <div>
         <h2>知识库管理</h2>
         <p class="muted">管理员在这里上传企业文档；后端会完成文件存储、内容解析、切片、Embedding 与 RAG 索引入库。</p>
+        <p class="muted">已按后端真实 Controller 对接：统计接口与文件上传接口；其余知识库/文档管理接口后端尚未暴露，页面仅展示明确提示，不模拟接口。</p>
       </div>
       <span class="status-pill">管理员端</span>
     </div>
 
     <p v-if="statsState === 'error'" class="error">{{ statsMessage }}</p>
+
+    <article class="card endpoint-card">
+      <div class="section-header">
+        <div>
+          <h3>接口对接状态</h3>
+          <p class="muted">后端当前仅暴露 GET /api/v1/knowledge/stats 与 POST /api/v1/knowledge/upload。</p>
+        </div>
+        <button type="button" class="button secondary compact-button" :disabled="statsState === 'loading'" @click="loadKnowledgeStats">{{ statsState === 'loading' ? '刷新中…' : '刷新统计' }}</button>
+      </div>
+      <ul class="list endpoint-list">
+        <li><span>知识库统计</span><strong class="success">已对接</strong></li>
+        <li><span>文档上传</span><strong class="success">已对接</strong></li>
+        <li v-for="item in unsupportedFeatures" :key="item"><span>{{ item }}</span><strong class="error">后端缺失</strong></li>
+      </ul>
+    </article>
 
     <div class="grid">
       <article class="card">
@@ -207,7 +224,7 @@ onMounted(loadKnowledgeStats);
       <div class="section-header">
         <div>
           <h3>最近上传</h3>
-          <p class="muted">展示当前管理员刚提交的文档，便于确认业务操作是否成功。</p>
+          <p class="muted">后端未暴露文档列表/分页接口，因此仅展示当前页面本次上传成功的记录；刷新页面后请以统计卡片为准。</p>
         </div>
       </div>
 

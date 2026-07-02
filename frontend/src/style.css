@@ -514,3 +514,19 @@ button:disabled { background: #bfdbfe; color: #475569; cursor: not-allowed; }
   .chat-toolbar { grid-template-columns: 1fr; }
   .message-bubble { max-width: 92%; }
 }
+.endpoint-card { display: grid; gap: 14px; }
+.endpoint-list li strong { flex: 0 0 auto; }
+.markdown-body { line-height: 1.7; }
+.markdown-body > :first-child { margin-top: 0; }
+.markdown-body > :last-child { margin-bottom: 0; }
+.markdown-body ul, .markdown-body ol { padding-left: 20px; }
+.markdown-body code {
+  padding: 2px 5px;
+  border-radius: 6px;
+  background: #e2e8f0;
+  color: #0f172a;
+}
+.message-bubble.user .markdown-body code {
+  background: rgba(255,255,255,.18);
+  color: #fff;
+}
