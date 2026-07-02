@@ -63,3 +63,6 @@ Thumbs.db
 
 HELP.md
 /frontend/package-lock.json
+
+/uploads/
+/logs/

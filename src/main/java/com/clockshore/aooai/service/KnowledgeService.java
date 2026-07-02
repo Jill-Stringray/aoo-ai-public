@@ -47,7 +47,7 @@ public class KnowledgeService {
     //validate使用，检查格式和mime类型是否相等
     private static final Map<String, Set<String>> FILE_TYPE_MAPPING = Map.of(
             "pdf", Set.of("application/pdf"),
-            "doc", Set.of("application/msword"),
+            "doc", Set.of("application/msword","application/x-tika-msoffice"),
             "docx", Set.of("application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
             "txt", Set.of("text/plain"),
             "md", Set.of("text/plain", "text/markdown")
