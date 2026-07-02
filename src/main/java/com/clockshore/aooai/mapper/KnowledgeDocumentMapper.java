@@ -17,4 +17,8 @@ public interface KnowledgeDocumentMapper {
     );
 
     int deleteById(@Param("id") Long id);
+
+    int countAll();
+
+    int countByStatus(@Param("status") String status);
 }

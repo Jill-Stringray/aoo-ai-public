@@ -1,6 +1,6 @@
 <script setup>
-import { computed, ref } from 'vue';
-import { uploadKnowledgeDocument } from '../api/knowledge';
+import { computed, onMounted, ref } from 'vue';
+import { getKnowledgeStats, uploadKnowledgeDocument } from '../api/knowledge';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const acceptedTypes = ['.pdf', '.doc', '.docx', '.txt', '.md'];
@@ -10,18 +10,46 @@ const uploadState = ref('idle');
 const uploadMessage = ref('');
 const uploadResult = ref(null);
 const uploadedDocuments = ref([]);
+const stats = ref({
+  documentCount: 0,
+  searchableDocumentCount: 0,
+  chunkCount: 0
+});
+const statsState = ref('idle');
+const statsMessage = ref('');
 
 const isUploading = computed(() => uploadState.value === 'uploading');
 const canUpload = computed(() => Boolean(selectedFile.value) && !isUploading.value);
 const statusLabel = computed(() => {
   if (isUploading.value) return '处理中';
-  if (uploadState.value === 'success') return '已提交';
+  if (uploadState.value === 'success') return '已入库';
   if (uploadState.value === 'error') return '需处理';
   return '待上传';
 });
-const totalDocuments = computed(() => uploadedDocuments.value.length);
-const readyDocuments = computed(() => uploadedDocuments.value.filter((item) => item.status === 'READY').length);
-const totalChunks = computed(() => uploadedDocuments.value.reduce((sum, item) => sum + item.savedChunkCount, 0));
+const totalDocuments = computed(() => stats.value.documentCount);
+const readyDocuments = computed(() => stats.value.searchableDocumentCount);
+const totalChunks = computed(() => stats.value.chunkCount);
+
+async function loadKnowledgeStats() {
+  statsState.value = 'loading';
+  try {
+    const response = await getKnowledgeStats();
+    if (!response.success) {
+      throw new Error(response.message || '知识库统计获取失败');
+    }
+
+    stats.value = {
+      documentCount: response.data?.documentCount || 0,
+      searchableDocumentCount: response.data?.searchableDocumentCount || 0,
+      chunkCount: response.data?.chunkCount || 0
+    };
+    statsState.value = 'success';
+    statsMessage.value = '';
+  } catch (error) {
+    statsState.value = 'error';
+    statsMessage.value = error.message || '知识库统计获取失败，请稍后重试';
+  }
+}
 
 function formatFileSize(size) {
   if (!size) return '0 B';
@@ -60,7 +88,7 @@ function setFile(file) {
 
   selectedFile.value = file;
   uploadState.value = 'idle';
-  uploadMessage.value = '文件已选择，点击上传后将由后端完成存储、解析、切片，并投递 MQ 异步向量化。';
+  uploadMessage.value = '文件已选择，点击上传后将由后端完成存储、解析、切片与向量化。';
 }
 
 function handleFileChange(event) {
@@ -79,7 +107,7 @@ async function submitUpload() {
   if (!selectedFile.value) return;
 
   uploadState.value = 'uploading';
-  uploadMessage.value = '正在上传并触发 RAG 入库 MQ 任务，请勿关闭页面。';
+  uploadMessage.value = '正在上传并触发 RAG 入库链路，请勿关闭页面。';
 
   try {
     const response = await uploadKnowledgeDocument(selectedFile.value);
@@ -94,14 +122,15 @@ async function submitUpload() {
       fileSize: selectedFile.value.size,
       savedChunkCount: result.savedChunkCount || 0,
       indexedChunkCount: result.indexedChunkCount || 0,
-      status: 'INDEXING',
+      status: 'READY',
       uploadedAt: new Date().toLocaleString('zh-CN', { hour12: false })
     };
 
     uploadedDocuments.value = [record, ...uploadedDocuments.value];
+    await loadKnowledgeStats();
     uploadResult.value = result;
     uploadState.value = 'success';
-    uploadMessage.value = response.message || '上传成功，文档已完成解析切片并提交 MQ 异步索引。';
+    uploadMessage.value = response.message || '上传成功，文档已完成解析并进入可检索知识库。';
     selectedFile.value = null;
     if (fileInput.value) fileInput.value.value = '';
   } catch (error) {
@@ -109,6 +138,8 @@ async function submitUpload() {
     uploadMessage.value = error.message || '上传失败，请稍后重试';
   }
 }
+
+onMounted(loadKnowledgeStats);
 </script>
 
 <template>
@@ -116,26 +147,28 @@ async function submitUpload() {
     <div class="section-header">
       <div>
         <h2>知识库管理</h2>
-        <p class="muted">管理员在这里上传企业文档；后端会完成文件存储、内容解析、切片，并通过 MQ 异步执行 Embedding 与 RAG 索引入库。</p>
+        <p class="muted">管理员在这里上传企业文档；后端会完成文件存储、内容解析、切片、Embedding 与 RAG 索引入库。</p>
       </div>
       <span class="status-pill">管理员端</span>
     </div>
+
+    <p v-if="statsState === 'error'" class="error">{{ statsMessage }}</p>
 
     <div class="grid">
       <article class="card">
         <h3>文档</h3>
         <p class="metric">{{ totalDocuments }}</p>
-        <p class="muted">本次会话已上传并提交处理的企业文档数量。</p>
+        <p class="muted">后端知识库中未删除的企业文档总数。</p>
       </article>
       <article class="card">
         <h3>可检索文档</h3>
         <p class="metric">{{ readyDocuments }}</p>
-        <p class="muted">MQ 消费完成后，文档会完成索引并进入问答检索链路。</p>
+        <p class="muted">后端状态为 READY、已完成索引的可检索文档数量。</p>
       </article>
       <article class="card">
         <h3>切片数</h3>
         <p class="metric">{{ totalChunks }}</p>
-        <p class="muted">后端解析并保存的 Chunk 数量，用于评估知识覆盖度。</p>
+        <p class="muted">后端已保存且未删除的 Chunk 总数，用于评估知识覆盖度。</p>
       </article>
     </div>
 
@@ -160,13 +193,13 @@ async function submitUpload() {
 
       <div class="upload-actions">
         <button :disabled="!canUpload" @click="submitUpload">{{ isUploading ? '上传处理中…' : '上传并入库' }}</button>
-        <p :class="uploadState === 'error' ? 'error' : uploadState === 'success' ? 'success' : 'muted'">{{ uploadMessage || '选择文件后即可提交到后端 RAG 入库接口，并投递 MQ 异步索引。' }}</p>
+        <p :class="uploadState === 'error' ? 'error' : uploadState === 'success' ? 'success' : 'muted'">{{ uploadMessage || '选择文件后即可提交到后端 RAG 入库接口。' }}</p>
       </div>
 
       <div v-if="uploadResult" class="result-grid">
         <span>文档 ID：{{ uploadResult.documentId }}</span>
         <span>保存切片：{{ uploadResult.savedChunkCount }}</span>
-        <span>已索引切片：{{ uploadResult.indexedChunkCount }}</span>
+        <span>索引切片：{{ uploadResult.indexedChunkCount }}</span>
       </div>
     </article>
 

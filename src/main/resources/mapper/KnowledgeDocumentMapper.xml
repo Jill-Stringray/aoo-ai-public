@@ -65,4 +65,20 @@
 
     </delete>
 
+    <select id="countAll" resultType="java.lang.Integer">
+
+        SELECT COUNT(*)
+        FROM knowledge_document
+        WHERE status != 'DELETED'
+
+    </select>
+
+    <select id="countByStatus" resultType="java.lang.Integer">
+
+        SELECT COUNT(*)
+        FROM knowledge_document
+        WHERE status = #{status}
+
+    </select>
+
 </mapper>

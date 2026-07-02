@@ -153,4 +153,11 @@
         WHERE document_id=#{documentId}
         AND status='EMBEDDING'
     </select>
+
+    <select id="countSearchable" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM document_chunk
+        WHERE status != 'DELETED'
+    </select>
+
 </mapper>
