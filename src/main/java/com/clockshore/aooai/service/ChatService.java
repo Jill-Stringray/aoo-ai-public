@@ -75,7 +75,7 @@ public class ChatService {
         long startedAt = System.currentTimeMillis();
 
         return chatClient.prompt()
-                .messages(buildMessages(chatRequest))
+                .messages(buildRagMessages(chatRequest))
                 .stream()
                 .chatResponse()
                 .doOnNext(delta -> {
