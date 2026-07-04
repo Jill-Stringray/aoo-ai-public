@@ -2,6 +2,7 @@ package com.clockshore.aooai.controller;
 
 import com.clockshore.aooai.common.ApiResponse;
 import com.clockshore.aooai.dto.message.ChatRequest;
+import com.clockshore.aooai.enumType.ResultCode;
 import com.clockshore.aooai.service.ChatService;
 import com.clockshore.aooai.service.KnowledgeService;
 import com.clockshore.aooai.service.SseService;
@@ -10,6 +11,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 
@@ -25,10 +27,20 @@ public class ChatController {
     @Resource
     private ChatService chatService;
 
+    @Resource
+    private KnowledgeService knowledgeService;
+
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@RequestBody ChatRequest request) {
-
         return sseService.stream(chatService.streamChat(request));
+    }
 
+    @PostMapping("/upload")
+    public ApiResponse<String> uploadFile(@RequestParam("file") MultipartFile file) throws IOException {
+        if (knowledgeService.upload(file) != null) {
+            return ApiResponse.success("上传成功！");
+        } else {
+            return ApiResponse.failure(ResultCode.FAIL, "上传失败");
+        }
     }
 }

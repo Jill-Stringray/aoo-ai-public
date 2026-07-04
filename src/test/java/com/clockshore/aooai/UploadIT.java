@@ -1,9 +1,11 @@
 package com.clockshore.aooai;
 
+import com.clockshore.aooai.mapper.KnowledgeDocumentMapper;
 import com.clockshore.aooai.service.DocumentReaderService;
 import com.clockshore.aooai.service.KnowledgeService;
 import com.clockshore.aooai.service.TokenSplitterService;
 import dev.langchain4j.data.segment.TextSegment;
+import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.document.Document;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,17 +18,17 @@ import java.nio.file.Paths;
 import java.util.IntSummaryStatistics;
 import java.util.List;
 
+@RequiredArgsConstructor
 @SpringBootTest(classes = AooAiApplication.class)
 class UploadIT {
 
-    @Autowired
-    private KnowledgeService knowledgeService;
 
-    @Autowired
-    private DocumentReaderService documentReaderService;
+    private final KnowledgeService knowledgeService;
+    private final DocumentReaderService documentReaderService;
+    private final TokenSplitterService tokenSplitterService;
+    private final KnowledgeDocumentMapper knowledgeDocumentMapper;
 
-    @Autowired
-    private TokenSplitterService tokenSplitterService;
+
 
     @Test
     void testReadAndSplit() throws Exception {
@@ -44,12 +46,12 @@ class UploadIT {
                         )
                 );
 
-        Path filePath =
+        Long fileId =
                 knowledgeService.upload(file);
 
         List<Document> docs =
                 documentReaderService.read(
-                        filePath
+                        fileId
                 );
 
         System.out.println(

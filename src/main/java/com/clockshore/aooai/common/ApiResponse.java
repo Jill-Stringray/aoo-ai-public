@@ -33,6 +33,12 @@ public class ApiResponse<T> {
      */
     private T data;
 
+    /**
+     * 默认成功的方法
+     * @param data
+     * @return
+     * @param <T>
+     */
     public static <T> ApiResponse<T> success(T data) {
         return ApiResponse.<T>builder()
                 .success(true)
@@ -42,6 +48,15 @@ public class ApiResponse<T> {
                 .build();
     }
 
+    /**
+     * 自定义成功的方法
+     *
+     * @param code
+     * @param message
+     * @param data
+     * @return
+     * @param <T>
+     */
     public static <T> ApiResponse<T> success(String code, String message, T data) {
         return ApiResponse.<T>builder()
                 .success(true)
@@ -51,6 +66,14 @@ public class ApiResponse<T> {
                 .build();
     }
 
+    /**
+     * 自定义失败的方法
+     *
+     * @param code
+     * @param message
+     * @return
+     * @param <T>
+     */
     public static <T> ApiResponse<T> failure(String code, String message) {
         return ApiResponse.<T>builder()
                 .success(false)

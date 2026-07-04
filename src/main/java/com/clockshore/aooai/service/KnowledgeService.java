@@ -117,8 +117,8 @@ public class KnowledgeService {
     //此函数只进行导入＆保存文件，不处理
     //保存后写入mysql中的knowledge_document表来记录
     @Transactional
-    public Path upload(MultipartFile file) throws IOException {
-        return Paths.get(storeUploadedDocument(file).getStorageUrl());
+    public Long upload(MultipartFile file) throws IOException {
+        return storeUploadedDocument(file).getId();
     }
 
     private KnowledgeDocument storeUploadedDocument(MultipartFile file) throws IOException {
