@@ -20,8 +20,10 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -30,6 +32,9 @@ import java.util.concurrent.atomic.AtomicReference;
 public class ChatService {
 
     private ChatClient chatClient;
+
+    @Resource
+    private SseService sseService;
 
     @Resource
     private KnowledgeRetrievalService knowledgeRetrievalService;
@@ -61,6 +66,8 @@ public class ChatService {
         return reply;
     }
 
+
+
     public Flux<ChatResponse> streamChat(ChatRequest chatRequest){
 
         StringBuilder replyBuffer = new StringBuilder();
@@ -87,6 +94,10 @@ public class ChatService {
                 ));
     }
 
+    /**
+     * MQ投递消息 持久化
+     *
+     */
     public void enqueueAssistantMessage(ChatRequest chatRequest, String reply, Usage usage, long latencyMs) {
         if (reply == null || reply.isBlank()) {
             return;
