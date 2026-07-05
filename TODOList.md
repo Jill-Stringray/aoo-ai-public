@@ -36,3 +36,21 @@ m -
 已解决，MQ没有幂等导致的，测试类手动consume一次，自动监听consume一次
 
 5.切分时有部分句子在中间截断导致信息缺失。(目前思路是不同文件格式采用不同的切分方式)
+
+6.RabbitMQ队列异常导致Listener不断执行队列内未完成的操作
+
+已解决，通过查看RabbitMQ控制台，发现是因为前端传入一个不存在的conversationID,导致MQ在消费时插入被Mysql的外键约束阻拦，最终不断反复重试（此时还未添加retry limit）
+
+前端
+POST /conversation
+
+    ↓
+后端
+
+insert conversation
+
+    ↓
+返回 conversationId = 15
+
+    ↓
+前端保存 15

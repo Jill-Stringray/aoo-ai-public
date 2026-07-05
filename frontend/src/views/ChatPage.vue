@@ -2,7 +2,7 @@
 import { computed, nextTick, ref } from 'vue';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { askQuestion, chatEndpointAvailable, chatEndpointMissingMessage } from '../api/qa';
+import { askQuestion, chatEndpointAvailable } from '../api/qa';
 
 const question = ref('');
 const selectedKnowledgeBase = ref('default');
@@ -10,7 +10,7 @@ const uploadedFiles = ref([]);
 const activeConversationId = ref(1);
 const fileInput = ref(null);
 const sendState = ref('idle');
-const sendMessage = ref(chatEndpointMissingMessage);
+const sendMessage = ref('输入问题后发送，AI 将基于知识库流式回复。');
 const conversationBox = ref(null);
 
 const knowledgeBases = [
@@ -22,14 +22,14 @@ const conversations = ref([
     id: 1,
     title: '新的问答会话',
     time: '刚刚',
-    preview: '等待后端暴露聊天接口后即可提问。'
+    preview: '基于企业知识库的智能问答。'
   }
 ]);
 
 const messages = ref([
   {
     role: 'assistant',
-    content: `你好，我已检查后端 Controller。当前未发现 AI 对话 HTTP 接口，因此暂不能发送问题。${chatEndpointMissingMessage}`
+    content: '你好，我是 AOO AI。我会根据知识库内容回答你的问题；若知识库中没有相关信息，我会明确告知。'
   }
 ]);
 
@@ -55,9 +55,12 @@ const startNewConversation = () => {
     preview: '等待输入第一个问题。'
   });
   activeConversationId.value = nextId;
-  messages.value = [{ role: 'assistant', content: chatEndpointMissingMessage }];
+  messages.value = [{
+    role: 'assistant',
+    content: '已开始新的问答会话，请输入你的问题。'
+  }];
   sendState.value = 'idle';
-  sendMessage.value = chatEndpointMissingMessage;
+  sendMessage.value = '输入问题后发送，AI 将基于知识库流式回复。';
 };
 
 const openFilePicker = () => {
@@ -101,23 +104,27 @@ async function scrollToBottom() {
 const sendQuestion = async () => {
   if (!question.value.trim() || isSending.value) return;
 
-  if (!chatEndpointAvailable) {
-    sendState.value = 'error';
-    sendMessage.value = chatEndpointMissingMessage;
-    return;
-  }
-
   const content = question.value.trim();
   messages.value.push({ role: 'user', content });
+  messages.value.push({ role: 'assistant', content: '' });
+  const assistantIndex = messages.value.length - 1;
   question.value = '';
   sendState.value = 'loading';
   sendMessage.value = '正在请求 AI 对话接口…';
   await scrollToBottom();
 
   try {
-    const response = await askQuestion({ message: content, stream: false });
+    const response = await askQuestion({
+      message: content,
+      conversationId: activeConversationId.value,
+      stream: true,
+      onDelta: (_token, fullReply) => {
+        messages.value[assistantIndex].content = fullReply;
+        scrollToBottom();
+      }
+    });
     if (!response.success) throw new Error(response.message || 'AI 对话请求失败');
-    messages.value.push({ role: 'assistant', content: response.data?.reply || response.data || '' });
+    messages.value[assistantIndex].content = response.data?.reply || messages.value[assistantIndex].content;
     sendState.value = 'success';
     sendMessage.value = 'AI 已回复。';
 
@@ -130,7 +137,9 @@ const sendQuestion = async () => {
   } catch (error) {
     sendState.value = 'error';
     sendMessage.value = error.message || 'AI 对话请求失败，请稍后重试';
-    messages.value.push({ role: 'assistant', content: sendMessage.value });
+    if (!messages.value[assistantIndex].content) {
+      messages.value[assistantIndex].content = sendMessage.value;
+    }
   } finally {
     await scrollToBottom();
   }
@@ -142,12 +151,10 @@ const sendQuestion = async () => {
     <div class="section-header">
       <div>
         <h2>智能问答</h2>
-        <p class="muted">已检查后端 Controller：当前未暴露 AI 对话 HTTP/SSE 接口，前端不会自行假设请求地址。</p>
+        <p class="muted">已接入后端 `/api/v1/chat/stream`，支持基于知识库的流式 AI 回复。</p>
       </div>
       <span class="status-pill">用户端</span>
     </div>
-
-    <p class="error">{{ chatEndpointMissingMessage }}</p>
 
     <div class="chat-workspace">
       <aside class="chat-history card" aria-label="历史问答记录">
@@ -193,7 +200,7 @@ const sendQuestion = async () => {
         </div>
 
         <div class="composer-card">
-          <textarea v-model="question" rows="5" placeholder="后端暴露聊天接口后可在这里输入问题。" @keydown.ctrl.enter.prevent="sendQuestion" />
+          <textarea v-model="question" rows="5" placeholder="在这里输入你的问题，Ctrl+Enter 发送。" @keydown.ctrl.enter.prevent="sendQuestion" />
           <div class="composer-actions">
             <input ref="fileInput" class="sr-only" type="file" multiple @change="handleFileChange" />
             <button type="button" class="button secondary" @click="openFilePicker">上传文件</button>

@@ -28,13 +28,12 @@ public class RetrievalIT {
                                 .build()
                 );
 
-        assert documents != null;
-
         System.out.println(
                 "召回数量：" + documents.size()
         );
 
         for (Document doc : documents) {
+
 
             System.out.println(
                     "=================================="
