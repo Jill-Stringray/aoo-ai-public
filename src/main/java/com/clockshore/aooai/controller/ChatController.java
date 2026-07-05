@@ -30,17 +30,13 @@ public class ChatController {
     @Resource
     private KnowledgeService knowledgeService;
 
+    /**
+     * @param request
+     * @return
+     */
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@RequestBody ChatRequest request) {
         return sseService.stream(chatService.streamChat(request));
     }
 
-    @PostMapping("/upload")
-    public ApiResponse<String> uploadFile(@RequestParam("file") MultipartFile file) throws IOException {
-        if (knowledgeService.upload(file) != null) {
-            return ApiResponse.success("上传成功！");
-        } else {
-            return ApiResponse.failure(ResultCode.FAIL, "上传失败");
-        }
-    }
 }

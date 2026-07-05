@@ -5,6 +5,7 @@ import cn.hutool.core.util.IdUtil;
 import com.clockshore.aooai.dto.message.ChatRequest;
 import com.clockshore.aooai.entity.ConversationMessage;
 import com.clockshore.aooai.enumType.CharacterRole;
+import com.clockshore.aooai.factory.ChatMessageEventFactory;
 import com.clockshore.aooai.mapper.ConversationMapper;
 import com.clockshore.aooai.mapper.ConversationMessageMapper;
 import com.clockshore.aooai.mq.ChatMessageEvent;
@@ -28,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
+
 @Service
 public class ChatService {
 
@@ -48,6 +50,9 @@ public class ChatService {
     @Resource
     private ChatMessageMqProducer chatMessageMqProducer;
 
+    @Resource
+    private ChatMessageEventFactory chatMessageEventFactory;
+
     public ChatService(ChatClient.Builder builder,
                        ConversationMessageMapper conversationMessageMapper
     ){  this.chatClient = builder.build();
@@ -58,17 +63,28 @@ public class ChatService {
 
         //Advisor = ChatClient 的“拦截器 / 增强器 / 插件系统”
         long startedAt = System.currentTimeMillis();
-        String reply = chatClient.prompt()
+        ChatResponse response = chatClient.prompt()
                 .messages(buildRagMessages(chatRequest))
                 .call()
-                .content();
-        enqueueAssistantMessage(chatRequest, reply, null, System.currentTimeMillis() - startedAt);
+                .chatResponse();
+
+        if (response == null || response.getResult() == null) {
+            throw new IllegalStateException("模型未返回有效响应");
+        }
+
+        String reply = response.getResult().getOutput().getText();
+        Usage usage = response.getMetadata().getUsage();
+        enqueueAssistantMessage(chatRequest.getConversationId(), reply, chatRequest.getModel(),usage,System.currentTimeMillis() - startedAt);
         return reply;
     }
 
 
 
     public Flux<ChatResponse> streamChat(ChatRequest chatRequest){
+
+
+        // 1. 保存用户消息
+        enqueueUserMessage(chatRequest.getConversationId(),chatRequest.getMessage());
 
         StringBuilder replyBuffer = new StringBuilder();
         AtomicReference<Usage> usageRef = new AtomicReference<>();
@@ -87,34 +103,58 @@ public class ChatService {
                     }
                 })
                 .doOnComplete(() -> enqueueAssistantMessage(
-                        chatRequest,
+                        chatRequest.getConversationId(),
                         replyBuffer.toString(),
+                        chatRequest.getModel(),
                         usageRef.get(),
                         System.currentTimeMillis() - startedAt
                 ));
     }
 
     /**
-     * MQ投递消息 持久化
+     * MQ投递AI助手消息持久化
      *
      */
-    public void enqueueAssistantMessage(ChatRequest chatRequest, String reply, Usage usage, long latencyMs) {
+    public void enqueueAssistantMessage(Long conversationId,
+                                        String reply,
+                                        String model,
+                                        Usage usage,
+                                        long latencyMs
+    ) {
         if (reply == null || reply.isBlank()) {
             return;
         }
-        ChatMessageEvent event = ChatMessageEvent.builder()
-                .messageKey(IdUtil.getSnowflakeNextIdStr())
-                .conversationId(chatRequest.getConversationId())
-                .role(CharacterRole.ASSISTANT.getValue())
-                .content(reply)
-                .modelName(chatRequest.getModel())
-                .promptTokens(usage == null ? 0 : toInteger(usage.getPromptTokens()))
-                .completionTokens(usage == null ? 0 : toInteger(usage.getCompletionTokens()))
-                .totalTokens(usage == null ? 0 : toInteger(usage.getTotalTokens()))
-                .latencyMs(toInteger(latencyMs))
-                .build();
-        chatMessageMqProducer.publishMessagePersist(event);
+        chatMessageMqProducer.publishMessagePersist(
+                chatMessageEventFactory.buildAssistantMessage(
+                        conversationId,
+                        reply,
+                        model,
+                        usage,
+                        latencyMs
+                )
+        );
     }
+
+    /**
+     * MQ投递用户消息持久化
+     */
+    public void enqueueUserMessage(
+            Long conversationId,
+            String content
+    ) {
+        if (content == null || content.isBlank()) {
+            return;
+        }
+
+        chatMessageMqProducer.publishMessagePersist(
+                chatMessageEventFactory.buildUserMessage(
+                        conversationId,
+                        content
+                )
+        );
+    }
+
+
 
     //立即保存不走MQ
     @Transactional

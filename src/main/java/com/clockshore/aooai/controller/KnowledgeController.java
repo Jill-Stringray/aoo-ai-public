@@ -1,6 +1,7 @@
 package com.clockshore.aooai.controller;
 
 import com.clockshore.aooai.common.ApiResponse;
+import com.clockshore.aooai.enumType.ResultCode;
 import com.clockshore.aooai.service.KnowledgeService;
 import jakarta.annotation.Resource;
 import org.springframework.http.HttpStatus;
@@ -27,10 +28,20 @@ public class KnowledgeController {
         return ApiResponse.success("KNOWLEDGE_STATS_FETCHED", "知识库统计已获取", knowledgeService.getKnowledgeStats());
     }
 
+    /**
+     * 上传文件接口
+     * 上传之后发布MQ进入embedding队列
+     */
     @PostMapping("/upload")
-    public ResponseEntity<ApiResponse<KnowledgeService.IngestResult>> upload(@RequestParam("file") MultipartFile file) throws IOException {
-        KnowledgeService.IngestResult result = knowledgeService.ingestAndPublishEmbeddingTask(file);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("KNOWLEDGE_DOCUMENT_EMBEDDING_QUEUED", "文档已完成上传、解析和切片，已提交 MQ 异步索引", result));
+    public ApiResponse<KnowledgeService.IngestResult> upload(
+            @RequestParam("file") MultipartFile file) throws IOException {
+
+        KnowledgeService.IngestResult result =
+                knowledgeService.ingestAndPublishEmbeddingTask(file);
+
+        return ApiResponse.success(
+                "KNOWLEDGE_DOCUMENT_EMBEDDING_QUEUED",
+                "文档已完成上传、解析和切片，已提交 MQ 异步索引",
+                result);
     }
 }

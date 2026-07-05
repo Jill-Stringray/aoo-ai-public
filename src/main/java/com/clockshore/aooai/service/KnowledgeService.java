@@ -114,13 +114,16 @@ public class KnowledgeService {
         return new IngestResult(document.getId(), savedChunkCount, 0);
     }
 
-    //此函数只进行导入＆保存文件，不处理
-    //保存后写入mysql中的knowledge_document表来记录
     @Transactional
     public Long upload(MultipartFile file) throws IOException {
         return storeUploadedDocument(file).getId();
     }
 
+    /**
+     * 此函数只进行导入＆保存文件，不处理
+     * 保存后写入mysql中的knowledge_document表来记录
+     * 返回KnowledgeDocument
+     */
     private KnowledgeDocument storeUploadedDocument(MultipartFile file) throws IOException {
         validate(file);
         //防止../../../test.pdf
