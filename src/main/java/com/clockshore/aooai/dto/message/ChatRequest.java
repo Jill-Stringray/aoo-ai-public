@@ -22,6 +22,7 @@ public class ChatRequest {
     private String model;
     private Double temperature;
     private Boolean stream;
+    //可选携带数据
     private List<ChatMessage> messages;
 
     public String resolveMessage() {
