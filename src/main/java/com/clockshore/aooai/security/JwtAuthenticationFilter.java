@@ -1,4 +1,4 @@
-package com.clockshore.aooai.Security;
+package com.clockshore.aooai.security;
 
 import com.clockshore.aooai.Utility.JwtUtils;
 import jakarta.servlet.FilterChain;
@@ -11,9 +11,10 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import com.clockshore.aooai.security.LoginUser;
 
 import java.io.IOException;
+
+
 
 @Component
 @RequiredArgsConstructor
@@ -22,11 +23,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtUtils jwtUtils;
     private final LoginUserService loginUserService;
 
+    /**
+     * Filter负责：
+     * <p>1.Token 存不存在，Token 格式对不对，Token 能不能解析</p>
+     * <p>2.把用户信息放进 SecurityContextHolder，之后通过SecurityUtils进行调用</p>
+     */
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
                                     FilterChain filterChain)
             throws ServletException, IOException {
+
+        System.out.println("******JwtAuthenticationFilter working******");
 
         // 获取请求头
         String authorization = request.getHeader("Authorization");
@@ -62,7 +70,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
         } catch (Exception e) {
-            // Token 无效、过期等，直接忽略，让 Spring Security 后续处理
+            System.out.println("JWT token 校验失败: " + e.getMessage());
         }
 
         // 6. 放行请求

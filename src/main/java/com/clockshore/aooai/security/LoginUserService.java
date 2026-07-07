@@ -1,10 +1,9 @@
-package com.clockshore.aooai.Security;
+package com.clockshore.aooai.security;
 
 import com.clockshore.aooai.entity.AppUser;
 import com.clockshore.aooai.mapper.AppUserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import com.clockshore.aooai.security.LoginUser;
 
 /**
  * 负责加载当前登录用户信息。
