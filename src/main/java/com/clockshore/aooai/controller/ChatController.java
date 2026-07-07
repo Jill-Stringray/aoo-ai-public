@@ -40,7 +40,7 @@ public class ChatController {
         return sseService.stream(chatService.streamChat(request));
     }
 
-    /*
+    /*//todo
     @PostMapping(value = "/conversation")
     public ApiResponse<ChatRequestVO> conversation(@RequestBody ChatRequest request){
         if(request.getConversationId() == null){
