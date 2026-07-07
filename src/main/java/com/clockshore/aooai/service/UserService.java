@@ -1,6 +1,8 @@
 package com.clockshore.aooai.service;
 
+import com.clockshore.aooai.Utility.JwtUtils;
 import com.clockshore.aooai.common.ApiResponse;
+import com.clockshore.aooai.dto.auth.LoginVO;
 import com.clockshore.aooai.dto.auth.UserVO;
 import com.clockshore.aooai.dto.auth.RegisterRequest;
 import com.clockshore.aooai.entity.AppUser;
@@ -21,6 +23,9 @@ public class UserService {
 
     @Resource
     private PasswordEncoder passwordEncoder;
+
+    @Resource
+    private JwtUtils jwtUtils;
 
     public ApiResponse<UserVO> register(RegisterRequest request) {
         String username = request.getUsername().trim();
@@ -45,7 +50,7 @@ public class UserService {
         return ApiResponse.success("REGISTER_SUCCESS", "注册成功", UserVO.from(user));
     }
 
-    public ApiResponse<UserVO> login(String username, String rawPassword) {
+    public ApiResponse<LoginVO> login(String username, String rawPassword) {
         if (!StringUtils.hasText(username) || !StringUtils.hasText(rawPassword)) {
             return ApiResponse.failure("INVALID_LOGIN_PARAM", "用户名和密码不能为空");
         }
@@ -62,11 +67,24 @@ public class UserService {
             return ApiResponse.failure("BAD_CREDENTIALS", "用户名或密码错误");
         }
 
+        //修改最后一次登录时间
         user.setLastLoginAt(LocalDateTime.now());
         appUserMapper.update(user);
+
+
         String roleCode = appUserMapper.selectPrimaryRoleCodeByUserId(user.getId());
-        return ApiResponse.success("LOGIN_SUCCESS", "登录成功", UserVO.from(user, roleCode));
+
+        String token = jwtUtils.generateToken(user.getId());
+
+        LoginVO loginVO = LoginVO.builder()
+                .token(token)
+                .user(UserVO.from(user, roleCode))
+                .build();
+
+        return ApiResponse.success("LOGIN_SUCCESS", "登录成功", loginVO);
     }
+
+
 
 
     private String defaultDisplayName(String displayName, String username) {

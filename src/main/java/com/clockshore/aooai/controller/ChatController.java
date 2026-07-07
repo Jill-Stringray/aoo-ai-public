@@ -2,6 +2,7 @@ package com.clockshore.aooai.controller;
 
 import com.clockshore.aooai.common.ApiResponse;
 import com.clockshore.aooai.dto.message.ChatRequest;
+import com.clockshore.aooai.dto.message.ChatRequestVO;
 import com.clockshore.aooai.enumType.ResultCode;
 import com.clockshore.aooai.service.ChatService;
 import com.clockshore.aooai.service.KnowledgeService;
@@ -38,5 +39,16 @@ public class ChatController {
     public SseEmitter stream(@RequestBody ChatRequest request) {
         return sseService.stream(chatService.streamChat(request));
     }
+
+    /*
+    @PostMapping(value = "/conversation")
+    public ApiResponse<ChatRequestVO> conversation(@RequestBody ChatRequest request){
+        if(request.getConversationId() == null){
+            //ApiResponse.failure;
+        }
+        ChatRequestVO.builder().conversationId(1L).userId(1L).build();
+    }
+    */
+
 
 }

@@ -3,12 +3,6 @@ package com.clockshore.aooai.dto.auth;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
-/**
- * 登录请求 DTO。
- *
- * <p>Controller 只接收前端需要提交的字段，不直接暴露数据库实体，
- * 这样可以避免前端误传或后端误返回 passwordHash 等敏感字段。</p>
- */
 @Data
 public class LoginRequest {
 

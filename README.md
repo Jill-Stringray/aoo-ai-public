@@ -14,6 +14,9 @@ Embedding Spring AI
 ↓
 VectorStore Spring AI
 ↓
-Retriever 还未实现
+Retriever Spring AI
 ↓
-LLM 还未实现
+LLM Deepseek
+
+REST API 一般更倾向于返回对象而不是裸值
+不要相信前端传的字段数据
