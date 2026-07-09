@@ -40,15 +40,16 @@ public class ChatController {
         return sseService.stream(chatService.streamChat(request));
     }
 
-    /*//todo
+
     @PostMapping(value = "/conversation")
-    public ApiResponse<ChatRequestVO> conversation(@RequestBody ChatRequest request){
-        if(request.getConversationId() == null){
-            //ApiResponse.failure;
+    public ApiResponse<ChatRequestVO> newConversation(@RequestBody ChatRequest request){
+        //request已设置ConversationId
+        if(request.getConversationId() != null){
+            return ApiResponse.failure(ResultCode.WRONG_PARAMS,"conversationId 不为空");
         }
-        ChatRequestVO.builder().conversationId(1L).userId(1L).build();
+
+        return ChatRequestVO.builder().conversationId(1L).userId(1L).build();
     }
-    */
 
 
 }
