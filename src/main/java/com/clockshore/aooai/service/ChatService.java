@@ -8,8 +8,8 @@ import com.clockshore.aooai.enumType.CharacterRole;
 import com.clockshore.aooai.factory.ChatMessageEventFactory;
 import com.clockshore.aooai.mapper.ConversationMapper;
 import com.clockshore.aooai.mapper.ConversationMessageMapper;
-import com.clockshore.aooai.mq.ChatMessageEvent;
 import com.clockshore.aooai.mq.ChatMessageMqProducer;
+import com.clockshore.aooai.security.SecurityUtils;
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -21,10 +21,8 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -52,6 +50,12 @@ public class ChatService {
 
     @Resource
     private ChatMessageEventFactory chatMessageEventFactory;
+
+    @Resource
+    private ConversationMapper conversationMapper;
+
+    @Resource
+    private ConversationService conversationService;
 
     public ChatService(ChatClient.Builder builder,
                        ConversationMessageMapper conversationMessageMapper
@@ -81,6 +85,13 @@ public class ChatService {
 
 
     public Flux<ChatResponse> streamChat(ChatRequest chatRequest){
+
+
+        if (chatRequest.getConversationId() == null) {
+            // 创建新会话
+            Long conversationId = conversationService.createConversation(SecurityUtils.getUserId());
+            chatRequest.setConversationId(conversationId);
+        }
 
 
         // 1. 保存用户消息
@@ -281,5 +292,8 @@ public class ChatService {
         }
         return history;
     }
+
+
+
 
 }

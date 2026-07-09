@@ -9,14 +9,14 @@ import java.util.List;
 public interface ConversationMapper {
 
     @Insert("""
-            INSERT INTO conversation (conversation_key, user_id, session_id, title, status)
-            VALUES (#{conversationKey}, #{userId}, #{sessionId}, #{title} , #{status})
+            INSERT INTO conversation (conversation_key, user_id, title, status)
+            VALUES (#{conversationKey}, #{user}, #{title} , #{status})
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")
     Long insert(Conversation conversation);
 
     @Select("""
-            SELECT id, conversation_key AS conversationKey, user_id AS userId, session_id AS sessionId,
+            SELECT id, conversation_key AS conversationKey, user_id AS userId,
                    title, status, created_at AS createdAt, updated_at AS updatedAt
             FROM conversation
             WHERE id = #{id}
@@ -24,7 +24,7 @@ public interface ConversationMapper {
     Conversation selectById(@Param("id") Long id);
 
     @Select("""
-    SELECT id, conversation_key AS conversationKey, user_id AS userId, session_id AS sessionId,
+    SELECT id, conversation_key AS conversationKey, user_id AS userId,
            title, status, created_at AS createdAt, updated_at AS updatedAt
     FROM conversation
     WHERE conversation_key = #{conversationKey}
@@ -32,7 +32,7 @@ public interface ConversationMapper {
     Conversation selectByConversationKey(@Param("conversationKey") String conversationKey);
 
     @Select("""
-            SELECT id, conversation_key AS conversationKey, user_id AS userId, session_id AS sessionId,
+            SELECT id, conversation_key AS conversationKey, user_id AS userId,
                    title, status, created_at AS createdAt, updated_at AS updatedAt
             FROM conversation
             WHERE user_id = #{userId} AND UPPER(TRIM(status)) = 'ACTIVE'
@@ -44,7 +44,6 @@ public interface ConversationMapper {
             UPDATE conversation
             SET title = #{title},
                 status = #{status},
-                session_id = #{sessionId},
                 user_id = #{userId}
             WHERE id = #{id}
             """)
