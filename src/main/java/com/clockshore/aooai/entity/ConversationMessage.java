@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 /**
  * 会话消息实体，对应 MySQL 表 conversation_message。
  *
- * <p>Entity 层只表达数据库字段结构，不直接承载业务规则；
+ * <p>表达数据库字段结构，承载一定的业务规则,但是Spring AI核心链路还是使用它给定的Message类
  * 复杂校验、状态流转和权限判断应放在 Service 层，便于后续维护和测试。</p>
  */
 @Data

@@ -1,10 +1,12 @@
 package com.clockshore.aooai.controller;
 
 import com.clockshore.aooai.common.ApiResponse;
+import com.clockshore.aooai.dto.message.ChatMessage;
 import com.clockshore.aooai.dto.message.ChatRequest;
 import com.clockshore.aooai.dto.message.ChatRequestVO;
 import com.clockshore.aooai.dto.message.ConversationVO;
 import com.clockshore.aooai.enumType.ResultCode;
+import com.clockshore.aooai.mapper.ConversationMessageMapper;
 import com.clockshore.aooai.security.SecurityUtils;
 import com.clockshore.aooai.service.ChatService;
 import com.clockshore.aooai.service.ConversationService;
@@ -55,12 +57,15 @@ public class ChatController {
         return ApiResponse.success(conversationService.fetchConversationList(SecurityUtils.getUserId()));
     }
 
-    //todo
+
     @GetMapping()
-    public ApiResponse<List<Message>> conversationMessage(@RequestParam("ConversationId")Long conversationId){
+    public ApiResponse<List<ChatMessage>> conversationMessage(@RequestParam("ConversationId")Long conversationId){
         Long userId = SecurityUtils.getUserId();
-        List<Message>conversationService.fetchConversationMessages(conversationId,userId);
-        if()
+        List<ChatMessage> chatMessages = conversationService.fetchConversationMessages(conversationId,userId);
+        if(chatMessages == null){
+            return ApiResponse.failure(ResultCode.FAIL,"消息为空");
+        }
+        return ApiResponse.success(chatMessages);
     }
 
 }

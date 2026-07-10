@@ -29,7 +29,7 @@ public class ConversationVO {
         return ConversationVO.builder()
                 .conversationId(conversation.getId())
                 .title(conversation.getTitle())
-                .updateTime(conversation.get)
+                .updateTime(conversation.getUpdatedAt())
                 .build();
     }
 }

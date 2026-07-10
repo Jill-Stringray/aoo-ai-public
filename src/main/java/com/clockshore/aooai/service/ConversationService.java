@@ -1,8 +1,10 @@
 package com.clockshore.aooai.service;
 
 import com.clockshore.aooai.common.ApiResponse;
+import com.clockshore.aooai.dto.message.ChatMessage;
 import com.clockshore.aooai.dto.message.ConversationVO;
 import com.clockshore.aooai.entity.Conversation;
+import com.clockshore.aooai.entity.ConversationMessage;
 import com.clockshore.aooai.mapper.ConversationMapper;
 import com.clockshore.aooai.mapper.ConversationMessageMapper;
 import lombok.RequiredArgsConstructor;
@@ -44,7 +46,12 @@ public class ConversationService {
         return conversationVOS;
     }
 
-    public List<Message> fetchConversationMessages(Long userId,Long conversationId){
-        return conversationMessageMapper.selectByConversationIdAndUserId(conversationId,userId);
+    public List<ChatMessage> fetchConversationMessages(Long userId, Long conversationId){
+        List<ConversationMessage> conversationMessages = conversationMessageMapper.selectByConversationIdAndUserId(conversationId,userId);
+        List<ChatMessage> cm = new ArrayList<>();
+        for(ConversationMessage conversationMessage : conversationMessages){
+            cm.add(conversationMessageMapper.toChatMessage(conversationMessage));
+        }
+        return cm;
     }
 }

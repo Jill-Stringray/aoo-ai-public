@@ -83,7 +83,7 @@ public interface ConversationMessageMapper {
             AND cm.conversation_id = #{conversationId}
             ORDER BY cm.created_at ASC, cm.id ASC;
          """)
-    List<Message> selectByConversationIdAndUserId(
+    List<ConversationMessage> selectByConversationIdAndUserId(
             @Param("conversationId") Long conversationId,
             @Param("UserId")Long UserId
     );
@@ -121,6 +121,7 @@ public interface ConversationMessageMapper {
         return messages;
     }
 
+
     default ChatMessage toChatMessage(ConversationMessage conversationMessage) {
         if (conversationMessage == null) {
             return null;
@@ -129,6 +130,8 @@ public interface ConversationMessageMapper {
         return ChatMessage.builder()
                 .role(conversationMessage.getRole())
                 .content(conversationMessage.getContent())
+                .createTime(conversationMessage.getCreatedAt())
+                .id(conversationMessage.getId())
                 .build();
     }
 }
