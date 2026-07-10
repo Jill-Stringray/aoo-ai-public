@@ -29,7 +29,7 @@ public class ConversationMessage {
     private Long conversationId;
 
     /**
-     * 消息业务唯一键，建议应用层保证唯一。
+     * 消息业务唯一键。
      */
     private String messageKey;
 

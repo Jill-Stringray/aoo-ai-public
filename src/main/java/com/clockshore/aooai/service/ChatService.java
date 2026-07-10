@@ -245,7 +245,7 @@ public class ChatService {
         );
 
         // 历史消息
-        messages.addAll(buildHistory(request));
+        messages.addAll(buildHistory(request.getConversationId()));
 
         // 加入当前用户问题
         messages.add(new UserMessage(question));
@@ -267,7 +267,7 @@ public class ChatService {
         //history messages + current message
         //将当前消息加入
         List<Message> messages = new ArrayList<>();
-        messages.addAll(buildHistory(chatRequest));
+        messages.addAll(buildHistory(chatRequest.getConversationId()));
         String currentMessage = chatRequest.resolveMessage();
         if (currentMessage != null && !currentMessage.isBlank()) {
             messages.add(new UserMessage(currentMessage));
@@ -275,11 +275,17 @@ public class ChatService {
         return messages;
     }
 
-    public List<Message> buildHistory(ChatRequest chatRequest){
-        //构建历史消息
-        //不包含当前消息
+    /**
+     * 构建历史消息,不包含当前消息。
+     * <p>不复用给前端传递历史消息，因为没有鉴权内容，因此只能用于内部拼接内容给AI</p>
+     * <p>可能导致其他对话被泄露</p>
+     * <p>对外接口使用ConversationSerivce下的</p>
+     * @param ConversationId
+     * @return
+     */
+    public List<Message> buildHistory(Long ConversationId){
         List<Message> history = new ArrayList<>();
-        List<ConversationMessage> messagesList = conversationMessageMapper.selectByConversationId(chatRequest.getConversationId());
+        List<ConversationMessage> messagesList = conversationMessageMapper.selectByConversationId(ConversationId);
         for (ConversationMessage msg : messagesList) {
             String role = msg.getRole();
             if (CharacterRole.USER.getValue().equals(role)) {

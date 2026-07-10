@@ -4,7 +4,9 @@ import com.clockshore.aooai.common.ApiResponse;
 import com.clockshore.aooai.dto.message.ConversationVO;
 import com.clockshore.aooai.entity.Conversation;
 import com.clockshore.aooai.mapper.ConversationMapper;
+import com.clockshore.aooai.mapper.ConversationMessageMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -15,6 +17,8 @@ import java.util.List;
 public class ConversationService {
 
     private final ConversationMapper conversationMapper;
+
+    private final ConversationMessageMapper conversationMessageMapper;
 
 
     //主键回填
@@ -38,5 +42,9 @@ public class ConversationService {
         }
 
         return conversationVOS;
+    }
+
+    public List<Message> fetchConversationMessages(Long userId,Long conversationId){
+        return conversationMessageMapper.selectByConversationIdAndUserId(conversationId,userId);
     }
 }

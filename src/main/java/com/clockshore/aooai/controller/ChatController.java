@@ -58,7 +58,9 @@ public class ChatController {
     //todo
     @GetMapping()
     public ApiResponse<List<Message>> conversationMessage(@RequestParam("ConversationId")Long conversationId){
-
+        Long userId = SecurityUtils.getUserId();
+        List<Message>conversationService.fetchConversationMessages(conversationId,userId);
+        if()
     }
 
 }
