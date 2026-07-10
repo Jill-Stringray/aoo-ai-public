@@ -43,29 +43,41 @@ public class ChatController {
     private ConversationService conversationService;
 
 
-    /**
-     * @param request
-     * @return
-     */
+
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@RequestBody ChatRequest request) {
         return sseService.stream(chatService.streamChat(request));
     }
 
+    //获取对话列表
     @GetMapping(value = "/conversation/list")
     public ApiResponse<List<ConversationVO>> ConversationList(){
         return ApiResponse.success(conversationService.fetchConversationList(SecurityUtils.getUserId()));
     }
 
+    // 获取对话详情内容
+    /**
+     * 当前已加载消息中最早一条消息的 ID。
+     * 首次加载时不传（null），查询最新一批消息；
+     * 加载更多历史消息时，查询 ID 小于 beforeId 的消息。
+     *
+     */
+    @GetMapping("/{conversationId}/messages")
+    public ApiResponse<List<ChatMessage>> conversationMessage(
+            @PathVariable Long conversationId,
+            @RequestParam(required = false) Long beforeId,
+            @RequestParam(defaultValue = "20") Integer limit) {
 
-    @GetMapping()
-    public ApiResponse<List<ChatMessage>> conversationMessage(@RequestParam("ConversationId")Long conversationId){
         Long userId = SecurityUtils.getUserId();
-        List<ChatMessage> chatMessages = conversationService.fetchConversationMessages(conversationId,userId);
-        if(chatMessages == null){
-            return ApiResponse.failure(ResultCode.FAIL,"消息为空");
-        }
-        return ApiResponse.success(chatMessages);
+
+        return ApiResponse.success(
+                conversationService.fetchConversationMessages(
+                        userId,
+                        conversationId,
+                        limit,
+                        beforeId
+                )
+        );
     }
 
 }

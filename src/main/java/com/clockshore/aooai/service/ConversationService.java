@@ -46,11 +46,16 @@ public class ConversationService {
         return conversationVOS;
     }
 
-    public List<ChatMessage> fetchConversationMessages(Long userId, Long conversationId){
-        List<ConversationMessage> conversationMessages = conversationMessageMapper.selectByConversationIdAndUserId(conversationId,userId);
+    public List<ChatMessage> fetchConversationMessages(Long userId, Long conversationId,Integer limit,Long beforeId){
+        //防止前端恶意请求
+        limit = Math.min(limit, 50);
+        List<ConversationMessage> conversationMessages = conversationMessageMapper.selectByConversationIdAndUserId(conversationId,userId,beforeId,limit);
         List<ChatMessage> cm = new ArrayList<>();
-        for(ConversationMessage conversationMessage : conversationMessages){
-            cm.add(conversationMessageMapper.toChatMessage(conversationMessage));
+        //倒序插入
+        for (int i = conversationMessages.size() - 1; i >= 0; i--) {
+            cm.add(
+                    conversationMessageMapper.toChatMessage(conversationMessages.get(i))
+            );
         }
         return cm;
     }

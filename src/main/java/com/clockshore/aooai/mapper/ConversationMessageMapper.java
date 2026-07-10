@@ -81,11 +81,15 @@ public interface ConversationMessageMapper {
                 ON cm.conversation_id = c.id
             WHERE c.user_id = #{userId}
             AND cm.conversation_id = #{conversationId}
-            ORDER BY cm.created_at ASC, cm.id ASC;
+            AND (#{beforeId} IS NULL OR cm.id < #{beforeId})
+            ORDER BY cm.id DESC
+            LIMIT #{limit}
          """)
     List<ConversationMessage> selectByConversationIdAndUserId(
             @Param("conversationId") Long conversationId,
-            @Param("UserId")Long UserId
+            @Param("userId")Long userId,
+            @Param("beforeId") Long beforeId,
+            @Param("limit")Integer limit
     );
 
     @Update("""
