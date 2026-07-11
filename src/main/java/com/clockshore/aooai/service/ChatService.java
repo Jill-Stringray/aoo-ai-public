@@ -4,6 +4,7 @@ package com.clockshore.aooai.service;
 import cn.hutool.core.util.IdUtil;
 import com.clockshore.aooai.dto.message.ChatRequest;
 import com.clockshore.aooai.entity.ConversationMessage;
+import com.clockshore.aooai.entity.MessageRetrievalSource;
 import com.clockshore.aooai.enumType.CharacterRole;
 import com.clockshore.aooai.factory.ChatMessageEventFactory;
 import com.clockshore.aooai.mapper.ConversationMapper;
@@ -166,6 +167,26 @@ public class ChatService {
         );
     }
 
+    /**
+     * MQ投递消息召回来源持久化
+     */
+    public void enqueueRetrievalSource(
+            Long messageId,
+            List<MessageRetrievalSource> sources
+    ) {
+
+        if (messageId == null || sources == null || sources.isEmpty()) {
+            return;
+        }
+
+        chatMessageMqProducer.publishRetrievalSourcePersist(
+                retrievalSourceEventFactory.buildRetrievalSourceEvent(
+                        messageId,
+                        sources
+                )
+        );
+    }
+
 
 
     //立即保存不走MQ
@@ -232,6 +253,8 @@ public class ChatService {
                         question,
                         5
                 );
+
+        enqueueUserMessage();
 
         StringBuilder ragText = new StringBuilder("以下内容为企业知识库召回结果：");
 

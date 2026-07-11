@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.clockshore.aooai.mapper.MessageRetrievalSourceMapper">
+
+    <insert id="batchInsert">
+
+        INSERT INTO message_retrieval_source
+        (
+        message_id,
+        knowledge_base_id,
+        document_id,
+        chunk_id,
+        rank_no,
+        score,
+        rerank_score,
+        quote_text
+        )
+        VALUES
+
+        <foreach collection="list" item="item" separator=",">
+
+            (
+            #{item.messageId},
+            #{item.knowledgeBaseId},
+            #{item.documentId},
+            #{item.chunkId},
+            #{item.rankNo},
+            #{item.score},
+            #{item.rerankScore},
+            #{item.quoteText}
+            )
+
+        </foreach>
+
+    </insert>
+
+</mapper>

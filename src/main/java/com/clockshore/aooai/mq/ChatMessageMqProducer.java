@@ -52,4 +52,20 @@ public class ChatMessageMqProducer {
         localMqMessageMapper.insert(localMqMessage);
         return localMqMessage;
     }
+
+    @Transactional
+    public LocalMqMessage publishRetrievalResultTask(){
+
+        String payload = toJsonUtil.toJson(documentId);
+        LocalMqMessage localMqMessage = LocalMqMessage.builder()
+                .eventKey("need to save Retrieval Result:" + UUID.randomUUID().toString())
+                .topic(ChatMqConfig.EMBEDDING_EXCHANGE)
+                .routingKey(ChatMqConfig.EMBEDDING_ROUTING_KEY)
+                .payload(payload)
+                .status(LocalMqMessageStatus.NEW.getValue())
+                .retryCount(0)
+                .build();
+        localMqMessageMapper.insert(localMqMessage);
+        return localMqMessage;
+    }
 }
