@@ -34,9 +34,9 @@ const submitLogin = async () => {
   loading.value = true;
   try {
     result.value = await login(loginForm.value);
-    if (result.value?.success && result.value?.data?.username) {
-      saveSession(result.value.data);
-      await router.push(redirectPath.value || getHomePathByRole(result.value.data.role));
+    const profile = result.value?.success ? saveSession(result.value.data) : null;
+    if (profile?.username) {
+      await router.push(redirectPath.value || getHomePathByRole(profile.role));
     }
   } finally {
     loading.value = false;

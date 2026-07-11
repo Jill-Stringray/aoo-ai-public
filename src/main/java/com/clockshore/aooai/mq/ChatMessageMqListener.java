@@ -1,7 +1,9 @@
 package com.clockshore.aooai.mq;
 
+import com.clockshore.aooai.enumType.CharacterRole;
 import com.clockshore.aooai.service.KnowledgeService;
 import com.clockshore.aooai.entity.ConversationMessage;
+import com.clockshore.aooai.mapper.ConversationMapper;
 import com.clockshore.aooai.mapper.ConversationMessageMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,6 +25,9 @@ public class ChatMessageMqListener {
     @Resource
     private ConversationMessageMapper conversationMessageMapper;
 
+    @Resource
+    private ConversationMapper conversationMapper;
+
     @Transactional
     @RabbitListener(queues = ChatMqConfig.CHAT_QUEUE)
     public void chatMessageConsume(String payload) {
@@ -41,6 +46,9 @@ public class ChatMessageMqListener {
                 .finishReason(event.getFinishReason())
                 .build();
         conversationMessageMapper.insert(conversationMessage);
+        if (CharacterRole.USER.getValue().equals(event.getRole())) {
+            conversationMapper.touchAfterUserMessage(event.getConversationId(), buildConversationTitle(event.getContent()));
+        }
     }
 
     @RabbitListener(queues = ChatMqConfig.EMBEDDING_QUEUE)
@@ -59,6 +67,14 @@ public class ChatMessageMqListener {
 
     private Integer defaultZero(Integer value) {
         return value == null ? 0 : value;
+    }
+
+    private String buildConversationTitle(String content) {
+        if (content == null || content.isBlank()) {
+            return "新对话";
+        }
+        String title = content.trim().replaceAll("\\s+", " ");
+        return title.length() > 30 ? title.substring(0, 30) : title;
     }
 
     private ChatMessageEvent parse(String payload) {

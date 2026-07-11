@@ -64,9 +64,9 @@ public class ChatController {
      */
     @GetMapping("/{conversationId}/messages")
     public ApiResponse<List<ChatMessage>> conversationMessage(
-            @PathVariable Long conversationId,
-            @RequestParam(required = false) Long beforeId,
-            @RequestParam(defaultValue = "20") Integer limit) {
+            @PathVariable("conversationId") Long conversationId,
+            @RequestParam(value = "beforeId", required = false) Long beforeId,
+            @RequestParam(value = "limit", defaultValue = "20") Integer limit){
 
         Long userId = SecurityUtils.getUserId();
 

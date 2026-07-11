@@ -1,3 +1,5 @@
+import { buildAuthHeaders } from './auth';
+
 async function parseApiResponse(res, fallbackMessage) {
   const contentType = res.headers.get('content-type') || '';
   const data = contentType.includes('application/json') ? await res.json() : { message: await res.text() };
@@ -31,18 +33,46 @@ function parseSseBlock(block) {
   return { eventName, data };
 }
 
+export async function fetchConversationList() {
+  const res = await fetch('/api/v1/chat/conversation/list', {
+    headers: buildAuthHeaders()
+  });
+  return parseApiResponse(res, '获取会话列表失败');
+}
+
+export async function fetchConversationMessages({ conversationId, beforeId, limit = 20 } = {}) {
+  if (!conversationId) {
+    return {
+      success: false,
+      code: 'INVALID_CONVERSATION',
+      message: '请选择会话后再加载消息',
+      data: null
+    };
+  }
+
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (beforeId) params.set('beforeId', String(beforeId));
+
+  const res = await fetch(`/api/v1/chat/${conversationId}/messages?${params.toString()}`, {
+    headers: buildAuthHeaders()
+  });
+  return parseApiResponse(res, '获取会话消息失败');
+}
+
 async function askQuestionStream({ message, conversationId, onDelta }) {
+  const body = {
+    message,
+    stream: true
+  };
+  if (conversationId) body.conversationId = conversationId;
+
   const res = await fetch('/api/v1/chat/stream', {
     method: 'POST',
-    headers: {
+    headers: buildAuthHeaders({
       'Content-Type': 'application/json',
       Accept: 'text/event-stream'
-    },
-    body: JSON.stringify({
-      message,
-      conversationId,
-      stream: true
-    })
+    }),
+    body: JSON.stringify(body)
   });
 
   if (!res.ok) {

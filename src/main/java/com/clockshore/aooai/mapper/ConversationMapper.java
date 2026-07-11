@@ -10,7 +10,7 @@ public interface ConversationMapper {
 
     @Insert("""
             INSERT INTO conversation (conversation_key, user_id, title, status)
-            VALUES (#{conversationKey}, #{user}, #{title} , #{status})
+            VALUES (#{conversationKey}, #{userId}, #{title} , #{status})
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")
     Long insert(Conversation conversation);
@@ -58,6 +58,19 @@ public interface ConversationMapper {
             @Param("id") Long id,
             @Param("userId") Long userId,
             @Param("status") String status);
+
+    @Update("""
+            UPDATE conversation
+            SET title = CASE
+                    WHEN title IS NULL OR title = '' OR title = '新对话' THEN #{title}
+                    ELSE title
+                END,
+                updated_at = CURRENT_TIMESTAMP(3)
+            WHERE id = #{id}
+            """)
+    int touchAfterUserMessage(
+            @Param("id") Long id,
+            @Param("title") String title);
 
     @Delete("DELETE FROM conversation WHERE id = #{id}")
     int deleteById(@Param("id") Long id);

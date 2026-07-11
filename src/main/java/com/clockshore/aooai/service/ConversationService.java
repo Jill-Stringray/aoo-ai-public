@@ -1,10 +1,12 @@
 package com.clockshore.aooai.service;
 
+import cn.hutool.core.util.IdUtil;
 import com.clockshore.aooai.common.ApiResponse;
 import com.clockshore.aooai.dto.message.ChatMessage;
 import com.clockshore.aooai.dto.message.ConversationVO;
 import com.clockshore.aooai.entity.Conversation;
 import com.clockshore.aooai.entity.ConversationMessage;
+import com.clockshore.aooai.enumType.ConversationStatus;
 import com.clockshore.aooai.mapper.ConversationMapper;
 import com.clockshore.aooai.mapper.ConversationMessageMapper;
 import lombok.RequiredArgsConstructor;
@@ -28,8 +30,10 @@ public class ConversationService {
 
         Conversation conversation = new Conversation();
 
+        conversation.setConversationKey(IdUtil.getSnowflakeNextIdStr());
         conversation.setUserId(userId);
         conversation.setTitle("新对话");
+        conversation.setStatus(ConversationStatus.ACTIVE.getValue());
 
         conversationMapper.insert(conversation);
 
