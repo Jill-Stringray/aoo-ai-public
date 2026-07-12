@@ -172,8 +172,10 @@ public class KnowledgeService {
             return 0;
         }
         List<DocumentChunk> chunks = new ArrayList<>();
-
         for(TextSegment t : segments) {
+            String chunkKey = UUID.randomUUID().toString();
+            //再次补充chunkKey 进入metadata
+            t.metadata().put("chunkKey",chunkKey);
 
             String metadataJson = toJsonUtil.toJson(t.metadata().toMap());
             String hash = DigestUtil.sha256Hex(t.text());
@@ -191,7 +193,7 @@ public class KnowledgeService {
             DocumentChunk chunk = DocumentChunk.builder()
                     .knowledgeBaseId(1L)//todo 还没想好怎么开发
                     .documentId(t.metadata().getLong("documentId"))
-                    .chunkKey(UUID.randomUUID().toString())
+                    .chunkKey(chunkKey)
                     .chunkIndex(t.metadata().getInteger("index"))
                     .content(t.text())
                     .contentHash(hash)

@@ -1,5 +1,6 @@
 package com.clockshore.aooai.mq;
 
+import com.clockshore.aooai.dto.mq.RetrievalSourceDTO;
 import com.clockshore.aooai.entity.MessageRetrievalSource;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,12 +19,12 @@ public class RetrievalSourceEvent {
     /**
      * AI回答消息ID
      */
-    private Long messageId;
+    private String messageKey;
 
 
     /**
      * 召回来源
      */
-    private List<MessageRetrievalSource> sources;
+    private List<RetrievalSourceDTO> sources;
 
 }

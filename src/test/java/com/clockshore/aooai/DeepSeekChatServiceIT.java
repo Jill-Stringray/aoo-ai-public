@@ -25,7 +25,7 @@ class DeepSeekChatServiceIT {
                 .stream(true)
                 .build();
 
-        System.out.println(chatService.buildRagMessages(c));
+        //System.out.println(chatService.buildRagMessages(c));
         System.out.println(chatService.nonStreamChat(c));
 
         Thread.sleep(10000);

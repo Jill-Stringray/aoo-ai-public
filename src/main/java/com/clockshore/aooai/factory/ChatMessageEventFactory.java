@@ -23,13 +23,14 @@ public class ChatMessageEventFactory {
 
     public ChatMessageEvent buildAssistantMessage(
             Long conversationId,
+            String messageKey,
             String content,
             String modelName,
             Usage usage,
             long latencyMs
     ) {
         return ChatMessageEvent.builder()
-                .messageKey(IdUtil.getSnowflakeNextIdStr())
+                .messageKey(messageKey)
                 .conversationId(conversationId)
                 .role(CharacterRole.ASSISTANT.getValue())
                 .content(content)

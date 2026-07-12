@@ -30,10 +30,14 @@ public class RagPromptService {
 
             来源：%s 第%s页
 
-            """
+                """
                 .formatted(
-                        metadata.getOrDefault("fileName", "未知文档"),
-                        metadata.getOrDefault("pageNo", "未知")
+                        valueOrDefault(metadata.get("fileName"), "未知文档"),
+                        valueOrDefault(metadata.get("pageNo"), "未知")
                 );
+    }
+
+    private String valueOrDefault(Object value, String defaultValue) {
+        return value == null ? defaultValue : value.toString();
     }
 }

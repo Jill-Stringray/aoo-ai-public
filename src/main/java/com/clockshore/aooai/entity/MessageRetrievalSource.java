@@ -1,6 +1,5 @@
 package com.clockshore.aooai.entity;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -27,7 +26,7 @@ public class MessageRetrievalSource {
     /**
      * AI 回答消息ID。
      */
-    private Long messageId;
+    private String messageKey;
 
     /**
      * 知识库ID。
@@ -52,12 +51,12 @@ public class MessageRetrievalSource {
     /**
      * 综合相似度得分。
      */
-    private BigDecimal score;
+    private Double score;
 
     /**
      * 重排得分。
      */
-    private BigDecimal rerankScore;
+    private Double rerankScore;
 
     /**
      * 回答引用片段快照。

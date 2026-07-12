@@ -9,7 +9,7 @@
 
         INSERT INTO message_retrieval_source
         (
-        message_id,
+        message_key,
         knowledge_base_id,
         document_id,
         chunk_id,
@@ -23,7 +23,7 @@
         <foreach collection="list" item="item" separator=",">
 
             (
-            #{item.messageId},
+            #{item.messageKey},
             #{item.knowledgeBaseId},
             #{item.documentId},
             #{item.chunkId},

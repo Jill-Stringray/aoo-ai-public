@@ -1,14 +1,16 @@
 package com.clockshore.aooai.mq;
 
+import com.clockshore.aooai.Utility.ToJsonUtil;
+import com.clockshore.aooai.dto.mq.RetrievalSourceDTO;
 import com.clockshore.aooai.entity.MessageRetrievalSource;
 import com.clockshore.aooai.mapper.MessageRetrievalSourceMapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import jakarta.annotation.Resource;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Component
@@ -16,13 +18,11 @@ public class RetrievalSourceMqListener {
 
 
     @Resource
-    private ObjectMapper objectMapper;
+    private ToJsonUtil toJsonUtil;
 
 
     @Resource
     private MessageRetrievalSourceMapper messageRetrievalSourceMapper;
-
-
 
     @RabbitListener(
             queues = ChatMqConfig.RETRIEVAL_QUEUE
@@ -30,49 +30,39 @@ public class RetrievalSourceMqListener {
     @Transactional
     public void retrievalSourceConsume(String payload) {
 
-        RetrievalSourceEvent event = parse(payload);
+
+        RetrievalSourceEvent event =
+                toJsonUtil.fromJson(
+                        payload,
+                        new TypeReference<>() {
+                        }
+                );
 
 
         List<MessageRetrievalSource> sources =
-                event.getSources()
-                        .stream()
-                        .map(source ->
-                                MessageRetrievalSource.builder()
-                                        .messageId(event.getMessageId())
-                                        .knowledgeBaseId(source.getKnowledgeBaseId())
-                                        .documentId(source.getDocumentId())
-                                        .chunkId(source.getChunkId())
-                                        .rankNo(source.getRankNo())
-                                        .score(source.getScore())
-                                        .rerankScore(source.getRerankScore())
-                                        .quoteText(source.getQuoteText())
-                                        .build()
-                        )
-                        .toList();
+                new ArrayList<>();
+
+        int i = 1;
+        for (RetrievalSourceDTO source : event.getSources()) {
+
+            MessageRetrievalSource entity =
+                    MessageRetrievalSource.builder()
+                            .messageKey(event.getMessageKey())
+                            .knowledgeBaseId(source.getKnowledgeBaseId())
+                            .documentId(source.getDocumentId())
+                            .chunkId(source.getChunkId())
+                            .rankNo(i)
+                            .score(source.getScore())
+                            .quoteText(source.getContent())
+                            .build();
+
+            sources.add(entity);
+            i++;
+        }
 
 
         if (!sources.isEmpty()) {
             messageRetrievalSourceMapper.batchInsert(sources);
-        }
-    }
-
-
-
-    private RetrievalSourceEvent parse(String payload) {
-
-        try {
-
-            return objectMapper.readValue(
-                    payload,
-                    RetrievalSourceEvent.class
-            );
-
-        } catch (JsonProcessingException e) {
-
-            throw new IllegalStateException(
-                    "parse retrieval source event failed",
-                    e
-            );
         }
     }
 

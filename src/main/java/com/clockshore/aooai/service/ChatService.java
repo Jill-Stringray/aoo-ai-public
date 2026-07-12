@@ -3,6 +3,7 @@ package com.clockshore.aooai.service;
 
 import cn.hutool.core.util.IdUtil;
 import com.clockshore.aooai.dto.message.ChatRequest;
+import com.clockshore.aooai.dto.mq.RetrievalSourceDTO;
 import com.clockshore.aooai.entity.ConversationMessage;
 import com.clockshore.aooai.entity.MessageRetrievalSource;
 import com.clockshore.aooai.enumType.CharacterRole;
@@ -10,6 +11,8 @@ import com.clockshore.aooai.factory.ChatMessageEventFactory;
 import com.clockshore.aooai.mapper.ConversationMapper;
 import com.clockshore.aooai.mapper.ConversationMessageMapper;
 import com.clockshore.aooai.mq.ChatMessageMqProducer;
+import com.clockshore.aooai.mq.RetrievalSourceEvent;
+import com.clockshore.aooai.mq.RetrievalSourceMqProducer;
 import com.clockshore.aooai.security.SecurityUtils;
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.client.ChatClient;
@@ -26,6 +29,7 @@ import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 
@@ -56,6 +60,9 @@ public class ChatService {
     private ConversationMapper conversationMapper;
 
     @Resource
+    private RetrievalSourceMqProducer retrievalSourceMqProducer;
+
+    @Resource
     private ConversationService conversationService;
 
     public ChatService(ChatClient.Builder builder,
@@ -68,8 +75,11 @@ public class ChatService {
 
         //Advisor = ChatClient 的“拦截器 / 增强器 / 插件系统”
         long startedAt = System.currentTimeMillis();
+        //生成雪花key
+        String messageKey = IdUtil.getSnowflakeNextIdStr();
+
         ChatResponse response = chatClient.prompt()
-                .messages(buildRagMessages(chatRequest))
+                .messages(buildRagMessages(chatRequest,messageKey))
                 .call()
                 .chatResponse();
 
@@ -79,7 +89,13 @@ public class ChatService {
 
         String reply = response.getResult().getOutput().getText();
         Usage usage = response.getMetadata().getUsage();
-        enqueueAssistantMessage(chatRequest.getConversationId(), reply, chatRequest.getModel(),usage,System.currentTimeMillis() - startedAt);
+        enqueueAssistantMessage(
+                chatRequest.getConversationId(),
+                messageKey,
+                reply,
+                chatRequest.getModel(),
+                usage,
+                System.currentTimeMillis() - startedAt);
         return reply;
     }
 
@@ -98,13 +114,16 @@ public class ChatService {
         // 1. 保存用户消息
         enqueueUserMessage(chatRequest.getConversationId(),chatRequest.getMessage());
 
+        //生成雪花
+        String messageKey = IdUtil.getSnowflakeNextIdStr();
+
 
         StringBuilder replyBuffer = new StringBuilder();
         AtomicReference<Usage> usageRef = new AtomicReference<>();
         long startedAt = System.currentTimeMillis();
 
         return chatClient.prompt()
-                .messages(buildRagMessages(chatRequest))
+                .messages(buildRagMessages(chatRequest,messageKey))
                 .stream()
                 .chatResponse()
                 .doOnNext(delta -> {
@@ -117,6 +136,7 @@ public class ChatService {
                 })
                 .doOnComplete(() -> enqueueAssistantMessage(
                         chatRequest.getConversationId(),
+                        messageKey,
                         replyBuffer.toString(),
                         chatRequest.getModel(),
                         usageRef.get(),
@@ -129,6 +149,7 @@ public class ChatService {
      *
      */
     public void enqueueAssistantMessage(Long conversationId,
+                                        String messageKey,
                                         String reply,
                                         String model,
                                         Usage usage,
@@ -140,6 +161,7 @@ public class ChatService {
         chatMessageMqProducer.publishMessagePersist(
                 chatMessageEventFactory.buildAssistantMessage(
                         conversationId,
+                        messageKey,
                         reply,
                         model,
                         usage,
@@ -171,20 +193,20 @@ public class ChatService {
      * MQ投递消息召回来源持久化
      */
     public void enqueueRetrievalSource(
-            Long messageId,
-            List<MessageRetrievalSource> sources
+            String messageKey,
+            List<RetrievalSourceDTO> sources
     ) {
 
-        if (messageId == null || sources == null || sources.isEmpty()) {
+        if (messageKey == null || sources == null || sources.isEmpty()) {
             return;
         }
 
-        chatMessageMqProducer.publishRetrievalSourcePersist(
-                retrievalSourceEventFactory.buildRetrievalSourceEvent(
-                        messageId,
-                        sources
-                )
-        );
+        retrievalSourceMqProducer.publishRetrievalSourcePersist(
+                RetrievalSourceEvent
+                        .builder()
+                        .messageKey(messageKey)
+                        .sources(sources).build()
+                );
     }
 
 
@@ -204,7 +226,7 @@ public class ChatService {
         return conversationMessageMapper.insert(conversationMessage);
     }
 
-    public List<Message> buildRagMessages(ChatRequest request) {
+    public List<Message> buildRagMessages(ChatRequest request,String messageKey) {
 
         List<Message> messages = new ArrayList<>();
 
@@ -254,7 +276,16 @@ public class ChatService {
                         5
                 );
 
-        enqueueUserMessage();
+        //将document转化成DTO
+
+        List<RetrievalSourceDTO> retrievalSourceDTOS = new ArrayList<>();
+
+        for(Document doc : docs){
+            RetrievalSourceDTO dto = RetrievalSourceDTO.of(doc);
+            retrievalSourceDTOS.add(dto);
+        }
+
+        enqueueRetrievalSource(messageKey,retrievalSourceDTOS);
 
         StringBuilder ragText = new StringBuilder("以下内容为企业知识库召回结果：");
 
