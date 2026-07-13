@@ -40,3 +40,5 @@ m -
 6.RabbitMQ队列异常导致Listener不断执行队列内未完成的操作
 
 已解决，通过查看RabbitMQ控制台，发现是因为前端传入一个不存在的conversationID,导致MQ在消费时插入被Mysql的外键约束阻拦，最终不断反复重试（此时还未添加retry limit)
+
+7.引用完RAG后应当能给一个超链接（退阶：给页码）从而定位文档内容的位置

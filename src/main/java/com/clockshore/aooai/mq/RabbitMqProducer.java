@@ -10,10 +10,11 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * 本地 MQ 消息投递器：先落库，再异步投递 RabbitMQ，最后回写投递状态。
+ * 扫描、调度本地消息表
+ * 调用 RabbitMQ Producer 发送消息
  */
 @Component
-public class LocalMqMessageDispatcher {
+public class RabbitMqProducer {
 
     private static final int DEFAULT_BATCH_SIZE = 50;
     private static final int MAX_FAIL_REASON_LENGTH = 2048;
