@@ -451,6 +451,13 @@ button:disabled { background: #bfdbfe; color: #475569; cursor: not-allowed; }
   font-weight: 800;
   opacity: .72;
 }
+.retrieval-summary {
+  display: block;
+  margin: -1px 0 7px;
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.5;
+}
 .message-bubble p { margin: 0; line-height: 1.7; }
 .composer-card {
   padding: 14px;

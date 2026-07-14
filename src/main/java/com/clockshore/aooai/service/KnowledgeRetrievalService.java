@@ -27,7 +27,7 @@ public class KnowledgeRetrievalService {
                         SearchRequest.builder()
                                 .query(query)
                                 .topK(topK)
-                                .similarityThreshold(0.35)
+                                .similarityThreshold(0.41)
                                 .build()
                 );
         return docs;

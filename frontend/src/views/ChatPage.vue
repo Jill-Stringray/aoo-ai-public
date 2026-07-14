@@ -58,6 +58,27 @@ function normalizeSources(sources) {
     .filter((source) => Number.isInteger(source.index));
 }
 
+function getVisibleCitationCount(message) {
+  if (message?.role !== 'assistant' || !Array.isArray(message.sources) || !message.sources.length) {
+    return 0;
+  }
+
+  const availableIndexes = new Set(message.sources.map((source) => Number(source.index)));
+  const visibleIndexes = new Set();
+  const content = String(message.content || '');
+  const citePattern = /\[--cite:(\d+)]/g;
+  let match;
+
+  while ((match = citePattern.exec(content)) !== null) {
+    const index = Number(match[1]);
+    if (availableIndexes.has(index)) {
+      visibleIndexes.add(index);
+    }
+  }
+
+  return visibleIndexes.size;
+}
+
 function normalizeConversation(item) {
   return {
     id: item.conversationId ?? item.id,
@@ -349,6 +370,9 @@ onMounted(async () => {
 
           <div v-for="(message, index) in messages" :key="message.id || index" :class="['message-bubble', message.role]">
             <span class="message-role">{{ message.role === 'user' ? '我' : 'AOO AI' }}</span>
+            <span v-if="getVisibleCitationCount(message)" class="retrieval-summary">
+              本次回答召回了{{ getVisibleCitationCount(message) }}条数据库知识
+            </span>
             <CitationMarkdown
               :content="message.content"
               :sources="message.sources"
@@ -401,14 +425,6 @@ onMounted(async () => {
           <div>
             <dt>知识库 ID</dt>
             <dd>{{ selectedSource?.knowledgeBaseId || '-' }}</dd>
-          </div>
-          <div>
-            <dt>文档 ID</dt>
-            <dd>{{ selectedSource?.documentId || '-' }}</dd>
-          </div>
-          <div>
-            <dt>切片 ID</dt>
-            <dd>{{ selectedSource?.chunkId || '-' }}</dd>
           </div>
           <div>
             <dt>相似度</dt>
