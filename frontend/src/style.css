@@ -353,13 +353,16 @@ button:disabled { background: #bfdbfe; color: #475569; cursor: not-allowed; }
   display: grid;
   grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
   gap: 16px;
-  align-items: stretch;
+  align-items: start;
 }
 .chat-history, .chat-panel { min-height: 680px; }
 .chat-history {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 0;
+  max-height: min(680px, calc(100vh - 170px));
+  overflow-y: auto;
   background: linear-gradient(180deg, #f8fbff, #ffffff);
 }
 .history-head {
@@ -511,6 +514,7 @@ button:disabled { background: #bfdbfe; color: #475569; cursor: not-allowed; }
 @media (max-width: 980px) {
   .chat-workspace { grid-template-columns: 1fr; }
   .chat-history, .chat-panel { min-height: auto; }
+  .chat-history { max-height: 360px; }
   .chat-toolbar { grid-template-columns: 1fr; }
   .message-bubble { max-width: 92%; }
 }
