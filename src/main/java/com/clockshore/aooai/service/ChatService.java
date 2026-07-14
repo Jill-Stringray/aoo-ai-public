@@ -330,7 +330,7 @@ public class ChatService {
 
     private void ensureConversationReady(ChatRequest chatRequest) {
         if (chatRequest == null) {
-            throw new IllegalArgumentException("chat request is required");
+            throw new IllegalArgumentException("需要chatRequest");
         }
 
         Long userId = SecurityUtils.getUserId();
@@ -342,10 +342,10 @@ public class ChatService {
 
         Conversation conversation = conversationMapper.selectByIdAndUserId(chatRequest.getConversationId(), userId);
         if (conversation == null) {
-            throw new IllegalArgumentException("conversationId does not exist or does not belong to current user");
+            throw new IllegalArgumentException("用户不属于该对话");
         }
         if (!ConversationStatus.ACTIVE.getValue().equals(conversation.getStatus())) {
-            throw new IllegalArgumentException("conversation is not active");
+            throw new IllegalArgumentException("对话不属于active状态");
         }
     }
 
@@ -354,7 +354,6 @@ public class ChatService {
      * <p>不复用给前端传递历史消息，因为没有鉴权内容，因此只能用于内部拼接内容给AI</p>
      * <p>可能导致其他对话被泄露</p>
      * <p>对外接口使用ConversationSerivce下的</p>
-     * @param ConversationId
      * @return
      */
     public List<Message> buildHistory(Long ConversationId){
