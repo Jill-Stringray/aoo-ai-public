@@ -24,6 +24,15 @@ public interface ConversationMapper {
     Conversation selectById(@Param("id") Long id);
 
     @Select("""
+            SELECT id, conversation_key AS conversationKey, user_id AS userId,
+                   title, status, created_at AS createdAt, updated_at AS updatedAt
+            FROM conversation
+            WHERE id = #{id}
+              AND user_id = #{userId}
+            """)
+    Conversation selectByIdAndUserId(@Param("id") Long id, @Param("userId") Long userId);
+
+    @Select("""
     SELECT id, conversation_key AS conversationKey, user_id AS userId,
            title, status, created_at AS createdAt, updated_at AS updatedAt
     FROM conversation

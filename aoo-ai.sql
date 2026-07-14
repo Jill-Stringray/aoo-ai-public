@@ -206,6 +206,7 @@ CREATE TABLE `conversation_message` (
   `finish_reason` VARCHAR(64) NULL COMMENT '模型结束原因',
   `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_conversation_message_key` (`message_key`),
   CONSTRAINT `fk_message_conversation` FOREIGN KEY (`conversation_id`) REFERENCES `conversation` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_message_parent` FOREIGN KEY (`parent_message_id`) REFERENCES `conversation_message` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='会话消息表';
@@ -290,7 +291,8 @@ CREATE TABLE `local_mq_message` (
   `fail_reason` VARCHAR(2048) NULL COMMENT '失败原因',
   `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_local_mq_message_event_key` (`event_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='本地 MQ 消息表';
 
 SET FOREIGN_KEY_CHECKS = 1;

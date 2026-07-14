@@ -1,10 +1,10 @@
 package com.clockshore.aooai.mq;
 
-import com.clockshore.aooai.enumType.CharacterRole;
-import com.clockshore.aooai.service.KnowledgeService;
 import com.clockshore.aooai.entity.ConversationMessage;
+import com.clockshore.aooai.enumType.CharacterRole;
 import com.clockshore.aooai.mapper.ConversationMapper;
 import com.clockshore.aooai.mapper.ConversationMessageMapper;
+import com.clockshore.aooai.service.KnowledgeService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
@@ -29,9 +29,17 @@ public class ChatMessageMqListener {
     private ConversationMapper conversationMapper;
 
     @Transactional
-    @RabbitListener(queues = ChatMqConfig.CHAT_QUEUE)
+    @RabbitListener(
+            queues = ChatMqConfig.CHAT_QUEUE,
+            containerFactory = ChatMqConfig.RELIABLE_LISTENER_CONTAINER_FACTORY
+    )
     public void chatMessageConsume(String payload) {
         ChatMessageEvent event = parse(payload);
+        validateChatMessageEvent(event);
+        if (conversationMessageMapper.selectByMessageKey(event.getMessageKey()) != null) {
+            return;
+        }
+
         ConversationMessage conversationMessage = ConversationMessage.builder()
                 .conversationId(event.getConversationId())
                 .messageKey(event.getMessageKey())
@@ -51,9 +59,15 @@ public class ChatMessageMqListener {
         }
     }
 
-    @RabbitListener(queues = ChatMqConfig.EMBEDDING_QUEUE)
+    @RabbitListener(
+            queues = ChatMqConfig.EMBEDDING_QUEUE,
+            containerFactory = ChatMqConfig.RELIABLE_LISTENER_CONTAINER_FACTORY
+    )
     public void embeddingConsume(String payload) {
         Long documentId = parseDocumentId(payload);
+        if (documentId == null || documentId <= 0) {
+            throw new IllegalArgumentException("invalid embedding documentId");
+        }
         knowledgeService.indexNewChunks(documentId);
     }
 
@@ -82,6 +96,24 @@ public class ChatMessageMqListener {
             return objectMapper.readValue(payload, ChatMessageEvent.class);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("parse chat message event failed", e);
+        }
+    }
+
+    private void validateChatMessageEvent(ChatMessageEvent event) {
+        if (event == null) {
+            throw new IllegalArgumentException("chat message event is null");
+        }
+        if (event.getConversationId() == null || conversationMapper.selectById(event.getConversationId()) == null) {
+            throw new IllegalArgumentException("conversationId does not exist: " + event.getConversationId());
+        }
+        if (event.getMessageKey() == null || event.getMessageKey().isBlank()) {
+            throw new IllegalArgumentException("messageKey is required");
+        }
+        if (event.getRole() == null || event.getRole().isBlank()) {
+            throw new IllegalArgumentException("role is required");
+        }
+        if (event.getContent() == null || event.getContent().isBlank()) {
+            throw new IllegalArgumentException("content is required");
         }
     }
 

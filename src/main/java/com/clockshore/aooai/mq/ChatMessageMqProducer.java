@@ -8,8 +8,6 @@ import jakarta.annotation.Resource;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.UUID;
-
 @Component
 public class ChatMessageMqProducer {
 
@@ -22,12 +20,13 @@ public class ChatMessageMqProducer {
     //persist 持久化
     @Transactional
     public void publishMessagePersist(ChatMessageEvent event) {
-        if (localMqMessageMapper.countByEventKey(event.getMessageKey()) > 0) {
+        String eventKey = "chat-message:" + event.getMessageKey();
+        if (localMqMessageMapper.countByEventKey(eventKey) > 0) {
             return;
         }
         String payload = toJsonUtil.toJson(event);
         LocalMqMessage localMqMessage = LocalMqMessage.builder()
-                .eventKey("need to persist message" + UUID.randomUUID().toString())
+                .eventKey(eventKey)
                 .topic(ChatMqConfig.CHAT_EXCHANGE)
                 .routingKey(ChatMqConfig.CHAT_ROUTING_KEY)
                 .payload(payload)
@@ -42,7 +41,7 @@ public class ChatMessageMqProducer {
 
         String payload = toJsonUtil.toJson(documentId);
         LocalMqMessage localMqMessage = LocalMqMessage.builder()
-                .eventKey("need to embedding:" + UUID.randomUUID().toString())
+                .eventKey("embedding:" + documentId)
                 .topic(ChatMqConfig.EMBEDDING_EXCHANGE)
                 .routingKey(ChatMqConfig.EMBEDDING_ROUTING_KEY)
                 .payload(payload)

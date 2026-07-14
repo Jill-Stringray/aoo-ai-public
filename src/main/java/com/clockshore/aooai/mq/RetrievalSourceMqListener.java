@@ -25,7 +25,8 @@ public class RetrievalSourceMqListener {
     private MessageRetrievalSourceMapper messageRetrievalSourceMapper;
 
     @RabbitListener(
-            queues = ChatMqConfig.RETRIEVAL_QUEUE
+            queues = ChatMqConfig.RETRIEVAL_QUEUE,
+            containerFactory = ChatMqConfig.RELIABLE_LISTENER_CONTAINER_FACTORY
     )
     @Transactional
     public void retrievalSourceConsume(String payload) {
@@ -38,6 +39,12 @@ public class RetrievalSourceMqListener {
                         }
                 );
 
+        if (event == null || event.getMessageKey() == null || event.getMessageKey().isBlank()) {
+            throw new IllegalArgumentException("retrieval source messageKey is required");
+        }
+        if (event.getSources() == null) {
+            throw new IllegalArgumentException("retrieval source list is required");
+        }
 
         List<MessageRetrievalSource> sources =
                 new ArrayList<>();

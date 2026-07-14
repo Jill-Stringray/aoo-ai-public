@@ -4,9 +4,11 @@ package com.clockshore.aooai.service;
 import cn.hutool.core.util.IdUtil;
 import com.clockshore.aooai.dto.message.ChatRequest;
 import com.clockshore.aooai.dto.mq.RetrievalSourceDTO;
+import com.clockshore.aooai.entity.Conversation;
 import com.clockshore.aooai.entity.ConversationMessage;
 import com.clockshore.aooai.entity.MessageRetrievalSource;
 import com.clockshore.aooai.enumType.CharacterRole;
+import com.clockshore.aooai.enumType.ConversationStatus;
 import com.clockshore.aooai.factory.ChatMessageEventFactory;
 import com.clockshore.aooai.mapper.ConversationMapper;
 import com.clockshore.aooai.mapper.ConversationMessageMapper;
@@ -74,6 +76,7 @@ public class ChatService {
     public String nonStreamChat(ChatRequest chatRequest) {
 
         //Advisor = ChatClient 的“拦截器 / 增强器 / 插件系统”
+        ensureConversationReady(chatRequest);
         long startedAt = System.currentTimeMillis();
         //生成雪花key
         String messageKey = IdUtil.getSnowflakeNextIdStr();
@@ -104,11 +107,7 @@ public class ChatService {
     public Flux<ChatResponse> streamChat(ChatRequest chatRequest){
 
 
-        if (chatRequest.getConversationId() == null) {
-            // 创建新会话
-            Long conversationId = conversationService.createConversation(SecurityUtils.getUserId());
-            chatRequest.setConversationId(conversationId);
-        }
+        ensureConversationReady(chatRequest);
 
 
         // 1. 保存用户消息
@@ -327,6 +326,27 @@ public class ChatService {
             messages.add(new UserMessage(currentMessage));
         }
         return messages;
+    }
+
+    private void ensureConversationReady(ChatRequest chatRequest) {
+        if (chatRequest == null) {
+            throw new IllegalArgumentException("chat request is required");
+        }
+
+        Long userId = SecurityUtils.getUserId();
+        if (chatRequest.getConversationId() == null) {
+            Long conversationId = conversationService.createConversation(userId);
+            chatRequest.setConversationId(conversationId);
+            return;
+        }
+
+        Conversation conversation = conversationMapper.selectByIdAndUserId(chatRequest.getConversationId(), userId);
+        if (conversation == null) {
+            throw new IllegalArgumentException("conversationId does not exist or does not belong to current user");
+        }
+        if (!ConversationStatus.ACTIVE.getValue().equals(conversation.getStatus())) {
+            throw new IllegalArgumentException("conversation is not active");
+        }
     }
 
     /**
