@@ -44,6 +44,11 @@ public class MessageRetrievalSource {
     private Long chunkId;
 
     /**
+     * 页码。
+     */
+    private Integer pageNumber;
+
+    /**
      * 召回排序。
      */
     private Integer rankNo;

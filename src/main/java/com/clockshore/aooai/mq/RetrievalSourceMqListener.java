@@ -58,6 +58,7 @@ public class RetrievalSourceMqListener {
                             .knowledgeBaseId(source.getKnowledgeBaseId())
                             .documentId(source.getDocumentId())
                             .chunkId(source.getChunkId())
+                            .pageNumber(source.getPageNumber())
                             .rankNo(i)
                             .score(source.getScore())
                             .quoteText(source.getContent())

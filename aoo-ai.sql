@@ -218,6 +218,7 @@ CREATE TABLE `message_retrieval_source` (
   `knowledge_base_id` BIGINT UNSIGNED NOT NULL COMMENT '知识库ID',
   `document_id` BIGINT UNSIGNED NOT NULL COMMENT '文档ID',
   `chunk_id` BIGINT UNSIGNED NOT NULL COMMENT '切片ID',
+  `page_number` INT UNSIGNED NULL COMMENT '引用页码',
   `rank_no` INT UNSIGNED NOT NULL COMMENT '召回排序',
   `score` DECIMAL(10, 6) NULL COMMENT '综合相似度得分',
   `rerank_score` DECIMAL(10, 6) NULL COMMENT '重排得分',

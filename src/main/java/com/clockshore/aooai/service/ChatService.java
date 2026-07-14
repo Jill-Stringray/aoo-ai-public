@@ -17,6 +17,7 @@ import com.clockshore.aooai.mq.RetrievalSourceEvent;
 import com.clockshore.aooai.mq.RetrievalSourceMqProducer;
 import com.clockshore.aooai.security.SecurityUtils;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -36,6 +37,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 
 @Service
+@Slf4j
 public class ChatService {
 
     private ChatClient chatClient;
@@ -312,11 +314,16 @@ public class ChatService {
         String question = request.resolveMessage();
 
         // 检索知识库
-        List<Document> docs =
-                knowledgeRetrievalService.retrieve(
-                        question,
-                        5
-                );
+        List<Document> docs;
+        try {
+            docs = knowledgeRetrievalService.retrieve(
+                    question,
+                    5
+            );
+        } catch (RuntimeException e) {
+            log.warn("召回失败, continue without RAG context. question={}", question, e);
+            docs = List.of();
+        }
 
         //将document转化成DTO
 

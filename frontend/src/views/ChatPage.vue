@@ -53,9 +53,18 @@ function normalizeSources(sources) {
   return sources
     .map((source) => ({
       ...source,
-      index: Number(source?.index)
+      index: Number(source?.index),
+      pageNumber: normalizePageNumber(source)
     }))
     .filter((source) => Number.isInteger(source.index));
+}
+
+function normalizePageNumber(source) {
+  const value = source?.pageNumber ?? source?.pageNo ?? source?.page_number;
+  if (value === null || value === undefined || value === '') return null;
+
+  const numberValue = Number(value);
+  return Number.isInteger(numberValue) ? numberValue : null;
 }
 
 function getVisibleCitationCount(message) {
@@ -77,6 +86,24 @@ function getVisibleCitationCount(message) {
   }
 
   return visibleIndexes.size;
+}
+
+function hasCitationMarkers(content) {
+  return /\[--cite:\d+]/.test(String(content || ''));
+}
+
+function hasPendingCitationSources() {
+  return messages.value.some((message) => (
+    message?.role === 'assistant'
+    && hasCitationMarkers(message.content)
+    && getVisibleCitationCount(message) === 0
+  ));
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
 }
 
 function normalizeConversation(item) {
@@ -139,7 +166,7 @@ async function scrollToBottom() {
   }
 }
 
-async function loadConversations({ preferLatest = false } = {}) {
+async function loadConversations({ preferLatest = false, preserveMessages = false } = {}) {
   listState.value = 'loading';
   listMessage.value = '';
 
@@ -150,7 +177,9 @@ async function loadConversations({ preferLatest = false } = {}) {
     conversations.value = (response.data || []).map(normalizeConversation);
     if (!conversations.value.length) {
       activeConversationId.value = null;
-      messages.value = [welcomeMessage];
+      if (!preserveMessages) {
+        messages.value = [welcomeMessage];
+      }
       hasMoreMessages.value = false;
       return;
     }
@@ -166,11 +195,13 @@ async function loadConversations({ preferLatest = false } = {}) {
   }
 }
 
-async function loadConversationMessages(conversationId, { beforeId, appendBefore = false } = {}) {
+async function loadConversationMessages(conversationId, { beforeId, appendBefore = false, preserveMessages = false } = {}) {
   if (!conversationId) {
-    messages.value = [welcomeMessage];
+    if (!preserveMessages) {
+      messages.value = [welcomeMessage];
+    }
     hasMoreMessages.value = false;
-    return;
+    return false;
   }
 
   messageState.value = 'loading';
@@ -182,13 +213,52 @@ async function loadConversationMessages(conversationId, { beforeId, appendBefore
 
     const nextMessages = (response.data || []).map(normalizeMessage);
     hasMoreMessages.value = nextMessages.length >= 20;
-    messages.value = appendBefore ? [...nextMessages, ...messages.value] : (nextMessages.length ? nextMessages : [welcomeMessage]);
+
+    if (appendBefore) {
+      messages.value = [...nextMessages, ...messages.value];
+      return true;
+    }
+
+    if (nextMessages.length) {
+      messages.value = nextMessages;
+      await scrollToBottom();
+      return true;
+    }
+
+    if (!preserveMessages) {
+      messages.value = [welcomeMessage];
+    }
     if (!appendBefore) await scrollToBottom();
+    return false;
   } catch (error) {
     messageNotice.value = error.message || '获取会话消息失败';
-    if (!appendBefore) messages.value = [welcomeMessage];
+    if (!appendBefore && !preserveMessages) messages.value = [welcomeMessage];
+    return false;
   } finally {
     messageState.value = 'idle';
+  }
+}
+
+async function refreshConversationMessagesAfterSend(conversationId, { preferLatest = false } = {}) {
+  let targetConversationId = conversationId;
+  const delays = [1500, 3000, 8000, 15000];
+  for (const delay of delays) {
+    if (delay > 0) {
+      await sleep(delay);
+    }
+
+    if (!targetConversationId) {
+      await loadConversations({ preferLatest, preserveMessages: true });
+      targetConversationId = activeConversationId.value;
+      if (!targetConversationId) {
+        continue;
+      }
+    }
+
+    const refreshed = await loadConversationMessages(targetConversationId, { preserveMessages: true });
+    if (refreshed && !hasPendingCitationSources()) {
+      break;
+    }
   }
 }
 
@@ -283,7 +353,8 @@ const sendQuestion = async () => {
       active.time = '刚刚';
     }
 
-    await loadConversations({ preferLatest: !conversationIdBeforeSend });
+    await loadConversations({ preferLatest: !conversationIdBeforeSend, preserveMessages: true });
+    await refreshConversationMessagesAfterSend(activeConversationId.value, { preferLatest: !conversationIdBeforeSend });
   } catch (error) {
     sendState.value = 'error';
     sendMessage.value = error.message || 'AI 对话请求失败，请稍后重试';
@@ -425,6 +496,10 @@ onMounted(async () => {
           <div>
             <dt>知识库 ID</dt>
             <dd>{{ selectedSource?.knowledgeBaseId || '-' }}</dd>
+          </div>
+          <div>
+            <dt>页码</dt>
+            <dd>{{ selectedSource?.pageNumber || '-' }}</dd>
           </div>
           <div>
             <dt>相似度</dt>

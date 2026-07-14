@@ -18,6 +18,7 @@ public class ChatRetrievalSource {
     private Long knowledgeBaseId;
     private Long documentId;
     private Long chunkId;
+    private Integer pageNumber;
     private Double score;
     private Double rerankScore;
     private String quoteText;
@@ -32,6 +33,7 @@ public class ChatRetrievalSource {
                 .knowledgeBaseId(source.getKnowledgeBaseId())
                 .documentId(source.getDocumentId())
                 .chunkId(source.getChunkId())
+                .pageNumber(source.getPageNumber())
                 .score(source.getScore())
                 .rerankScore(source.getRerankScore())
                 .quoteText(source.getQuoteText())
