@@ -15,4 +15,9 @@ public interface MessageRetrievalSourceMapper {
             List<MessageRetrievalSource> list
     );
 
+    List<MessageRetrievalSource> selectByMessageKeys(
+            @Param("messageKeys")
+            List<String> messageKeys
+    );
+
 }

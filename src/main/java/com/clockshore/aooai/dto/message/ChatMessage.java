@@ -8,6 +8,7 @@ import lombok.Setter;
 import lombok.ToString;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 
 
@@ -27,4 +28,5 @@ public class ChatMessage {
     private String role;
     private String content;
     private LocalDateTime createTime;
+    private List<ChatRetrievalSource> sources;
 }

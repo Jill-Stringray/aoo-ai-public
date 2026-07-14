@@ -1,7 +1,6 @@
 <script setup>
 import { computed, nextTick, onMounted, ref } from 'vue';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
+import CitationMarkdown from '../components/CitationMarkdown.vue';
 import {
   askQuestion,
   chatEndpointAvailable,
@@ -24,6 +23,8 @@ const messageState = ref('idle');
 const listMessage = ref('');
 const messageNotice = ref('');
 const hasMoreMessages = ref(false);
+const selectedSource = ref(null);
+const isSourceDrawerOpen = ref(false);
 
 const knowledgeBases = [
   { id: 'default', name: '默认知识库（后端固定 knowledgeBaseId=1）' }
@@ -42,13 +43,19 @@ const isLoadingMessages = computed(() => messageState.value === 'loading');
 const canSend = computed(() => Boolean(question.value.trim()) && !isSending.value && chatEndpointAvailable);
 const oldestMessageId = computed(() => messages.value.find((item) => item.id)?.id);
 
-function renderMarkdown(content) {
-  return DOMPurify.sanitize(marked.parse(content || ''));
-}
-
 function normalizeRole(role) {
   const value = String(role || 'assistant').toLowerCase();
   return value === 'user' ? 'user' : 'assistant';
+}
+
+function normalizeSources(sources) {
+  if (!Array.isArray(sources)) return [];
+  return sources
+    .map((source) => ({
+      ...source,
+      index: Number(source?.index)
+    }))
+    .filter((source) => Number.isInteger(source.index));
 }
 
 function normalizeConversation(item) {
@@ -66,8 +73,24 @@ function normalizeMessage(item) {
     id: item.id,
     role: normalizeRole(item.role),
     content: item.content || '',
-    createTime: item.createTime
+    createTime: item.createTime,
+    sources: normalizeSources(item.sources)
   };
+}
+
+function openSourceDrawer(source) {
+  selectedSource.value = source;
+  isSourceDrawerOpen.value = true;
+}
+
+function closeSourceDrawer() {
+  isSourceDrawerOpen.value = false;
+}
+
+function formatScore(value) {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return '-';
+  return numberValue.toFixed(4);
 }
 
 function formatTime(value) {
@@ -210,8 +233,8 @@ const sendQuestion = async () => {
 
   const content = question.value.trim();
   const conversationIdBeforeSend = activeConversationId.value;
-  messages.value.push({ role: 'user', content });
-  messages.value.push({ role: 'assistant', content: '' });
+  messages.value.push({ role: 'user', content, sources: [] });
+  messages.value.push({ role: 'assistant', content: '', sources: [] });
   const assistantIndex = messages.value.length - 1;
   question.value = '';
   sendState.value = 'loading';
@@ -326,7 +349,11 @@ onMounted(async () => {
 
           <div v-for="(message, index) in messages" :key="message.id || index" :class="['message-bubble', message.role]">
             <span class="message-role">{{ message.role === 'user' ? '我' : 'AOO AI' }}</span>
-            <div class="markdown-body" v-html="renderMarkdown(message.content)"></div>
+            <CitationMarkdown
+              :content="message.content"
+              :sources="message.sources"
+              @open-source="openSourceDrawer"
+            />
           </div>
         </div>
 
@@ -358,6 +385,42 @@ onMounted(async () => {
           <div v-else class="empty-upload muted">上传后，附件名称和大小会显示在这里；待后端提供接口后再提交到服务端。</div>
         </div>
       </article>
+    </div>
+
+    <div v-if="isSourceDrawerOpen" class="source-drawer-mask" @click.self="closeSourceDrawer">
+      <aside class="source-drawer" aria-label="引用来源详情">
+        <div class="source-drawer-head">
+          <div>
+            <span class="status-pill">引用 [{{ selectedSource?.index }}]</span>
+            <h3>来源详情</h3>
+          </div>
+          <button type="button" class="source-close" aria-label="关闭来源详情" @click="closeSourceDrawer">x</button>
+        </div>
+
+        <dl class="source-meta">
+          <div>
+            <dt>知识库 ID</dt>
+            <dd>{{ selectedSource?.knowledgeBaseId || '-' }}</dd>
+          </div>
+          <div>
+            <dt>文档 ID</dt>
+            <dd>{{ selectedSource?.documentId || '-' }}</dd>
+          </div>
+          <div>
+            <dt>切片 ID</dt>
+            <dd>{{ selectedSource?.chunkId || '-' }}</dd>
+          </div>
+          <div>
+            <dt>相似度</dt>
+            <dd>{{ formatScore(selectedSource?.score) }}</dd>
+          </div>
+        </dl>
+
+        <div class="source-quote">
+          <h4>引用片段</h4>
+          <p>{{ selectedSource?.quoteText || '暂无片段内容' }}</p>
+        </div>
+      </aside>
     </div>
   </section>
 </template>

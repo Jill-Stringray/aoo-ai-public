@@ -1,20 +1,24 @@
 package com.clockshore.aooai.service;
 
 import cn.hutool.core.util.IdUtil;
-import com.clockshore.aooai.common.ApiResponse;
 import com.clockshore.aooai.dto.message.ChatMessage;
+import com.clockshore.aooai.dto.message.ChatRetrievalSource;
 import com.clockshore.aooai.dto.message.ConversationVO;
 import com.clockshore.aooai.entity.Conversation;
 import com.clockshore.aooai.entity.ConversationMessage;
+import com.clockshore.aooai.entity.MessageRetrievalSource;
 import com.clockshore.aooai.enumType.ConversationStatus;
 import com.clockshore.aooai.mapper.ConversationMapper;
 import com.clockshore.aooai.mapper.ConversationMessageMapper;
+import com.clockshore.aooai.mapper.MessageRetrievalSourceMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.messages.Message;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -24,12 +28,10 @@ public class ConversationService {
 
     private final ConversationMessageMapper conversationMessageMapper;
 
+    private final MessageRetrievalSourceMapper messageRetrievalSourceMapper;
 
-    //主键回填
     public Long createConversation(Long userId) {
-
         Conversation conversation = new Conversation();
-
         conversation.setConversationKey(IdUtil.getSnowflakeNextIdStr());
         conversation.setUserId(userId);
         conversation.setTitle("新对话");
@@ -50,17 +52,40 @@ public class ConversationService {
         return conversationVOS;
     }
 
-    public List<ChatMessage> fetchConversationMessages(Long userId, Long conversationId,Integer limit,Long beforeId){
-        //防止前端恶意请求
+    public List<ChatMessage> fetchConversationMessages(Long userId, Long conversationId, Integer limit, Long beforeId) {
         limit = Math.min(limit, 50);
-        List<ConversationMessage> conversationMessages = conversationMessageMapper.selectByConversationIdAndUserId(conversationId,userId,beforeId,limit);
-        List<ChatMessage> cm = new ArrayList<>();
-        //倒序插入
+        List<ConversationMessage> conversationMessages =
+                conversationMessageMapper.selectByConversationIdAndUserId(conversationId, userId, beforeId, limit);
+        Map<String, List<ChatRetrievalSource>> sourcesByMessageKey = fetchSourcesByMessageKey(conversationMessages);
+
+        List<ChatMessage> messages = new ArrayList<>();
         for (int i = conversationMessages.size() - 1; i >= 0; i--) {
-            cm.add(
-                    conversationMessageMapper.toChatMessage(conversationMessages.get(i))
-            );
+            ConversationMessage conversationMessage = conversationMessages.get(i);
+            ChatMessage chatMessage = conversationMessageMapper.toChatMessage(conversationMessage);
+            if (chatMessage != null) {
+                chatMessage.setSources(sourcesByMessageKey.getOrDefault(conversationMessage.getMessageKey(), List.of()));
+                messages.add(chatMessage);
+            }
         }
-        return cm;
+        return messages;
+    }
+
+    private Map<String, List<ChatRetrievalSource>> fetchSourcesByMessageKey(List<ConversationMessage> messages) {
+        List<String> messageKeys = messages.stream()
+                .map(ConversationMessage::getMessageKey)
+                .filter(Objects::nonNull)
+                .filter(messageKey -> !messageKey.isBlank())
+                .distinct()
+                .toList();
+
+        if (messageKeys.isEmpty()) {
+            return Map.of();
+        }
+
+        return messageRetrievalSourceMapper.selectByMessageKeys(messageKeys).stream()
+                .collect(Collectors.groupingBy(
+                        MessageRetrievalSource::getMessageKey,
+                        Collectors.mapping(ChatRetrievalSource::from, Collectors.toList())
+                ));
     }
 }
