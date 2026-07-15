@@ -63,3 +63,7 @@ m -
 11.幂等设计不足
 
 修正 outbox event_key，不再用随机 UUID 破坏幂等
+
+12.streamchat()抛出异常无法被SSE捕捉
+
+原因是在创建好SSE之前就抛出了异常。Supplier 的核心作用就一句话： 把一段代码先包起来，晚点再执行。 在这个场景下，它让 SseEmitter 先创建好，再执行可能抛异常的 chatService.streamChat(request)，这样异常就能被 SseService 捕获并按 SSE 格式返回。

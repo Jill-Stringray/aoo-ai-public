@@ -382,8 +382,11 @@ public class ChatService {
         if (chatRequest == null) {
             throw new IllegalArgumentException("需要chatRequest");
         }
-
         Long userId = SecurityUtils.getUserId();
+        if(userId == null){
+            throw new IllegalStateException("登录状态失效，请重新登录");
+        }
+
         if (chatRequest.getConversationId() == null) {
             Long conversationId = conversationService.createConversation(userId);
             chatRequest.setConversationId(conversationId);
@@ -392,7 +395,7 @@ public class ChatService {
 
         Conversation conversation = conversationMapper.selectByIdAndUserId(chatRequest.getConversationId(), userId);
         if (conversation == null) {
-            throw new IllegalArgumentException("用户不属于该对话");
+            throw new IllegalArgumentException("会话不存在");
         }
         if (!ConversationStatus.ACTIVE.getValue().equals(conversation.getStatus())) {
             throw new IllegalArgumentException("对话不属于active状态");

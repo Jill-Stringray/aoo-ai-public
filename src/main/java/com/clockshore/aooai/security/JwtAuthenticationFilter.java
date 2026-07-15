@@ -34,8 +34,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
-        System.out.println("******JwtAuthenticationFilter working******");
-
         // 获取请求头
         String authorization = request.getHeader("Authorization");
 
@@ -71,6 +69,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         } catch (Exception e) {
             System.out.println("JWT token 校验失败: " + e.getMessage());
+            //此时若校验失败，则不会将用户信息放进SecurityContextHolder
+            //System.out.println(SecurityUtils.getLoginUser());
         }
 
         // 6. 放行请求

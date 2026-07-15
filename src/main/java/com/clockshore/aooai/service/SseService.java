@@ -8,7 +8,7 @@ import reactor.core.publisher.Flux;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
+import java.util.function.Supplier;
 
 @Service
 public class SseService {
@@ -20,10 +20,31 @@ public class SseService {
 
     private final AtomicLong eventId = new AtomicLong();
 
+    public SseEmitter stream(Supplier<Flux<ChatResponse>> fluxSupplier) {
+
+        SseEmitter emitter = createEmitter();
+
+        try {
+            //先createEmitter()再抛异常，避免SseEmitter还未创建就抛异常
+            Flux<ChatResponse> flux = fluxSupplier.get();
+            subscribe(emitter, flux);
+        } catch (Exception e) {
+            error(emitter, e.getMessage());
+        }
+
+        return emitter;
+    }
 
     public SseEmitter stream(Flux<ChatResponse> flux) {
 
         SseEmitter emitter = createEmitter();
+
+        subscribe(emitter, flux);
+
+        return emitter;
+    }
+
+    private void subscribe(SseEmitter emitter, Flux<ChatResponse> flux) {
 
         flux.subscribe(
 
@@ -47,8 +68,6 @@ public class SseService {
                 }
 
         );
-
-        return emitter;
     }
 
     /**
