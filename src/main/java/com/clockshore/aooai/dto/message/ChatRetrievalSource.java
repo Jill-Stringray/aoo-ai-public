@@ -16,7 +16,9 @@ public class ChatRetrievalSource {
 
     private Integer index;
     private Long knowledgeBaseId;
+    private String knowledgeBaseName;
     private Long documentId;
+    private String fileName;
     private Long chunkId;
     private Integer pageNumber;
     private Double score;
@@ -31,7 +33,9 @@ public class ChatRetrievalSource {
         return ChatRetrievalSource.builder()
                 .index(source.getRankNo())
                 .knowledgeBaseId(source.getKnowledgeBaseId())
+                .knowledgeBaseName(source.getKnowledgeBaseName())
                 .documentId(source.getDocumentId())
+                .fileName(source.getFileName())
                 .chunkId(source.getChunkId())
                 .pageNumber(source.getPageNumber())
                 .score(source.getScore())

@@ -1,11 +1,13 @@
 <script setup>
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import CitationMarkdown from '../components/CitationMarkdown.vue';
 import {
   askQuestion,
   chatEndpointAvailable,
+  deleteConversation,
   fetchConversationList,
-  fetchConversationMessages
+  fetchConversationMessages,
+  renameConversation
 } from '../api/qa';
 
 const question = ref('');
@@ -25,6 +27,16 @@ const messageNotice = ref('');
 const hasMoreMessages = ref(false);
 const selectedSource = ref(null);
 const isSourceDrawerOpen = ref(false);
+const activeMenuConversationId = ref(null);
+const historyMenuPosition = ref({ top: 0, left: 0, placement: 'down' });
+const renameDialogOpen = ref(false);
+const renameConversationId = ref(null);
+const renameConversationTitle = ref('');
+const renameConversationSaving = ref(false);
+const deleteDialogOpen = ref(false);
+const deleteConversationId = ref(null);
+const deleteConversationTitle = ref('');
+const deleteConversationSaving = ref(false);
 
 const knowledgeBases = [
   { id: 'default', name: '默认知识库（后端固定 knowledgeBaseId=1）' }
@@ -54,6 +66,8 @@ function normalizeSources(sources) {
     .map((source) => ({
       ...source,
       index: Number(source?.index),
+      knowledgeBaseName: source?.knowledgeBaseName || source?.knowledge_base_name || '',
+      fileName: source?.fileName || source?.file_name || '',
       pageNumber: normalizePageNumber(source)
     }))
     .filter((source) => Number.isInteger(source.index));
@@ -166,6 +180,119 @@ async function scrollToBottom() {
   }
 }
 
+function closeHistoryMenu() {
+  activeMenuConversationId.value = null;
+}
+
+function updateHistoryMenuPosition(button) {
+  const rect = button.getBoundingClientRect();
+  const menuHeight = 92;
+  const gap = 8;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const placement = spaceBelow >= menuHeight + gap ? 'down' : 'up';
+
+  historyMenuPosition.value = {
+    top: placement === 'down' ? rect.bottom + gap : rect.top - menuHeight - gap,
+    left: Math.min(rect.right - 148, window.innerWidth - 164),
+    placement
+  };
+}
+
+function toggleHistoryMenu(conversationId, event) {
+  if (activeMenuConversationId.value === conversationId) {
+    closeHistoryMenu();
+    return;
+  }
+
+  updateHistoryMenuPosition(event.currentTarget);
+  activeMenuConversationId.value = conversationId;
+}
+
+function openRenameDialog(conversation) {
+  if (!conversation) return;
+  renameConversationId.value = conversation.id;
+  renameConversationTitle.value = conversation.title || '新对话';
+  renameDialogOpen.value = true;
+  closeHistoryMenu();
+}
+
+function openDeleteDialog(conversation) {
+  if (!conversation) return;
+  deleteConversationId.value = conversation.id;
+  deleteConversationTitle.value = conversation.title || '新对话';
+  deleteDialogOpen.value = true;
+  closeHistoryMenu();
+}
+
+function resetRenameDialog() {
+  renameDialogOpen.value = false;
+  renameConversationId.value = null;
+  renameConversationTitle.value = '';
+  renameConversationSaving.value = false;
+}
+
+function resetDeleteDialog() {
+  deleteDialogOpen.value = false;
+  deleteConversationId.value = null;
+  deleteConversationTitle.value = '';
+  deleteConversationSaving.value = false;
+}
+
+async function submitRenameConversation() {
+  if (!renameConversationId.value || renameConversationSaving.value) return;
+
+  const title = String(renameConversationTitle.value || '').trim();
+  if (!title) {
+    messageNotice.value = '会话标题不能为空';
+    return;
+  }
+
+  renameConversationSaving.value = true;
+  messageNotice.value = '';
+
+  try {
+    const response = await renameConversation({
+      conversationId: renameConversationId.value,
+      title
+    });
+    if (!response.success) throw new Error(response.message || '修改会话标题失败');
+
+    await loadConversations({ preserveMessages: true });
+    resetRenameDialog();
+  } catch (error) {
+    messageNotice.value = error.message || '修改会话标题失败';
+  } finally {
+    renameConversationSaving.value = false;
+  }
+}
+
+async function submitDeleteConversation() {
+  if (!deleteConversationId.value || deleteConversationSaving.value) return;
+
+  const targetId = deleteConversationId.value;
+  const wasActive = activeConversationId.value === targetId;
+  deleteConversationSaving.value = true;
+  messageNotice.value = '';
+
+  try {
+    const response = await deleteConversation(targetId);
+    if (!response.success) throw new Error(response.message || '删除会话失败');
+
+    conversations.value = conversations.value.filter((item) => item.id !== targetId);
+    if (wasActive) {
+      activeConversationId.value = null;
+      startNewConversation();
+    } else {
+      await loadConversations({ preserveMessages: true });
+    }
+    resetDeleteDialog();
+  } catch (error) {
+    messageNotice.value = error.message || '删除会话失败';
+  } finally {
+    deleteConversationSaving.value = false;
+  }
+}
+
 async function loadConversations({ preferLatest = false, preserveMessages = false } = {}) {
   listState.value = 'loading';
   listMessage.value = '';
@@ -264,6 +391,7 @@ async function refreshConversationMessagesAfterSend(conversationId, { preferLate
 
 const chooseConversation = async (conversation) => {
   if (isSending.value || conversation.id === activeConversationId.value) return;
+  closeHistoryMenu();
   activeConversationId.value = conversation.id;
   await loadConversationMessages(conversation.id);
 };
@@ -277,6 +405,7 @@ const loadMoreMessages = async () => {
 };
 
 const startNewConversation = () => {
+  closeHistoryMenu();
   activeConversationId.value = null;
   messages.value = [{
     role: 'assistant',
@@ -366,13 +495,52 @@ const sendQuestion = async () => {
   }
 };
 
+let removeDocumentClickListener = () => {};
+let historyMenuPointerDownInside = false;
+
 onMounted(async () => {
+  const isHistoryMenuTarget = (target) => (
+    target instanceof Element
+    && (target.closest('.history-menu') || target.closest('.history-dropdown'))
+  );
+
+  const onDocumentPointerDown = (event) => {
+    const target = event.target;
+    historyMenuPointerDownInside = isHistoryMenuTarget(target);
+  };
+
+  const onDocumentPointerUp = (event) => {
+    const target = event.target;
+    const pointerUpInside = isHistoryMenuTarget(target);
+    if (!historyMenuPointerDownInside && !pointerUpInside) {
+      closeHistoryMenu();
+    }
+    historyMenuPointerDownInside = false;
+  };
+
+  const onDocumentPointerCancel = () => {
+    historyMenuPointerDownInside = false;
+  };
+
+  document.addEventListener('pointerdown', onDocumentPointerDown);
+  document.addEventListener('pointerup', onDocumentPointerUp);
+  document.addEventListener('pointercancel', onDocumentPointerCancel);
+  removeDocumentClickListener = () => {
+    document.removeEventListener('pointerdown', onDocumentPointerDown);
+    document.removeEventListener('pointerup', onDocumentPointerUp);
+    document.removeEventListener('pointercancel', onDocumentPointerCancel);
+  };
+
   await loadConversations();
   if (activeConversationId.value) {
     await loadConversationMessages(activeConversationId.value);
   } else {
     messages.value = [welcomeMessage];
   }
+});
+
+onBeforeUnmount(() => {
+  removeDocumentClickListener();
 });
 </script>
 
@@ -399,17 +567,25 @@ onMounted(async () => {
         <p v-if="listMessage" class="error">{{ listMessage }}</p>
         <div v-else-if="!conversations.length && !isLoadingList" class="empty-upload muted">暂无历史会话，发送第一条消息后会自动创建。</div>
 
-        <button
+        <div
           v-for="conversation in conversations"
           :key="conversation.id"
-          type="button"
           :class="['history-item', { active: conversation.id === activeConversationId }]"
-          @click="chooseConversation(conversation)"
         >
-          <span class="history-title">{{ conversation.title }}</span>
-          <span class="history-preview">{{ conversation.preview }}</span>
-          <span class="history-time">{{ conversation.time }}</span>
-        </button>
+          <button type="button" class="history-item-main" @click="chooseConversation(conversation)">
+            <span class="history-title">{{ conversation.title }}</span>
+            <span class="history-preview">{{ conversation.preview }}</span>
+            <span class="history-time">{{ conversation.time }}</span>
+          </button>
+          <button
+            type="button"
+            class="history-more-button history-menu"
+            aria-label="更多操作"
+            @click.stop="toggleHistoryMenu(conversation.id, $event)"
+          >
+            ⋯
+          </button>
+        </div>
       </aside>
 
       <article class="chat-panel card">
@@ -494,8 +670,12 @@ onMounted(async () => {
 
         <dl class="source-meta">
           <div>
-            <dt>知识库 ID</dt>
-            <dd>{{ selectedSource?.knowledgeBaseId || '-' }}</dd>
+            <dt>知识库</dt>
+            <dd>{{ selectedSource?.knowledgeBaseName || '-' }}</dd>
+          </div>
+          <div>
+            <dt>文件名</dt>
+            <dd>{{ selectedSource?.fileName || '-' }}</dd>
           </div>
           <div>
             <dt>页码</dt>
@@ -512,6 +692,77 @@ onMounted(async () => {
           <p>{{ selectedSource?.quoteText || '暂无片段内容' }}</p>
         </div>
       </aside>
+    </div>
+
+    <Teleport to="body">
+      <div
+        v-if="activeMenuConversationId"
+        :class="['history-dropdown', `is-${historyMenuPosition.placement}`]"
+        :style="{ top: `${historyMenuPosition.top}px`, left: `${historyMenuPosition.left}px` }"
+        @pointerdown.stop
+      >
+        <button
+          type="button"
+          class="history-dropdown-item"
+          @click="openRenameDialog(conversations.find((item) => item.id === activeMenuConversationId))"
+        >
+          修改标题
+        </button>
+        <button
+          type="button"
+          class="history-dropdown-item danger"
+          @click="openDeleteDialog(conversations.find((item) => item.id === activeMenuConversationId))"
+        >
+          删除对话
+        </button>
+      </div>
+    </Teleport>
+
+    <div v-if="renameDialogOpen" class="dialog-mask" @click.self="resetRenameDialog">
+      <div class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="rename-dialog-title">
+        <div class="dialog-head">
+          <div>
+            <p class="status-pill">修改标题</p>
+            <h3 id="rename-dialog-title">编辑会话名称</h3>
+          </div>
+          <button type="button" class="source-close" aria-label="关闭修改标题弹窗" @click="resetRenameDialog">x</button>
+        </div>
+        <label class="dialog-field">
+          <span class="muted">会话标题</span>
+          <input
+            v-model="renameConversationTitle"
+            type="text"
+            maxlength="255"
+            placeholder="请输入新的会话标题"
+            @keydown.enter.prevent="submitRenameConversation"
+          />
+        </label>
+        <div class="dialog-actions">
+          <button type="button" class="button secondary" @click="resetRenameDialog">取消</button>
+          <button type="button" :disabled="renameConversationSaving" @click="submitRenameConversation">
+            {{ renameConversationSaving ? '保存中...' : '确认修改' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="deleteDialogOpen" class="dialog-mask" @click.self="resetDeleteDialog">
+      <div class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title">
+        <div class="dialog-head">
+          <div>
+            <p class="status-pill danger-pill">删除对话</p>
+            <h3 id="delete-dialog-title">确认删除「{{ deleteConversationTitle }}」？</h3>
+          </div>
+          <button type="button" class="source-close" aria-label="关闭删除确认弹窗" @click="resetDeleteDialog">x</button>
+        </div>
+        <p class="muted">删除后会话与消息将从历史记录中移除，且无法恢复。</p>
+        <div class="dialog-actions">
+          <button type="button" class="button secondary" @click="resetDeleteDialog">取消</button>
+          <button type="button" class="danger-button" :disabled="deleteConversationSaving" @click="submitDeleteConversation">
+            {{ deleteConversationSaving ? '删除中...' : '确认删除' }}
+          </button>
+        </div>
+      </div>
     </div>
   </section>
 </template>

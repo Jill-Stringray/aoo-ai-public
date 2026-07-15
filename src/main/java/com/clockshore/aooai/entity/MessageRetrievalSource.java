@@ -34,9 +34,19 @@ public class MessageRetrievalSource {
     private Long knowledgeBaseId;
 
     /**
+     * 知识库名称，仅用于来源详情展示。
+     */
+    private String knowledgeBaseName;
+
+    /**
      * 文档ID。
      */
     private Long documentId;
+
+    /**
+     * 原始文件名，仅用于来源详情展示。
+     */
+    private String fileName;
 
     /**
      * 切片ID。

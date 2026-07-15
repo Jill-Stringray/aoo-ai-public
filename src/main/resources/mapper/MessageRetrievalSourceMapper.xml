@@ -41,23 +41,27 @@
 
     <select id="selectByMessageKeys" resultType="com.clockshore.aooai.entity.MessageRetrievalSource">
         SELECT
-            id,
-            message_key AS messageKey,
-            knowledge_base_id AS knowledgeBaseId,
-            document_id AS documentId,
-            chunk_id AS chunkId,
-            page_number AS pageNumber,
-            rank_no AS rankNo,
-            score,
-            rerank_score AS rerankScore,
-            quote_text AS quoteText,
-            created_at AS createdAt
-        FROM message_retrieval_source
-        WHERE message_key IN
+            source.id,
+            source.message_key AS messageKey,
+            source.knowledge_base_id AS knowledgeBaseId,
+            kb.name AS knowledgeBaseName,
+            source.document_id AS documentId,
+            document.file_name AS fileName,
+            source.chunk_id AS chunkId,
+            source.page_number AS pageNumber,
+            source.rank_no AS rankNo,
+            source.score,
+            source.rerank_score AS rerankScore,
+            source.quote_text AS quoteText,
+            source.created_at AS createdAt
+        FROM message_retrieval_source source
+        LEFT JOIN knowledge_base kb ON kb.id = source.knowledge_base_id
+        LEFT JOIN knowledge_document document ON document.id = source.document_id
+        WHERE source.message_key IN
         <foreach collection="messageKeys" item="messageKey" open="(" separator="," close=")">
             #{messageKey}
         </foreach>
-        ORDER BY message_key ASC, rank_no ASC
+        ORDER BY source.message_key ASC, source.rank_no ASC
     </select>
 
 </mapper>
