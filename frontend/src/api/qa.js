@@ -59,6 +59,25 @@ export async function fetchConversationMessages({ conversationId, beforeId, limi
   return parseApiResponse(res, '获取会话消息失败');
 }
 
+export async function renameConversation({ conversationId, title } = {}) {
+  const res = await fetch(`/api/v1/chat/conversation/${conversationId}/title`, {
+    method: 'PUT',
+    headers: buildAuthHeaders({
+      'Content-Type': 'application/json'
+    }),
+    body: JSON.stringify({ title })
+  });
+  return parseApiResponse(res, '修改会话标题失败');
+}
+
+export async function deleteConversation(conversationId) {
+  const res = await fetch(`/api/v1/chat/conversation/${conversationId}`, {
+    method: 'DELETE',
+    headers: buildAuthHeaders()
+  });
+  return parseApiResponse(res, '删除会话失败');
+}
+
 async function askQuestionStream({ message, conversationId, onDelta }) {
   const body = {
     message,

@@ -70,6 +70,28 @@ public class ConversationService {
         return messages;
     }
 
+    public void renameConversation(Long userId, Long conversationId, String title) {
+        String normalizedTitle = title == null ? "" : title.trim();
+        if (normalizedTitle.isEmpty()) {
+            throw new IllegalArgumentException("会话标题不能为空");
+        }
+        if (normalizedTitle.length() > 255) {
+            normalizedTitle = normalizedTitle.substring(0, 255);
+        }
+
+        int updated = conversationMapper.updateTitleForUser(conversationId, userId, normalizedTitle);
+        if (updated == 0) {
+            throw new IllegalArgumentException("会话不存在或无权修改");
+        }
+    }
+
+    public void deleteConversation(Long userId, Long conversationId) {
+        int deleted = conversationMapper.deleteByIdAndUserId(conversationId, userId);
+        if (deleted == 0) {
+            throw new IllegalArgumentException("会话不存在或无权删除");
+        }
+    }
+
     private Map<String, List<ChatRetrievalSource>> fetchSourcesByMessageKey(List<ConversationMessage> messages) {
         List<String> messageKeys = messages.stream()
                 .map(ConversationMessage::getMessageKey)

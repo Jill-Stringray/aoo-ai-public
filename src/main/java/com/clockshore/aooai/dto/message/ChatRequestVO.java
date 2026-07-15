@@ -11,4 +11,5 @@ import lombok.*;
 public class ChatRequestVO {
     private Long conversationId;
     private Long userId;
+    private String title;
 }

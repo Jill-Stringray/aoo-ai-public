@@ -81,6 +81,25 @@ public interface ConversationMapper {
             @Param("id") Long id,
             @Param("title") String title);
 
+    @Update("""
+            UPDATE conversation
+            SET title = #{title},
+                updated_at = CURRENT_TIMESTAMP(3)
+            WHERE id = #{id} AND user_id = #{userId}
+            """)
+    int updateTitleForUser(
+            @Param("id") Long id,
+            @Param("userId") Long userId,
+            @Param("title") String title);
+
     @Delete("DELETE FROM conversation WHERE id = #{id}")
     int deleteById(@Param("id") Long id);
+
+    @Delete("""
+            DELETE FROM conversation
+            WHERE id = #{id} AND user_id = #{userId}
+            """)
+    int deleteByIdAndUserId(
+            @Param("id") Long id,
+            @Param("userId") Long userId);
 }
