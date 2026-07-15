@@ -29,6 +29,7 @@ public interface ConversationMapper {
             FROM conversation
             WHERE id = #{id}
               AND user_id = #{userId}
+              AND UPPER(TRIM(status)) = 'ACTIVE'
             """)
     Conversation selectByIdAndUserId(@Param("id") Long id, @Param("userId") Long userId);
 
@@ -60,8 +61,11 @@ public interface ConversationMapper {
 
     @Update("""
             UPDATE conversation
-            SET status = #{status}
-            WHERE id = #{id} AND user_id = #{userId}
+            SET status = #{status},
+                updated_at = CURRENT_TIMESTAMP(3)
+            WHERE id = #{id}
+              AND user_id = #{userId}
+              AND UPPER(TRIM(status)) = 'ACTIVE'
             """)
     int updateStatusForUser(
             @Param("id") Long id,
@@ -85,21 +89,13 @@ public interface ConversationMapper {
             UPDATE conversation
             SET title = #{title},
                 updated_at = CURRENT_TIMESTAMP(3)
-            WHERE id = #{id} AND user_id = #{userId}
+            WHERE id = #{id}
+              AND user_id = #{userId}
+              AND UPPER(TRIM(status)) = 'ACTIVE'
             """)
     int updateTitleForUser(
             @Param("id") Long id,
             @Param("userId") Long userId,
             @Param("title") String title);
 
-    @Delete("DELETE FROM conversation WHERE id = #{id}")
-    int deleteById(@Param("id") Long id);
-
-    @Delete("""
-            DELETE FROM conversation
-            WHERE id = #{id} AND user_id = #{userId}
-            """)
-    int deleteByIdAndUserId(
-            @Param("id") Long id,
-            @Param("userId") Long userId);
 }

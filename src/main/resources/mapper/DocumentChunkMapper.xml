@@ -61,6 +61,17 @@
 
     </select>
 
+    <select id="selectByDocumentId"
+            resultType="com.clockshore.aooai.entity.DocumentChunk">
+
+        SELECT *
+        FROM document_chunk
+        WHERE document_id = #{documentId}
+          AND status != 'DELETED'
+        ORDER BY chunk_index
+
+    </select>
+
     <update id="updateStatus">
 
         UPDATE document_chunk
@@ -92,6 +103,15 @@
         WHERE document_id = #{documentId}
 
     </delete>
+
+    <update id="markDeletedByKnowledgeBaseId">
+
+        UPDATE document_chunk
+        SET status = 'DELETED'
+        WHERE knowledge_base_id = #{knowledgeBaseId}
+          AND status != 'DELETED'
+
+    </update>
 
     <insert id="batchInsert">
 

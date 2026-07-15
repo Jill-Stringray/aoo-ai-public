@@ -65,6 +65,15 @@
 
     </delete>
 
+    <update id="markDeletedByKnowledgeBaseId">
+
+        UPDATE knowledge_document
+        SET status = 'DELETED'
+        WHERE knowledge_base_id = #{knowledgeBaseId}
+          AND status != 'DELETED'
+
+    </update>
+
     <select id="countAll" resultType="java.lang.Integer">
 
         SELECT COUNT(*)
@@ -78,6 +87,17 @@
         SELECT COUNT(*)
         FROM knowledge_document
         WHERE status = #{status}
+
+    </select>
+
+    <select id="selectByKnowledgeBaseId"
+            resultType="com.clockshore.aooai.entity.KnowledgeDocument">
+
+        SELECT *
+        FROM knowledge_document
+        WHERE knowledge_base_id = #{knowledgeBaseId}
+          AND status != 'DELETED'
+        ORDER BY updated_at DESC, id DESC
 
     </select>
 

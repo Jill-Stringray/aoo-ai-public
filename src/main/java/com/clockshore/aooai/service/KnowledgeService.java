@@ -3,8 +3,10 @@ package com.clockshore.aooai.service;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.clockshore.aooai.Utility.ToJsonUtil;
 import com.clockshore.aooai.entity.DocumentChunk;
+import com.clockshore.aooai.entity.KnowledgeBase;
 import com.clockshore.aooai.entity.KnowledgeDocument;
 import com.clockshore.aooai.mapper.DocumentChunkMapper;
+import com.clockshore.aooai.mapper.KnowledgeBaseMapper;
 import com.clockshore.aooai.mapper.KnowledgeDocumentMapper;
 import com.clockshore.aooai.mq.ChatMessageMqProducer;
 import dev.langchain4j.data.segment.TextSegment;
@@ -14,6 +16,7 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.tika.Tika;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -34,6 +37,8 @@ public class KnowledgeService {
     private TokenSplitterService tokenSplitterService;
     @Resource
     private KnowledgeDocumentMapper knowledgeDocumentMapper;
+    @Resource
+    private KnowledgeBaseMapper knowledgeBaseMapper;
     @Resource
     private ToJsonUtil toJsonUtil;
     @Resource
@@ -64,7 +69,7 @@ public class KnowledgeService {
      */
     @Transactional
     public IngestResult ingestAndIndex(MultipartFile file) throws IOException {
-        IngestResult preparedResult = ingestAndSaveChunks(file);
+        IngestResult preparedResult = ingestAndSaveChunks(1L, file);
 
         knowledgeDocumentMapper.updateStatus(preparedResult.documentId(), "INDEXING");
         int indexedChunkCount = indexNewChunks(preparedResult.documentId());
@@ -82,7 +87,12 @@ public class KnowledgeService {
      */
     @Transactional
     public IngestResult ingestAndPublishEmbeddingTask(MultipartFile file) throws IOException {
-        IngestResult preparedResult = ingestAndSaveChunks(file);
+        return ingestAndPublishEmbeddingTask(1L, file);
+    }
+
+    @Transactional
+    public IngestResult ingestAndPublishEmbeddingTask(Long knowledgeBaseId, MultipartFile file) throws IOException {
+        IngestResult preparedResult = ingestAndSaveChunks(knowledgeBaseId, file);
 
         knowledgeDocumentMapper.updateStatus(preparedResult.documentId(), "INDEXING");
         chatMessageMqProducer.publishEmbeddingTask(preparedResult.documentId());
@@ -100,7 +110,12 @@ public class KnowledgeService {
      */
     @Transactional
     public IngestResult ingestAndSaveChunks(MultipartFile file) throws IOException {
-        KnowledgeDocument document = storeUploadedDocument(file);
+        return ingestAndSaveChunks(1L, file);
+    }
+
+    @Transactional
+    public IngestResult ingestAndSaveChunks(Long knowledgeBaseId, MultipartFile file) throws IOException {
+        KnowledgeDocument document = storeUploadedDocument(knowledgeBaseId, file);
         knowledgeDocumentMapper.updateStatus(document.getId(), "PARSING");
 
         List<Document> docs = documentReaderService.read(Paths.get(document.getStorageUrl()));
@@ -116,7 +131,7 @@ public class KnowledgeService {
 
     @Transactional
     public Long upload(MultipartFile file) throws IOException {
-        return storeUploadedDocument(file).getId();
+        return storeUploadedDocument(1L, file).getId();
     }
 
     /**
@@ -124,8 +139,12 @@ public class KnowledgeService {
      * 保存后写入mysql中的knowledge_document表来记录
      * 返回KnowledgeDocument
      */
-    private KnowledgeDocument storeUploadedDocument(MultipartFile file) throws IOException {
+    private KnowledgeDocument storeUploadedDocument(Long knowledgeBaseId, MultipartFile file) throws IOException {
         validate(file);
+        KnowledgeBase knowledgeBase = knowledgeBaseMapper.selectById(knowledgeBaseId);
+        if (knowledgeBase == null || "DELETED".equals(knowledgeBase.getStatus())) {
+            throw new IllegalArgumentException("知识库不存在");
+        }
         //防止../../../test.pdf
         String originalName = Paths.get(
                 Objects.requireNonNull(file.getOriginalFilename()))
@@ -148,8 +167,9 @@ public class KnowledgeService {
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
             KnowledgeDocument document = KnowledgeDocument.builder()
-                    .knowledgeBaseId(1L)//TODO 等待修改
+                    .knowledgeBaseId(knowledgeBaseId)
                     .documentKey(u)
+                    .title(originalName)
                     .fileName(originalName)
                     .fileType(extension)
                     .mimeType(tika.detect(file.getInputStream()))
@@ -190,8 +210,9 @@ public class KnowledgeService {
                 continue;
             }
 
+            Long knowledgeBaseId = t.metadata().getLong("knowledgeBaseId");
             DocumentChunk chunk = DocumentChunk.builder()
-                    .knowledgeBaseId(1L)//todo 还没想好怎么开发
+                    .knowledgeBaseId(knowledgeBaseId == null ? 1L : knowledgeBaseId)
                     .documentId(t.metadata().getLong("documentId"))
                     .chunkKey(chunkKey)
                     .chunkIndex(t.metadata().getInteger("index"))
@@ -289,10 +310,192 @@ public class KnowledgeService {
         );
     }
 
+    public List<KnowledgeBaseVO> listKnowledgeBases() {
+        return knowledgeBaseMapper.selectAllActive().stream()
+                .map(KnowledgeBaseVO::of)
+                .toList();
+    }
+
+    public List<KnowledgeDocumentVO> listDocuments(Long knowledgeBaseId) {
+        if (knowledgeBaseId == null) {
+            throw new IllegalArgumentException("knowledgeBaseId不能为空");
+        }
+        return knowledgeDocumentMapper.selectByKnowledgeBaseId(knowledgeBaseId).stream()
+                .map(KnowledgeDocumentVO::of)
+                .toList();
+    }
+
+    public DocumentContentVO getDocumentContent(Long documentId) {
+        if (documentId == null) {
+            throw new IllegalArgumentException("documentId不能为空");
+        }
+
+        KnowledgeDocument document = knowledgeDocumentMapper.selectById(documentId);
+        if (document == null || "DELETED".equals(document.getStatus())) {
+            throw new IllegalArgumentException("文档不存在");
+        }
+
+        List<DocumentChunkVO> chunks = documentChunkMapper.selectByDocumentId(documentId).stream()
+                .map(DocumentChunkVO::of)
+                .toList();
+        String content = chunks.stream()
+                .map(DocumentChunkVO::content)
+                .filter(text -> text != null && !text.isBlank())
+                .reduce((left, right) -> left + "\n\n" + right)
+                .orElse("");
+
+        return new DocumentContentVO(KnowledgeDocumentVO.of(document), chunks, content);
+    }
+
+    @Transactional
+    public void renameKnowledgeBase(Long knowledgeBaseId, String name) {
+        if (knowledgeBaseId == null) {
+            throw new IllegalArgumentException("knowledgeBaseId不能为空");
+        }
+        String nextName = name == null ? "" : name.trim();
+        if (nextName.isBlank()) {
+            throw new IllegalArgumentException("知识库名称不能为空");
+        }
+        if (knowledgeBaseMapper.updateName(knowledgeBaseId, nextName) == 0) {
+            throw new IllegalArgumentException("知识库不存在");
+        }
+    }
+
+    @Transactional
+    public void deleteKnowledgeBase(Long knowledgeBaseId) {
+        if (knowledgeBaseId == null) {
+            throw new IllegalArgumentException("knowledgeBaseId不能为空");
+        }
+        if (knowledgeBaseMapper.markDeleted(knowledgeBaseId) == 0) {
+            throw new IllegalArgumentException("知识库不存在");
+        }
+        knowledgeDocumentMapper.markDeletedByKnowledgeBaseId(knowledgeBaseId);
+        documentChunkMapper.markDeletedByKnowledgeBaseId(knowledgeBaseId);
+    }
+
+    public OriginalDocumentResource getOriginalDocument(Long documentId) {
+        if (documentId == null) {
+            throw new IllegalArgumentException("documentId不能为空");
+        }
+
+        KnowledgeDocument document = knowledgeDocumentMapper.selectById(documentId);
+        if (document == null || "DELETED".equals(document.getStatus())) {
+            throw new IllegalArgumentException("文档不存在");
+        }
+        if (document.getStorageUrl() == null || document.getStorageUrl().isBlank()) {
+            throw new IllegalArgumentException("文档没有原始文件路径");
+        }
+
+        Path uploadRoot = Paths.get("uploads").toAbsolutePath().normalize();
+        Path filePath = Paths.get(document.getStorageUrl()).toAbsolutePath().normalize();
+        if (!filePath.startsWith(uploadRoot)) {
+            throw new IllegalArgumentException("文档路径不合法");
+        }
+        if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+            throw new IllegalArgumentException("原始文件不存在");
+        }
+
+        return new OriginalDocumentResource(
+                new FileSystemResource(filePath),
+                document.getFileName(),
+                document.getMimeType()
+        );
+    }
+
     public record IngestResult(Long documentId, int savedChunkCount, int indexedChunkCount) {
     }
 
     public record KnowledgeStats(int documentCount, int searchableDocumentCount, int chunkCount) {
+    }
+
+    public record KnowledgeBaseVO(
+            Long id,
+            String kbCode,
+            String name,
+            String description,
+            String visibility,
+            String status,
+            String embeddingModel,
+            String updatedAt
+    ) {
+        public static KnowledgeBaseVO of(KnowledgeBase knowledgeBase) {
+            return new KnowledgeBaseVO(
+                    knowledgeBase.getId(),
+                    knowledgeBase.getKbCode(),
+                    knowledgeBase.getName(),
+                    knowledgeBase.getDescription(),
+                    knowledgeBase.getVisibility(),
+                    knowledgeBase.getStatus(),
+                    knowledgeBase.getEmbeddingModel(),
+                    knowledgeBase.getUpdatedAt() == null ? null : knowledgeBase.getUpdatedAt().toString()
+            );
+        }
+    }
+
+    public record KnowledgeDocumentVO(
+            Long id,
+            Long knowledgeBaseId,
+            String title,
+            String fileName,
+            String fileType,
+            String mimeType,
+            Long fileSize,
+            String sourceType,
+            String status,
+            String createdAt,
+            String updatedAt
+    ) {
+        public static KnowledgeDocumentVO of(KnowledgeDocument document) {
+            return new KnowledgeDocumentVO(
+                    document.getId(),
+                    document.getKnowledgeBaseId(),
+                    document.getTitle(),
+                    document.getFileName(),
+                    document.getFileType(),
+                    document.getMimeType(),
+                    document.getFileSize(),
+                    document.getSourceType(),
+                    document.getStatus(),
+                    document.getCreatedAt() == null ? null : document.getCreatedAt().toString(),
+                    document.getUpdatedAt() == null ? null : document.getUpdatedAt().toString()
+            );
+        }
+    }
+
+    public record DocumentChunkVO(
+            Long id,
+            Integer chunkIndex,
+            Integer pageNo,
+            String sectionTitle,
+            Integer tokenCount,
+            String status,
+            String content
+    ) {
+        public static DocumentChunkVO of(DocumentChunk chunk) {
+            return new DocumentChunkVO(
+                    chunk.getId(),
+                    chunk.getChunkIndex(),
+                    chunk.getPageNo(),
+                    chunk.getSectionTitle(),
+                    chunk.getTokenCount(),
+                    chunk.getStatus(),
+                    chunk.getContent()
+            );
+        }
+    }
+
+    public record DocumentContentVO(
+            KnowledgeDocumentVO document,
+            List<DocumentChunkVO> chunks,
+            String content
+    ) {
+    }
+
+    public record OriginalDocumentResource(
+            org.springframework.core.io.Resource resource,
+            String fileName,
+            String mimeType
+    ) {
     }
 
 

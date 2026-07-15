@@ -22,20 +22,20 @@ async function parseUploadResponse(res) {
 export const knowledgeApiCapabilities = {
   stats: true,
   upload: true,
-  listKnowledgeBases: false,
+  listKnowledgeBases: true,
   createKnowledgeBase: false,
-  updateKnowledgeBase: false,
-  deleteKnowledgeBase: false,
-  getKnowledgeBaseDetail: false,
-  listDocuments: false,
+  updateKnowledgeBase: true,
+  deleteKnowledgeBase: true,
+  getKnowledgeBaseDetail: true,
+  listDocuments: true,
   deleteDocument: false,
   chat: false
 };
 
 export const missingKnowledgeEndpoints = [
-  '知识库分页/搜索/详情/新增/编辑/删除接口',
-  '文档列表/分页/删除/状态刷新接口',
-  '支持按 knowledgeBaseId 上传或检索的接口'
+  '知识库新增接口',
+  '文档分页/删除/状态刷新接口',
+  '支持按 knowledgeBaseId 检索的接口'
 ];
 
 function unsupportedResponse(message) {
@@ -47,11 +47,14 @@ function unsupportedResponse(message) {
   });
 }
 
-export async function uploadKnowledgeDocument(file) {
+export async function uploadKnowledgeDocument(file, knowledgeBaseId) {
   const formData = new FormData();
   formData.append('file', file);
 
-  const res = await fetch('/api/v1/knowledge/upload', {
+  const url = knowledgeBaseId
+    ? `/api/v1/knowledge/bases/${knowledgeBaseId}/upload`
+    : '/api/v1/knowledge/upload';
+  const res = await fetch(url, {
     method: 'POST',
     body: formData
   });
@@ -65,27 +68,48 @@ export async function getKnowledgeStats() {
 }
 
 export async function listKnowledgeBases() {
-  return unsupportedResponse('后端当前未暴露知识库列表接口；仅可读取 /api/v1/knowledge/stats 汇总数据。');
+  const res = await fetch('/api/v1/knowledge/bases');
+  return parseApiResponse(res, '知识库列表获取失败，请稍后重试');
 }
 
 export async function createKnowledgeBase() {
   return unsupportedResponse('后端当前未暴露新建知识库接口。');
 }
 
-export async function updateKnowledgeBase() {
-  return unsupportedResponse('后端当前未暴露修改知识库接口。');
+export async function updateKnowledgeBase({ knowledgeBaseId, name }) {
+  const res = await fetch(`/api/v1/knowledge/bases/${knowledgeBaseId}/name`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ name })
+  });
+  return parseApiResponse(res, '修改知识库名称失败');
 }
 
-export async function deleteKnowledgeBase() {
-  return unsupportedResponse('后端当前未暴露删除知识库接口。');
+export async function deleteKnowledgeBase(knowledgeBaseId) {
+  const res = await fetch(`/api/v1/knowledge/bases/${knowledgeBaseId}`, {
+    method: 'DELETE'
+  });
+  return parseApiResponse(res, '删除知识库失败');
 }
 
 export async function getKnowledgeBaseDetail() {
-  return unsupportedResponse('后端当前未暴露知识库详情接口。');
+  return listKnowledgeBases();
 }
 
-export async function listDocuments() {
-  return unsupportedResponse('后端当前未暴露文档列表接口；上传成功后只能展示本页面本次上传记录。');
+export async function listDocuments(knowledgeBaseId) {
+  const res = await fetch(`/api/v1/knowledge/bases/${knowledgeBaseId}/documents`);
+  return parseApiResponse(res, '知识库文档列表获取失败，请稍后重试');
+}
+
+export async function getDocumentContent(documentId) {
+  const res = await fetch(`/api/v1/knowledge/documents/${documentId}/content`);
+  return parseApiResponse(res, '文档内容获取失败，请稍后重试');
+}
+
+export function getDocumentFileUrl(documentId) {
+  return `/api/v1/knowledge/documents/${documentId}/file`;
 }
 
 export async function deleteDocument() {

@@ -31,6 +31,10 @@ public interface DocumentChunkMapper {
             @Param("documentId") Long documentId
     );
 
+    List<DocumentChunk> selectByDocumentId(
+            @Param("documentId") Long documentId
+    );
+
     int updateStatus(
             @Param("id") Long id,
             @Param("status") String status
@@ -48,6 +52,10 @@ public interface DocumentChunkMapper {
 
     int deleteByDocumentId(
             @Param("documentId") Long documentId
+    );
+
+    int markDeletedByKnowledgeBaseId(
+            @Param("knowledgeBaseId") Long knowledgeBaseId
     );
 
     int findHash(

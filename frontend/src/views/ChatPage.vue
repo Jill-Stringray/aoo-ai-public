@@ -322,7 +322,10 @@ async function loadConversations({ preferLatest = false, preserveMessages = fals
   }
 }
 
-async function loadConversationMessages(conversationId, { beforeId, appendBefore = false, preserveMessages = false } = {}) {
+async function loadConversationMessages(
+  conversationId,
+  { beforeId, appendBefore = false, preserveMessages = false, expectedAssistantReply = '' } = {}
+) {
   if (!conversationId) {
     if (!preserveMessages) {
       messages.value = [welcomeMessage];
@@ -340,6 +343,16 @@ async function loadConversationMessages(conversationId, { beforeId, appendBefore
 
     const nextMessages = (response.data || []).map(normalizeMessage);
     hasMoreMessages.value = nextMessages.length >= 20;
+
+    if (expectedAssistantReply) {
+      const hasPersistedReply = nextMessages.some((message) => (
+        message.role === 'assistant'
+        && message.content === expectedAssistantReply
+      ));
+      if (!hasPersistedReply) {
+        return false;
+      }
+    }
 
     if (appendBefore) {
       messages.value = [...nextMessages, ...messages.value];
@@ -366,7 +379,7 @@ async function loadConversationMessages(conversationId, { beforeId, appendBefore
   }
 }
 
-async function refreshConversationMessagesAfterSend(conversationId, { preferLatest = false } = {}) {
+async function refreshConversationMessagesAfterSend(conversationId, { preferLatest = false, expectedAssistantReply = '' } = {}) {
   let targetConversationId = conversationId;
   const delays = [1500, 3000, 8000, 15000];
   for (const delay of delays) {
@@ -382,7 +395,10 @@ async function refreshConversationMessagesAfterSend(conversationId, { preferLate
       }
     }
 
-    const refreshed = await loadConversationMessages(targetConversationId, { preserveMessages: true });
+    const refreshed = await loadConversationMessages(targetConversationId, {
+      preserveMessages: true,
+      expectedAssistantReply
+    });
     if (refreshed && !hasPendingCitationSources()) {
       break;
     }
@@ -453,6 +469,9 @@ const sendQuestion = async () => {
 
   const content = question.value.trim();
   const conversationIdBeforeSend = activeConversationId.value;
+  if (!conversationIdBeforeSend && messages.value.length === 1 && !messages.value[0]?.id) {
+    messages.value = [];
+  }
   messages.value.push({ role: 'user', content, sources: [] });
   messages.value.push({ role: 'assistant', content: '', sources: [] });
   const assistantIndex = messages.value.length - 1;
@@ -483,7 +502,10 @@ const sendQuestion = async () => {
     }
 
     await loadConversations({ preferLatest: !conversationIdBeforeSend, preserveMessages: true });
-    await refreshConversationMessagesAfterSend(activeConversationId.value, { preferLatest: !conversationIdBeforeSend });
+    await refreshConversationMessagesAfterSend(activeConversationId.value, {
+      preferLatest: !conversationIdBeforeSend,
+      expectedAssistantReply: messages.value[assistantIndex].content
+    });
   } catch (error) {
     sendState.value = 'error';
     sendMessage.value = error.message || 'AI 对话请求失败，请稍后重试';
@@ -629,6 +651,14 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="composer-card">
+          <div v-if="uploadedFiles.length" class="composer-file-bubbles" aria-label="已上传文件">
+            <div v-for="file in uploadedFiles" :key="file.id" class="file-chip floating">
+              <span>FILE</span>
+              <strong>{{ file.name }}</strong>
+              <small>{{ formatSize(file.size) }}</small>
+              <button type="button" aria-label="移除文件" @click="removeFile(file.id)">x</button>
+            </div>
+          </div>
           <textarea v-model="question" rows="5" placeholder="在这里输入你的问题，Ctrl+Enter 发送。" @keydown.ctrl.enter.prevent="sendQuestion" />
           <div class="composer-actions">
             <input ref="fileInput" class="sr-only" type="file" multiple @change="handleFileChange" />
@@ -636,24 +666,6 @@ onBeforeUnmount(() => {
             <p :class="sendState === 'error' ? 'error' : sendState === 'success' ? 'success' : 'muted'">{{ sendMessage }}</p>
             <button type="button" :disabled="!canSend" @click="sendQuestion">{{ isSending ? '发送中...' : '发送问题' }}</button>
           </div>
-        </div>
-
-        <div class="uploaded-files">
-          <div class="section-header compact-header">
-            <div>
-              <h3>已上传文件</h3>
-              <p class="muted">后端当前没有临时附件问答上传接口，此处仅保留文件选择交互。</p>
-            </div>
-          </div>
-          <div v-if="uploadedFiles.length" class="file-list">
-            <div v-for="file in uploadedFiles" :key="file.id" class="file-chip">
-              <span>FILE</span>
-              <strong>{{ file.name }}</strong>
-              <small>{{ formatSize(file.size) }}</small>
-              <button type="button" aria-label="移除文件" @click="removeFile(file.id)">x</button>
-            </div>
-          </div>
-          <div v-else class="empty-upload muted">上传后，附件名称和大小会显示在这里；待后端提供接口后再提交到服务端。</div>
         </div>
       </article>
     </div>

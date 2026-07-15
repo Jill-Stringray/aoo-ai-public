@@ -1,16 +1,25 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { getKnowledgeStats, missingKnowledgeEndpoints, uploadKnowledgeDocument } from '../api/knowledge';
+import {
+  deleteKnowledgeBase,
+  getDocumentFileUrl,
+  getKnowledgeStats,
+  listDocuments,
+  listKnowledgeBases,
+  missingKnowledgeEndpoints,
+  updateKnowledgeBase,
+  uploadKnowledgeDocument
+} from '../api/knowledge';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const acceptedTypes = ['.pdf', '.doc', '.docx', '.txt', '.md'];
 const fileInput = ref(null);
 const selectedFile = ref(null);
+const uploadKnowledgeBaseId = ref(null);
 const uploadState = ref('idle');
 const uploadMessage = ref('');
 const uploadResult = ref(null);
 const uploadedDocuments = ref([]);
-const unsupportedFeatures = missingKnowledgeEndpoints;
 const stats = ref({
   documentCount: 0,
   searchableDocumentCount: 0,
@@ -18,18 +27,89 @@ const stats = ref({
 });
 const statsState = ref('idle');
 const statsMessage = ref('');
+const knowledgeBases = ref([]);
+const activeKnowledgeBaseId = ref(null);
+const documents = ref([]);
+const selectedDocumentContent = ref(null);
+const browserState = ref('idle');
+const browserMessage = ref('');
+const documentState = ref('idle');
+const activeKnowledgeMenuId = ref(null);
+const renameDialogOpen = ref(false);
+const renameKnowledgeBaseId = ref(null);
+const renameKnowledgeBaseName = ref('');
+const renameSaving = ref(false);
+const deleteDialogOpen = ref(false);
+const deleteKnowledgeBaseId = ref(null);
+const deleteKnowledgeBaseName = ref('');
+const deleteSaving = ref(false);
 
 const isUploading = computed(() => uploadState.value === 'uploading');
-const canUpload = computed(() => Boolean(selectedFile.value) && !isUploading.value);
-const statusLabel = computed(() => {
-  if (isUploading.value) return '处理中';
-  if (uploadState.value === 'success') return '已入库';
-  if (uploadState.value === 'error') return '需处理';
-  return '待上传';
-});
+const canUpload = computed(() => Boolean(selectedFile.value) && Boolean(uploadKnowledgeBaseId.value) && !isUploading.value);
 const totalDocuments = computed(() => stats.value.documentCount);
 const readyDocuments = computed(() => stats.value.searchableDocumentCount);
 const totalChunks = computed(() => stats.value.chunkCount);
+const pendingDocuments = computed(() => Math.max(totalDocuments.value - readyDocuments.value, 0));
+const searchableRate = computed(() => {
+  if (!totalDocuments.value) return 0;
+  return Math.round((readyDocuments.value / totalDocuments.value) * 100);
+});
+const chunksPerDocument = computed(() => {
+  if (!totalDocuments.value) return 0;
+  return Math.round(totalChunks.value / totalDocuments.value);
+});
+const statusLabel = computed(() => {
+  if (statsState.value === 'loading') return '刷新中';
+  if (statsState.value === 'error') return '统计异常';
+  if (!totalDocuments.value) return '待建设';
+  if (pendingDocuments.value) return '需关注';
+  return '运行正常';
+});
+const healthTone = computed(() => {
+  if (statsState.value === 'error') return 'danger';
+  if (!totalDocuments.value || pendingDocuments.value) return 'warning';
+  return 'success';
+});
+const healthSummary = computed(() => {
+  if (statsState.value === 'error') return statsMessage.value || '统计接口暂不可用，请检查后端服务。';
+  if (!totalDocuments.value) return '当前知识资产为空，管理员需要先上传正式文档建立可检索数据面。';
+  if (pendingDocuments.value) return `有 ${pendingDocuments.value} 份文档尚未进入可检索状态，建议检查解析或索引任务。`;
+  return '全部文档处于可检索状态，知识资产可以支撑用户问答。';
+});
+const governanceItems = computed(() => [
+  {
+    label: '知识库范围',
+    value: '默认库',
+    detail: '后端尚未暴露多知识库管理接口，上传会进入默认知识库。'
+  },
+  {
+    label: '数据可见性',
+    value: '汇总级',
+    detail: '当前只能读取文档/切片统计，无法分页查看所有文档明细。'
+  },
+  {
+    label: '操作闭环',
+    value: `${missingKnowledgeEndpoints.length} 类缺口`,
+    detail: '新增、编辑、删除、状态刷新等治理能力仍需后端接口补齐。'
+  }
+]);
+const endpointStatus = computed(() => [
+  { name: '知识资产统计', path: 'GET /api/v1/knowledge/stats', state: '已接入', tone: 'success' },
+  { name: '文档上传入库', path: 'POST /api/v1/knowledge/upload', state: '已接入', tone: 'success' },
+  ...missingKnowledgeEndpoints.map((item) => ({
+    name: item,
+    path: '待后端暴露',
+    state: '待接入',
+    tone: 'danger'
+  }))
+]);
+const activeKnowledgeBase = computed(() => knowledgeBases.value.find((item) => item.id === activeKnowledgeBaseId.value));
+const pipelineSteps = computed(() => [
+  { name: '文件接收', value: selectedFile.value ? '已选择' : '待文件', active: Boolean(selectedFile.value) },
+  { name: '解析切片', value: uploadResult.value ? `${uploadResult.value.savedChunkCount || 0} 片` : '上传后执行', active: Boolean(uploadResult.value) },
+  { name: '向量索引', value: uploadResult.value ? `${uploadResult.value.indexedChunkCount || 0} 片` : '等待入库', active: Boolean(uploadResult.value) },
+  { name: '问答可用', value: uploadState.value === 'success' ? '已刷新统计' : '未完成', active: uploadState.value === 'success' }
+]);
 
 async function loadKnowledgeStats() {
   statsState.value = 'loading';
@@ -49,6 +129,159 @@ async function loadKnowledgeStats() {
   } catch (error) {
     statsState.value = 'error';
     statsMessage.value = error.message || '知识库统计获取失败，请稍后重试';
+  }
+}
+
+async function loadKnowledgeBrowser() {
+  browserState.value = 'loading';
+  browserMessage.value = '';
+  try {
+    const response = await listKnowledgeBases();
+    if (!response.success) {
+      throw new Error(response.message || '知识库列表获取失败');
+    }
+
+    knowledgeBases.value = response.data || [];
+    if (!activeKnowledgeBaseId.value && knowledgeBases.value.length) {
+      activeKnowledgeBaseId.value = knowledgeBases.value[0].id;
+    }
+    if (activeKnowledgeBaseId.value) {
+      await loadDocuments(activeKnowledgeBaseId.value);
+    } else {
+      documents.value = [];
+    }
+    browserState.value = 'success';
+  } catch (error) {
+    browserState.value = 'error';
+    browserMessage.value = error.message || '知识库数据获取失败';
+  }
+}
+
+async function loadDocuments(knowledgeBaseId) {
+  if (!knowledgeBaseId) return;
+  browserState.value = 'loading';
+  browserMessage.value = '';
+  try {
+    const response = await listDocuments(knowledgeBaseId);
+    if (!response.success) {
+      throw new Error(response.message || '文档列表获取失败');
+    }
+    documents.value = response.data || [];
+    browserState.value = 'success';
+  } catch (error) {
+    browserState.value = 'error';
+    browserMessage.value = error.message || '文档列表获取失败';
+  }
+}
+
+async function chooseKnowledgeBase(knowledgeBase) {
+  if (!knowledgeBase || knowledgeBase.id === activeKnowledgeBaseId.value) return;
+  activeKnowledgeBaseId.value = knowledgeBase.id;
+  selectedDocumentContent.value = null;
+  await loadDocuments(knowledgeBase.id);
+}
+
+async function openDocument(document) {
+  if (!document?.id) return;
+  window.open(getDocumentFileUrl(document.id), '_blank', 'noopener');
+}
+
+function closeDocumentViewer() {
+  selectedDocumentContent.value = null;
+}
+
+function closeKnowledgeMenu() {
+  activeKnowledgeMenuId.value = null;
+}
+
+function toggleKnowledgeMenu(knowledgeBaseId) {
+  activeKnowledgeMenuId.value = activeKnowledgeMenuId.value === knowledgeBaseId ? null : knowledgeBaseId;
+}
+
+function startUploadForKnowledgeBase(knowledgeBase) {
+  if (!knowledgeBase) return;
+  uploadKnowledgeBaseId.value = knowledgeBase.id;
+  selectedFile.value = null;
+  uploadResult.value = null;
+  uploadMessage.value = `将上传到「${knowledgeBase.name}」。请选择文件。`;
+  uploadState.value = 'idle';
+  closeKnowledgeMenu();
+  fileInput.value?.click();
+}
+
+function openRenameDialog(knowledgeBase) {
+  if (!knowledgeBase) return;
+  renameKnowledgeBaseId.value = knowledgeBase.id;
+  renameKnowledgeBaseName.value = knowledgeBase.name || '';
+  renameDialogOpen.value = true;
+  closeKnowledgeMenu();
+}
+
+function closeRenameDialog() {
+  renameDialogOpen.value = false;
+  renameKnowledgeBaseId.value = null;
+  renameKnowledgeBaseName.value = '';
+  renameSaving.value = false;
+}
+
+async function submitRenameKnowledgeBase() {
+  if (!renameKnowledgeBaseId.value || renameSaving.value) return;
+  const name = renameKnowledgeBaseName.value.trim();
+  if (!name) {
+    browserMessage.value = '知识库名称不能为空';
+    return;
+  }
+
+  renameSaving.value = true;
+  try {
+    const response = await updateKnowledgeBase({
+      knowledgeBaseId: renameKnowledgeBaseId.value,
+      name
+    });
+    if (!response.success) throw new Error(response.message || '修改知识库名称失败');
+    await loadKnowledgeBrowser();
+    closeRenameDialog();
+  } catch (error) {
+    browserMessage.value = error.message || '修改知识库名称失败';
+  } finally {
+    renameSaving.value = false;
+  }
+}
+
+function openDeleteDialog(knowledgeBase) {
+  if (!knowledgeBase) return;
+  deleteKnowledgeBaseId.value = knowledgeBase.id;
+  deleteKnowledgeBaseName.value = knowledgeBase.name || '';
+  deleteDialogOpen.value = true;
+  closeKnowledgeMenu();
+}
+
+function closeDeleteDialog() {
+  deleteDialogOpen.value = false;
+  deleteKnowledgeBaseId.value = null;
+  deleteKnowledgeBaseName.value = '';
+  deleteSaving.value = false;
+}
+
+async function submitDeleteKnowledgeBase() {
+  if (!deleteKnowledgeBaseId.value || deleteSaving.value) return;
+  deleteSaving.value = true;
+  try {
+    const response = await deleteKnowledgeBase(deleteKnowledgeBaseId.value);
+    if (!response.success) throw new Error(response.message || '删除知识库失败');
+    if (activeKnowledgeBaseId.value === deleteKnowledgeBaseId.value) {
+      activeKnowledgeBaseId.value = null;
+      documents.value = [];
+    }
+    await Promise.all([
+      loadKnowledgeStats(),
+      loadKnowledgeBrowser()
+    ]);
+    closeDeleteDialog();
+  } catch (error) {
+    browserMessage.value = error.message || '删除知识库失败';
+  } finally {
+    deleteSaving.value = false;
   }
 }
 
@@ -89,11 +322,15 @@ function setFile(file) {
 
   selectedFile.value = file;
   uploadState.value = 'idle';
-  uploadMessage.value = '文件已选择，点击上传后将由后端完成存储、解析、切片与向量化。';
+  const target = knowledgeBases.value.find((item) => item.id === uploadKnowledgeBaseId.value);
+  uploadMessage.value = `文件已选择，将上传到「${target?.name || '当前知识库'}」。`;
 }
 
-function handleFileChange(event) {
+async function handleFileChange(event) {
   setFile(event.target.files?.[0]);
+  if (selectedFile.value && uploadKnowledgeBaseId.value) {
+    await submitUpload();
+  }
 }
 
 function handleDrop(event) {
@@ -111,7 +348,7 @@ async function submitUpload() {
   uploadMessage.value = '正在上传并触发 RAG 入库链路，请勿关闭页面。';
 
   try {
-    const response = await uploadKnowledgeDocument(selectedFile.value);
+    const response = await uploadKnowledgeDocument(selectedFile.value, uploadKnowledgeBaseId.value);
     if (!response.success) {
       throw new Error(response.message || '上传失败，请稍后重试');
     }
@@ -129,10 +366,12 @@ async function submitUpload() {
 
     uploadedDocuments.value = [record, ...uploadedDocuments.value];
     await loadKnowledgeStats();
+    await loadKnowledgeBrowser();
     uploadResult.value = result;
     uploadState.value = 'success';
     uploadMessage.value = response.message || '上传成功，文档已完成解析并进入可检索知识库。';
     selectedFile.value = null;
+    uploadKnowledgeBaseId.value = null;
     if (fileInput.value) fileInput.value.value = '';
   } catch (error) {
     uploadState.value = 'error';
@@ -140,118 +379,283 @@ async function submitUpload() {
   }
 }
 
-onMounted(loadKnowledgeStats);
+onMounted(async () => {
+  await Promise.all([
+    loadKnowledgeStats(),
+    loadKnowledgeBrowser()
+  ]);
+});
 </script>
 
 <template>
-  <section class="page-section">
-    <div class="section-header">
+  <section class="page-section knowledge-admin-page">
+    <div class="knowledge-hero">
       <div>
+        <p class="eyebrow">Knowledge Operations</p>
         <h2>知识库管理</h2>
-        <p class="muted">管理员在这里上传企业文档；后端会完成文件存储、内容解析、切片、Embedding 与 RAG 索引入库。</p>
-        <p class="muted">已按后端真实 Controller 对接：统计接口与文件上传接口；其余知识库/文档管理接口后端尚未暴露，页面仅展示明确提示，不模拟接口。</p>
+        <p class="muted">管理员在这里感知企业知识资产规模、可检索状态、入库链路和治理缺口，并处理正式文档入库。</p>
       </div>
-      <span class="status-pill">管理员端</span>
+      <div class="hero-actions">
+        <span :class="['status-pill', `${healthTone}-pill`]">{{ statusLabel }}</span>
+        <button type="button" class="button secondary compact-button" :disabled="statsState === 'loading'" @click="loadKnowledgeStats">
+          {{ statsState === 'loading' ? '刷新中...' : '刷新数据' }}
+        </button>
+      </div>
     </div>
 
-    <p v-if="statsState === 'error'" class="error">{{ statsMessage }}</p>
-
-    <article class="card endpoint-card">
-      <div class="section-header">
-        <div>
-          <h3>接口对接状态</h3>
-          <p class="muted">后端当前仅暴露 GET /api/v1/knowledge/stats 与 POST /api/v1/knowledge/upload。</p>
-        </div>
-        <button type="button" class="button secondary compact-button" :disabled="statsState === 'loading'" @click="loadKnowledgeStats">{{ statsState === 'loading' ? '刷新中…' : '刷新统计' }}</button>
+    <article class="admin-signal-card">
+      <div>
+        <span :class="['signal-dot', healthTone]"></span>
+        <h3>系统数据态势</h3>
+        <p>{{ healthSummary }}</p>
       </div>
-      <ul class="list endpoint-list">
-        <li><span>知识库统计</span><strong class="success">已对接</strong></li>
-        <li><span>文档上传</span><strong class="success">已对接</strong></li>
-        <li v-for="item in unsupportedFeatures" :key="item"><span>{{ item }}</span><strong class="error">后端缺失</strong></li>
-      </ul>
+      <div class="signal-meter" aria-label="可检索比例">
+        <strong>{{ searchableRate }}%</strong>
+        <span>可检索覆盖率</span>
+      </div>
     </article>
 
-    <div class="grid">
-      <article class="card">
-        <h3>文档</h3>
-        <p class="metric">{{ totalDocuments }}</p>
-        <p class="muted">后端知识库中未删除的企业文档总数。</p>
+    <div class="admin-metric-grid">
+      <article class="admin-metric-card">
+        <span>资产总量</span>
+        <strong>{{ totalDocuments }}</strong>
+        <p>系统内未删除的企业文档</p>
       </article>
-      <article class="card">
-        <h3>可检索文档</h3>
-        <p class="metric">{{ readyDocuments }}</p>
-        <p class="muted">后端状态为 READY、已完成索引的可检索文档数量。</p>
+      <article class="admin-metric-card">
+        <span>可检索文档</span>
+        <strong>{{ readyDocuments }}</strong>
+        <p>已完成索引、可支撑问答</p>
       </article>
-      <article class="card">
-        <h3>切片数</h3>
-        <p class="metric">{{ totalChunks }}</p>
-        <p class="muted">后端已保存且未删除的 Chunk 总数，用于评估知识覆盖度。</p>
+      <article class="admin-metric-card">
+        <span>待处理文档</span>
+        <strong>{{ pendingDocuments }}</strong>
+        <p>需要关注解析或索引状态</p>
+      </article>
+      <article class="admin-metric-card">
+        <span>知识切片</span>
+        <strong>{{ totalChunks }}</strong>
+        <p>平均 {{ chunksPerDocument }} 片/文档</p>
       </article>
     </div>
 
-    <article class="card upload-card">
+    <article class="card knowledge-browser-card">
       <div class="section-header">
         <div>
-          <h3>上传企业文档</h3>
-          <p class="muted">适合上传制度、流程、产品手册、FAQ 等正式知识来源。请确认文档不包含无授权敏感信息。</p>
+          <h3>知识库文件浏览</h3>
+          <p class="muted">管理员可以切换知识库、查看库内文件列表，并打开文档切片内容核查数据质量。</p>
         </div>
-        <span class="status-pill">{{ statusLabel }}</span>
+        <button type="button" class="button secondary compact-button" :disabled="browserState === 'loading'" @click="loadKnowledgeBrowser">
+          {{ browserState === 'loading' ? '刷新中...' : '刷新列表' }}
+        </button>
       </div>
+      <p v-if="browserMessage" class="error">{{ browserMessage }}</p>
+      <input ref="fileInput" class="sr-only" type="file" :accept="acceptedTypes.join(',')" @change="handleFileChange">
+      <div class="knowledge-browser">
+        <aside class="knowledge-base-list" aria-label="知识库列表">
+          <div
+            v-for="base in knowledgeBases"
+            :key="base.id"
+            :class="['knowledge-base-item', { active: base.id === activeKnowledgeBaseId }]"
+          >
+            <button type="button" class="knowledge-base-main" @click="chooseKnowledgeBase(base)">
+              <strong>{{ base.name }}</strong>
+              <span>{{ base.description || '暂无描述' }}</span>
+              <small>{{ base.status }} · {{ base.visibility }}</small>
+            </button>
+            <button type="button" class="knowledge-base-more" aria-label="知识库更多操作" @click.stop="toggleKnowledgeMenu(base.id)">⋯</button>
+            <div v-if="activeKnowledgeMenuId === base.id" class="knowledge-base-menu">
+              <button type="button" @click="startUploadForKnowledgeBase(base)">上传文件</button>
+              <button type="button" @click="openRenameDialog(base)">修改知识库名</button>
+              <button type="button" class="danger" @click="openDeleteDialog(base)">删除知识库</button>
+            </div>
+          </div>
+          <div v-if="!knowledgeBases.length && browserState !== 'loading'" class="empty-upload muted">
+            暂无知识库数据，请先在数据库中创建知识库。
+          </div>
+        </aside>
 
-      <div class="upload-dropzone" :class="{ active: selectedFile }" @click="openFilePicker" @dragover.prevent @drop.prevent="handleDrop">
-        <input ref="fileInput" class="sr-only" type="file" :accept="acceptedTypes.join(',')" @change="handleFileChange">
-        <div class="empty-icon">↑</div>
-        <div>
-          <h3>{{ selectedFile ? selectedFile.name : '拖拽文件到这里，或点击选择文件' }}</h3>
-          <p class="muted">支持 PDF、DOC、DOCX、TXT、MD，单个文件不超过 50MB。</p>
-          <p v-if="selectedFile" class="muted">文件大小：{{ formatFileSize(selectedFile.size) }}</p>
-        </div>
+        <section class="knowledge-document-list">
+          <div class="document-list-head">
+            <div>
+              <h4>{{ activeKnowledgeBase?.name || '未选择知识库' }}</h4>
+              <p class="muted">{{ documents.length }} 个文件</p>
+            </div>
+          </div>
+          <div v-if="documents.length" class="admin-document-table">
+            <button
+              v-for="document in documents"
+              :key="document.id"
+              type="button"
+              class="admin-document-row"
+              @click="openDocument(document)"
+            >
+              <span>
+                <strong>{{ document.title || document.fileName }}</strong>
+                <small>{{ document.fileName }}</small>
+              </span>
+              <span>{{ document.fileType || '-' }}</span>
+              <span>{{ formatFileSize(document.fileSize) }}</span>
+              <span :class="['status-pill', document.status === 'READY' ? 'success-pill' : 'warning-pill']">{{ document.status }}</span>
+            </button>
+          </div>
+          <div v-else class="empty-state compact">
+            <div>
+              <div class="empty-icon">□</div>
+              <h3>{{ browserState === 'loading' ? '正在加载文件' : '暂无文件' }}</h3>
+              <p class="muted">选择知识库后会在这里展示库内文档。</p>
+            </div>
+          </div>
+        </section>
       </div>
-
-      <div class="upload-actions">
-        <button :disabled="!canUpload" @click="submitUpload">{{ isUploading ? '上传处理中…' : '上传并入库' }}</button>
-        <p :class="uploadState === 'error' ? 'error' : uploadState === 'success' ? 'success' : 'muted'">{{ uploadMessage || '选择文件后即可提交到后端 RAG 入库接口。' }}</p>
-      </div>
-
-      <div v-if="uploadResult" class="result-grid">
-        <span>文档 ID：{{ uploadResult.documentId }}</span>
-        <span>保存切片：{{ uploadResult.savedChunkCount }}</span>
-        <span>索引切片：{{ uploadResult.indexedChunkCount }}</span>
-      </div>
+      <p :class="uploadState === 'error' ? 'error' : uploadState === 'success' ? 'success' : 'muted'">
+        {{ uploadMessage }}
+      </p>
     </article>
 
-    <article class="card">
-      <div class="section-header">
-        <div>
-          <h3>最近上传</h3>
-          <p class="muted">后端未暴露文档列表/分页接口，因此仅展示当前页面本次上传成功的记录；刷新页面后请以统计卡片为准。</p>
-        </div>
+    <div class="knowledge-admin-layout">
+      <div class="admin-main-column">
+        <article class="card">
+          <div class="section-header">
+            <div>
+              <h3>入库链路观测</h3>
+              <p class="muted">从文件接收到问答可用的关键阶段，上传成功后会展示真实返回的切片结果。</p>
+            </div>
+          </div>
+          <div class="pipeline-list">
+            <div v-for="step in pipelineSteps" :key="step.name" :class="['pipeline-step', { active: step.active }]">
+              <span></span>
+              <div>
+                <strong>{{ step.name }}</strong>
+                <small>{{ step.value }}</small>
+              </div>
+            </div>
+          </div>
+          <div v-if="uploadResult" class="result-grid">
+            <span>文档 ID：{{ uploadResult.documentId }}</span>
+            <span>保存切片：{{ uploadResult.savedChunkCount }}</span>
+            <span>索引切片：{{ uploadResult.indexedChunkCount }}</span>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="section-header">
+            <div>
+              <h3>治理能力地图</h3>
+              <p class="muted">展示管理员当前能看到什么、还缺什么，避免误以为页面已经具备完整数据治理能力。</p>
+            </div>
+          </div>
+          <div class="governance-grid">
+            <div v-for="item in governanceItems" :key="item.label" class="governance-item">
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+              <p>{{ item.detail }}</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="section-header">
+            <div>
+              <h3>接口接入状态</h3>
+              <p class="muted">管理感知能力取决于后端数据面，当前不展示模拟文档或虚构任务。</p>
+            </div>
+          </div>
+          <div class="endpoint-status-list">
+            <div v-for="item in endpointStatus" :key="item.name" class="endpoint-status-row">
+              <div>
+                <strong>{{ item.name }}</strong>
+                <span>{{ item.path }}</span>
+              </div>
+              <span :class="['status-pill', `${item.tone}-pill`]">{{ item.state }}</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="section-header">
+            <div>
+              <h3>本页上传记录</h3>
+              <p class="muted">后端未暴露文档列表接口，因此这里仅保留当前页面本次上传成功的记录。</p>
+            </div>
+          </div>
+          <div v-if="uploadedDocuments.length" class="document-table">
+            <div class="document-row table-head">
+              <span>文件名</span>
+              <span>大小</span>
+              <span>切片</span>
+              <span>状态</span>
+              <span>时间</span>
+            </div>
+            <div v-for="item in uploadedDocuments" :key="item.id" class="document-row">
+              <span>{{ item.fileName }}</span>
+              <span>{{ formatFileSize(item.fileSize) }}</span>
+              <span>{{ item.indexedChunkCount }}/{{ item.savedChunkCount }}</span>
+              <span class="status-pill success-pill">{{ item.status }}</span>
+              <span>{{ item.uploadedAt }}</span>
+            </div>
+          </div>
+          <div v-else class="empty-state compact">
+            <div>
+              <div class="empty-icon">◇</div>
+              <h3>暂无本页上传记录</h3>
+              <p class="muted">完成一次上传后，可在这里查看文档 ID、切片数和入库状态。</p>
+            </div>
+          </div>
+        </article>
       </div>
 
-      <div v-if="uploadedDocuments.length" class="document-table">
-        <div class="document-row table-head">
-          <span>文件名</span>
-          <span>大小</span>
-          <span>切片</span>
-          <span>状态</span>
-          <span>时间</span>
-        </div>
-        <div v-for="item in uploadedDocuments" :key="item.id" class="document-row">
-          <span>{{ item.fileName }}</span>
-          <span>{{ formatFileSize(item.fileSize) }}</span>
-          <span>{{ item.indexedChunkCount }}/{{ item.savedChunkCount }}</span>
-          <span class="status-pill">{{ item.status }}</span>
-          <span>{{ item.uploadedAt }}</span>
-        </div>
-      </div>
+      <aside class="admin-side-column">
+        <article class="card admin-insight-card">
+          <h3>管理员关注点</h3>
+          <ul class="admin-check-list">
+            <li>知识资产是否为空或覆盖不足</li>
+            <li>文档是否全部完成可检索索引</li>
+            <li>切片规模是否随上传持续增长</li>
+            <li>缺失接口是否阻塞删除、分页和状态追踪</li>
+          </ul>
+        </article>
+      </aside>
+    </div>
 
-      <div v-else class="empty-state compact">
-        <div>
-          <div class="empty-icon">◇</div>
-          <h3>暂无上传记录</h3>
-          <p class="muted">完成一次上传后，可在这里查看文档 ID、切片数和入库状态。</p>
+    <div v-if="renameDialogOpen" class="dialog-mask" @click.self="closeRenameDialog">
+      <div class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="rename-kb-title">
+        <div class="dialog-head">
+          <div>
+            <p class="status-pill">修改知识库名</p>
+            <h3 id="rename-kb-title">编辑知识库名称</h3>
+          </div>
+          <button type="button" class="source-close" aria-label="关闭修改名称弹窗" @click="closeRenameDialog">x</button>
+        </div>
+        <label class="dialog-field">
+          <span class="muted">知识库名称</span>
+          <input v-model="renameKnowledgeBaseName" type="text" maxlength="128" placeholder="请输入知识库名称" @keydown.enter.prevent="submitRenameKnowledgeBase">
+        </label>
+        <div class="dialog-actions">
+          <button type="button" class="button secondary" @click="closeRenameDialog">取消</button>
+          <button type="button" :disabled="renameSaving" @click="submitRenameKnowledgeBase">
+            {{ renameSaving ? '保存中...' : '确认修改' }}
+          </button>
         </div>
       </div>
-    </article>
+    </div>
+
+    <div v-if="deleteDialogOpen" class="dialog-mask" @click.self="closeDeleteDialog">
+      <div class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="delete-kb-title">
+        <div class="dialog-head">
+          <div>
+            <p class="status-pill danger-pill">删除知识库</p>
+            <h3 id="delete-kb-title">确认删除「{{ deleteKnowledgeBaseName }}」？</h3>
+          </div>
+          <button type="button" class="source-close" aria-label="关闭删除弹窗" @click="closeDeleteDialog">x</button>
+        </div>
+        <p class="muted">删除后该知识库将不再出现在管理列表中；其下文档会随数据库外键策略处理。</p>
+        <div class="dialog-actions">
+          <button type="button" class="button secondary" @click="closeDeleteDialog">取消</button>
+          <button type="button" class="danger-button" :disabled="deleteSaving" @click="submitDeleteKnowledgeBase">
+            {{ deleteSaving ? '删除中...' : '确认删除' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>

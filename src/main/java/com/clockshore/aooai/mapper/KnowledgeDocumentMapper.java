@@ -4,6 +4,8 @@ import com.clockshore.aooai.entity.KnowledgeDocument;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 @Mapper
 public interface KnowledgeDocumentMapper {
 
@@ -18,7 +20,11 @@ public interface KnowledgeDocumentMapper {
 
     int deleteById(@Param("id") Long id);
 
+    int markDeletedByKnowledgeBaseId(@Param("knowledgeBaseId") Long knowledgeBaseId);
+
     int countAll();
 
     int countByStatus(@Param("status") String status);
+
+    List<KnowledgeDocument> selectByKnowledgeBaseId(@Param("knowledgeBaseId") Long knowledgeBaseId);
 }

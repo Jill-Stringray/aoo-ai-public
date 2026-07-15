@@ -86,7 +86,11 @@ public class ConversationService {
     }
 
     public void deleteConversation(Long userId, Long conversationId) {
-        int deleted = conversationMapper.deleteByIdAndUserId(conversationId, userId);
+        int deleted = conversationMapper.updateStatusForUser(
+                conversationId,
+                userId,
+                ConversationStatus.DELETED.getValue()
+        );
         if (deleted == 0) {
             throw new IllegalArgumentException("会话不存在或无权删除");
         }

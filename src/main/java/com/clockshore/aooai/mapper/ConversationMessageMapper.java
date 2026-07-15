@@ -81,6 +81,7 @@ public interface ConversationMessageMapper {
                 ON cm.conversation_id = c.id
             WHERE c.user_id = #{userId}
             AND cm.conversation_id = #{conversationId}
+            AND UPPER(TRIM(c.status)) = 'ACTIVE'
             AND (#{beforeId} IS NULL OR cm.id < #{beforeId})
             ORDER BY cm.id DESC
             LIMIT #{limit}
