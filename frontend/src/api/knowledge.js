@@ -117,6 +117,16 @@ export function getDocumentFileUrl(documentId) {
   return `/api/v1/knowledge/documents/${documentId}/file`;
 }
 
+export async function getDocumentFileText(documentId) {
+  const res = await fetch(getDocumentFileUrl(documentId));
+  if (!res.ok) {
+    throw new Error('文件内容获取失败，请稍后重试');
+  }
+
+  const buffer = await res.arrayBuffer();
+  return new TextDecoder('utf-8').decode(buffer);
+}
+
 export async function deleteDocument(documentId) {
   const res = await fetch(`/api/v1/knowledge/documents/${documentId}`, {
     method: 'DELETE'

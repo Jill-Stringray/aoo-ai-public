@@ -47,3 +47,14 @@ export async function saveSystemConfig(config) {
   });
   return parseApiResponse(res, '系统配置保存失败');
 }
+
+export async function debugRagRetrieval(payload) {
+  const res = await fetch('/api/v1/admin/rag/debug', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+  return parseApiResponse(res, 'RAG检索调试失败');
+}

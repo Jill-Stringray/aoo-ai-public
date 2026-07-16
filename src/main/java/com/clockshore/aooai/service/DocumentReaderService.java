@@ -12,6 +12,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -49,6 +50,7 @@ public class DocumentReaderService {
     private List<Document> readDocument(String fileName, Resource resource) {
         if (fileName.endsWith(".txt") || fileName.endsWith(".md")) {
             TextReader reader = new TextReader(resource);
+            reader.setCharset(StandardCharsets.UTF_8);
             return reader.get();
         } else if (fileName.endsWith(".pdf")) {
             //tika本身支持pdf格式解析，但是不保留

@@ -96,9 +96,13 @@ public class KnowledgeController {
         String contentType = original.mimeType() == null || original.mimeType().isBlank()
                 ? MediaType.APPLICATION_OCTET_STREAM_VALUE
                 : original.mimeType();
+        MediaType mediaType = MediaType.parseMediaType(contentType);
+        if ("text".equalsIgnoreCase(mediaType.getType()) && mediaType.getCharset() == null) {
+            mediaType = new MediaType(mediaType, StandardCharsets.UTF_8);
+        }
 
         return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType))
+                .contentType(mediaType)
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline()
                         .filename(original.fileName(), StandardCharsets.UTF_8)
                         .build()

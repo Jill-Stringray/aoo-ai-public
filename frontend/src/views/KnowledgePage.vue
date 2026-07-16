@@ -5,6 +5,7 @@ import {
   deleteDocument,
   deleteKnowledgeBase,
   getDocumentFileUrl,
+  getDocumentFileText,
   getKnowledgeStats,
   listDocuments,
   listKnowledgeBases,
@@ -115,6 +116,13 @@ const endpointStatus = computed(() => [
   }))
 ].filter((item) => item.path !== '/admin/knowledge'));
 const activeKnowledgeBase = computed(() => knowledgeBases.value.find((item) => item.id === activeKnowledgeBaseId.value));
+
+function isTextDocument(document) {
+  const fileType = document?.fileType?.toLowerCase();
+  const mimeType = document?.mimeType?.toLowerCase() || '';
+  return fileType === 'txt' || fileType === 'md' || mimeType.startsWith('text/');
+}
+
 async function loadKnowledgeStats() {
   statsState.value = 'loading';
   try {
@@ -187,7 +195,33 @@ async function chooseKnowledgeBase(knowledgeBase) {
 
 async function openDocument(document) {
   if (!document?.id) return;
-  window.open(getDocumentFileUrl(document.id), '_blank', 'noopener');
+  if (!isTextDocument(document)) {
+    window.open(getDocumentFileUrl(document.id), '_blank', 'noopener');
+    return;
+  }
+
+  const previewWindow = window.open('', '_blank');
+  if (!previewWindow) {
+    browserMessage.value = '浏览器阻止了新窗口，请允许弹窗后重试';
+    return;
+  }
+
+  previewWindow.opener = null;
+  previewWindow.document.title = document.title || document.fileName || '文本预览';
+  previewWindow.document.body.textContent = '正在加载...';
+
+  try {
+    const text = await getDocumentFileText(document.id);
+    const title = document.title || document.fileName || '文本预览';
+    previewWindow.document.open();
+    previewWindow.document.write('<!doctype html><html><head><meta charset="UTF-8"><title></title><style>body{margin:0;padding:24px;font-family:Consolas,Menlo,Monaco,"Microsoft YaHei",monospace;background:#f8fafc;color:#111827;}pre{margin:0;white-space:pre-wrap;word-break:break-word;line-height:1.7;font-size:14px;}</style></head><body><pre></pre></body></html>');
+    previewWindow.document.close();
+    previewWindow.document.title = title;
+    previewWindow.document.querySelector('pre').textContent = text;
+  } catch (error) {
+    previewWindow.location.href = getDocumentFileUrl(document.id);
+    browserMessage.value = error.message || '文件内容获取失败，请稍后重试';
+  }
 }
 
 function closeDocumentViewer() {

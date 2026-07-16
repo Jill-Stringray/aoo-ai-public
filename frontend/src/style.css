@@ -1398,12 +1398,125 @@ button:disabled { background: #bfdbfe; color: #475569; cursor: not-allowed; }
 .config-toggle input {
   width: auto;
 }
+.rag-debug-card {
+  display: grid;
+  gap: 14px;
+}
+.rag-debug-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px 160px auto;
+  gap: 12px;
+  align-items: end;
+}
+.rag-debug-form label {
+  display: grid;
+  gap: 6px;
+}
+.rag-debug-form label span {
+  color: #475569;
+  font-size: 13px;
+  font-weight: 800;
+}
+.rag-debug-form input,
+.rag-debug-form textarea {
+  margin-bottom: 0;
+}
+.rag-debug-question textarea {
+  min-height: 88px;
+}
+.rag-debug-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.rag-debug-flow {
+  display: grid;
+  gap: 10px;
+}
+.rag-debug-step {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #dbeafe;
+  border-radius: 16px;
+  background: #f8fbff;
+}
+.rag-step-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.rag-step-head strong {
+  color: #0f172a;
+}
+.rag-step-head span {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: right;
+}
+.rag-debug-step pre {
+  max-height: 320px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #334155;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.rag-flow-arrow {
+  color: #2563eb;
+  font-size: 22px;
+  font-weight: 900;
+  text-align: center;
+}
+.rag-chunk-list {
+  display: grid;
+  gap: 10px;
+}
+.rag-chunk-item {
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+.rag-chunk-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.rag-chunk-meta span {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+}
+.rag-chunk-item p,
+.rag-answer {
+  margin: 0;
+  color: #334155;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
 
 @media (max-width: 1180px) {
   .admin-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .knowledge-admin-layout { grid-template-columns: 1fr; }
   .admin-console-layout { grid-template-columns: 1fr; }
   .admin-side-column { position: static; }
+  .rag-debug-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rag-debug-question,
+  .rag-debug-actions {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 760px) {
@@ -1423,8 +1536,15 @@ button:disabled { background: #bfdbfe; color: #475569; cursor: not-allowed; }
   .governance-grid,
   .knowledge-browser,
   .admin-document-row,
-  .admin-document-main {
+  .admin-document-main,
+  .rag-debug-form {
     grid-template-columns: 1fr;
+  }
+  .rag-step-head {
+    display: grid;
+  }
+  .rag-step-head span {
+    text-align: left;
   }
   .document-more {
     opacity: 1;

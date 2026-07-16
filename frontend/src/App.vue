@@ -20,7 +20,8 @@ const userNavItems = [
 
 const adminNavItems = [
   { to: '/admin', label: '管理员控制台', icon: '◌' },
-  { to: '/admin/knowledge', label: '知识库管理', icon: '◇' }
+  { to: '/admin/knowledge', label: '知识库管理', icon: '◇' },
+  { to: '/admin/rag-debug', label: 'RAG检索调试', icon: '⌕' }
 ];
 
 const loginNavItems = [

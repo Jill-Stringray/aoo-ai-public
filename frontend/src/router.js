@@ -3,6 +3,7 @@ import OverviewPage from './views/OverviewPage.vue';
 import KnowledgePage from './views/KnowledgePage.vue';
 import ChatPage from './views/ChatPage.vue';
 import AdminPage from './views/AdminPage.vue';
+import RagDebugPage from './views/RagDebugPage.vue';
 import ProfilePage from './views/ProfilePage.vue';
 import LoginPage from './views/LoginPage.vue';
 import { getCurrentIdentity, getHomePathByRole } from './api/auth';
@@ -67,6 +68,17 @@ const routes = [
       section: 'admin',
       title: '知识库管理',
       description: '管理员端维护企业文档、索引状态和知识来源。'
+    }
+  },
+  {
+    path: '/admin/rag-debug',
+    component: RagDebugPage,
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      section: 'admin',
+      title: 'RAG检索调试',
+      description: '管理员端查看 Query embedding、TopK chunks、LLM context 和最终答案。'
     }
   },
   {

@@ -2,10 +2,12 @@ package com.clockshore.aooai.controller;
 
 import com.clockshore.aooai.common.ApiResponse;
 import com.clockshore.aooai.service.AdminService;
+import com.clockshore.aooai.service.RagDebugService;
 import com.clockshore.aooai.service.SystemConfigService;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,6 +25,9 @@ public class AdminController {
 
     @Resource
     private SystemConfigService systemConfigService;
+
+    @Resource
+    private RagDebugService ragDebugService;
 
     @GetMapping("/users")
     public ApiResponse<List<AdminService.AdminUserVO>> users() {
@@ -49,6 +54,16 @@ public class AdminController {
                 "ADMIN_CONFIG_UPDATED",
                 "系统配置已保存",
                 systemConfigService.updateConfig(request)
+        );
+    }
+
+    @PostMapping("/rag/debug")
+    public ApiResponse<RagDebugService.RagDebugResult> debugRag(
+            @RequestBody RagDebugService.RagDebugRequest request) {
+        return ApiResponse.success(
+                "ADMIN_RAG_DEBUG_FINISHED",
+                "RAG检索调试完成",
+                ragDebugService.debug(request)
         );
     }
 }
