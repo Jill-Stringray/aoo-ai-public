@@ -318,7 +318,8 @@ public class ChatService {
         try {
             docs = knowledgeRetrievalService.retrieve(
                     question,
-                    5
+                    5,
+                    request.getKnowledgeBaseId()
             );
         } catch (RuntimeException e) {
             log.warn("召回失败, continue without RAG context. question={}", question, e);

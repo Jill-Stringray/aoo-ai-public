@@ -54,6 +54,10 @@ public interface DocumentChunkMapper {
             @Param("documentId") Long documentId
     );
 
+    int markDeletedByDocumentId(
+            @Param("documentId") Long documentId
+    );
+
     int markDeletedByKnowledgeBaseId(
             @Param("knowledgeBaseId") Long knowledgeBaseId
     );

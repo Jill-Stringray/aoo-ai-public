@@ -78,12 +78,13 @@ export async function deleteConversation(conversationId) {
   return parseApiResponse(res, '删除会话失败');
 }
 
-async function askQuestionStream({ message, conversationId, onDelta }) {
+async function askQuestionStream({ message, conversationId, knowledgeBaseId, onDelta }) {
   const body = {
     message,
     stream: true
   };
   if (conversationId) body.conversationId = conversationId;
+  if (knowledgeBaseId) body.knowledgeBaseId = knowledgeBaseId;
 
   const res = await fetch('/api/v1/chat/stream', {
     method: 'POST',
@@ -161,7 +162,7 @@ async function askQuestionStream({ message, conversationId, onDelta }) {
 
 export const chatEndpointAvailable = true;
 
-export async function askQuestion({ message, conversationId, stream = true, onDelta } = {}) {
+export async function askQuestion({ message, conversationId, knowledgeBaseId, stream = true, onDelta } = {}) {
   const trimmedMessage = String(message || '').trim();
   if (!trimmedMessage) {
     return {
@@ -173,8 +174,8 @@ export async function askQuestion({ message, conversationId, stream = true, onDe
   }
 
   if (stream) {
-    return askQuestionStream({ message: trimmedMessage, conversationId, onDelta });
+    return askQuestionStream({ message: trimmedMessage, conversationId, knowledgeBaseId, onDelta });
   }
 
-  return askQuestionStream({ message: trimmedMessage, conversationId });
+  return askQuestionStream({ message: trimmedMessage, conversationId, knowledgeBaseId });
 }

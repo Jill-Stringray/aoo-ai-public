@@ -14,23 +14,32 @@ import java.util.List;
 public class KnowledgeRetrievalService {
 
     private final VectorStore vectorStore;
+    private final SystemConfigService systemConfigService;
 
     //向量召回
     public List<Document> retrieve(
             String query,
             Integer topK
     ) {
+        return retrieve(query, topK, null);
+    }
 
+    public List<Document> retrieve(
+            String query,
+            Integer topK,
+            Long knowledgeBaseId
+    ) {
+        SystemConfigService.SystemConfig config = systemConfigService.getConfig();
+        SearchRequest.Builder builder = SearchRequest.builder()
+                .query(query)
+                .topK(topK == null ? config.topK() : topK)
+                .similarityThreshold(config.similarityThreshold());
 
-        List<Document> docs =
-                vectorStore.similaritySearch(
-                        SearchRequest.builder()
-                                .query(query)
-                                .topK(topK)
-                                .similarityThreshold(0.41)
-                                .build()
-                );
-        return docs;
+        if (knowledgeBaseId != null) {
+            builder.filterExpression("knowledgeBaseId == " + knowledgeBaseId);
+        }
+
+        return vectorStore.similaritySearch(builder.build());
     }
 
 }

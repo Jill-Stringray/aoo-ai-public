@@ -20,6 +20,8 @@ public interface KnowledgeDocumentMapper {
 
     int deleteById(@Param("id") Long id);
 
+    int markDeleted(@Param("id") Long id);
+
     int markDeletedByKnowledgeBaseId(@Param("knowledgeBaseId") Long knowledgeBaseId);
 
     int countAll();

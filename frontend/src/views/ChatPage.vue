@@ -9,9 +9,13 @@ import {
   fetchConversationMessages,
   renameConversation
 } from '../api/qa';
+import { listKnowledgeBases } from '../api/knowledge';
 
 const question = ref('');
-const selectedKnowledgeBase = ref('default');
+const selectedKnowledgeBase = ref(null);
+const knowledgeBases = ref([]);
+const knowledgeState = ref('idle');
+const knowledgeMessage = ref('');
 const uploadedFiles = ref([]);
 const activeConversationId = ref(null);
 const fileInput = ref(null);
@@ -38,17 +42,13 @@ const deleteConversationId = ref(null);
 const deleteConversationTitle = ref('');
 const deleteConversationSaving = ref(false);
 
-const knowledgeBases = [
-  { id: 'default', name: '默认知识库（后端固定 knowledgeBaseId=1）' }
-];
-
 const welcomeMessage = {
   role: 'assistant',
   content: '你好，我是 AOO AI。我会根据知识库内容回答你的问题；若知识库中没有相关信息，我会明确告知。'
 };
 
 const activeConversation = computed(() => conversations.value.find((item) => item.id === activeConversationId.value));
-const selectedKnowledgeBaseName = computed(() => knowledgeBases.find((item) => item.id === selectedKnowledgeBase.value)?.name || '未选择知识库');
+const selectedKnowledgeBaseName = computed(() => knowledgeBases.value.find((item) => item.id === selectedKnowledgeBase.value)?.name || '全部知识库');
 const isSending = computed(() => sendState.value === 'loading');
 const isLoadingList = computed(() => listState.value === 'loading');
 const isLoadingMessages = computed(() => messageState.value === 'loading');
@@ -177,6 +177,24 @@ async function scrollToBottom() {
   await nextTick();
   if (conversationBox.value) {
     conversationBox.value.scrollTop = conversationBox.value.scrollHeight;
+  }
+}
+
+async function loadKnowledgeBases() {
+  knowledgeState.value = 'loading';
+  knowledgeMessage.value = '';
+
+  try {
+    const response = await listKnowledgeBases();
+    if (!response.success) throw new Error(response.message || '知识库列表获取失败');
+    knowledgeBases.value = response.data || [];
+    if (!selectedKnowledgeBase.value && knowledgeBases.value.length) {
+      selectedKnowledgeBase.value = knowledgeBases.value[0].id;
+    }
+    knowledgeState.value = 'success';
+  } catch (error) {
+    knowledgeState.value = 'error';
+    knowledgeMessage.value = error.message || '知识库列表获取失败';
   }
 }
 
@@ -484,6 +502,7 @@ const sendQuestion = async () => {
     const response = await askQuestion({
       message: content,
       conversationId: conversationIdBeforeSend,
+      knowledgeBaseId: selectedKnowledgeBase.value,
       stream: true,
       onDelta: (_token, fullReply) => {
         messages.value[assistantIndex].content = fullReply;
@@ -553,7 +572,10 @@ onMounted(async () => {
     document.removeEventListener('pointercancel', onDocumentPointerCancel);
   };
 
-  await loadConversations();
+  await Promise.all([
+    loadKnowledgeBases(),
+    loadConversations()
+  ]);
   if (activeConversationId.value) {
     await loadConversationMessages(activeConversationId.value);
   } else {
@@ -615,10 +637,12 @@ onBeforeUnmount(() => {
           <div>
             <h3>{{ activeConversation?.title || '新的问答会话' }}</h3>
             <p class="muted">当前知识库：{{ selectedKnowledgeBaseName }}</p>
+            <p v-if="knowledgeMessage" class="error compact-notice">{{ knowledgeMessage }}</p>
           </div>
-          <label>
-            <span class="sr-only">选择知识库</span>
-            <select v-model="selectedKnowledgeBase" disabled>
+          <label class="knowledge-select-field">
+            <span>问答知识库</span>
+            <select v-model="selectedKnowledgeBase" :disabled="knowledgeState === 'loading' || !knowledgeBases.length">
+              <option :value="null">全部知识库</option>
               <option v-for="base in knowledgeBases" :key="base.id" :value="base.id">{{ base.name }}</option>
             </select>
           </label>

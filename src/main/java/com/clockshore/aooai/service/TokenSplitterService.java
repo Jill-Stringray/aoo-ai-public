@@ -14,15 +14,20 @@ import java.util.List;
 @Service
 public class TokenSplitterService {
 
-    //todo 不同文档采用不同的切分策略
-    private final DocumentSplitter splitter =
-            new DocumentByParagraphSplitter(
-                    800,
-                    80
-            );
+    private final SystemConfigService systemConfigService;
+
+    public TokenSplitterService(SystemConfigService systemConfigService) {
+        this.systemConfigService = systemConfigService;
+    }
+
     public List<TextSegment> split(List<Document> docs) {
 
         List<TextSegment> segments = new ArrayList<>();
+        SystemConfigService.SystemConfig config = systemConfigService.getConfig();
+        DocumentSplitter splitter = new DocumentByParagraphSplitter(
+                config.chunkSize(),
+                config.chunkOverlap()
+        );
 
         for (Document doc : docs) {
             segments.addAll(

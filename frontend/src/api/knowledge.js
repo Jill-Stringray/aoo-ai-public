@@ -23,19 +23,17 @@ export const knowledgeApiCapabilities = {
   stats: true,
   upload: true,
   listKnowledgeBases: true,
-  createKnowledgeBase: false,
+  createKnowledgeBase: true,
   updateKnowledgeBase: true,
   deleteKnowledgeBase: true,
   getKnowledgeBaseDetail: true,
   listDocuments: true,
-  deleteDocument: false,
+  deleteDocument: true,
   chat: false
 };
 
 export const missingKnowledgeEndpoints = [
-  '知识库新增接口',
-  '文档分页/删除/状态刷新接口',
-  '支持按 knowledgeBaseId 检索的接口'
+  '文档分页/状态刷新接口'
 ];
 
 function unsupportedResponse(message) {
@@ -72,8 +70,15 @@ export async function listKnowledgeBases() {
   return parseApiResponse(res, '知识库列表获取失败，请稍后重试');
 }
 
-export async function createKnowledgeBase() {
-  return unsupportedResponse('后端当前未暴露新建知识库接口。');
+export async function createKnowledgeBase({ name, description, visibility = 'COMPANY' } = {}) {
+  const res = await fetch('/api/v1/knowledge/bases', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ name, description, visibility })
+  });
+  return parseApiResponse(res, '新建知识库失败');
 }
 
 export async function updateKnowledgeBase({ knowledgeBaseId, name }) {
@@ -112,6 +117,9 @@ export function getDocumentFileUrl(documentId) {
   return `/api/v1/knowledge/documents/${documentId}/file`;
 }
 
-export async function deleteDocument() {
-  return unsupportedResponse('后端当前未暴露删除文档接口。');
+export async function deleteDocument(documentId) {
+  const res = await fetch(`/api/v1/knowledge/documents/${documentId}`, {
+    method: 'DELETE'
+  });
+  return parseApiResponse(res, '删除文档失败');
 }

@@ -104,6 +104,15 @@
 
     </delete>
 
+    <update id="markDeletedByDocumentId">
+
+        UPDATE document_chunk
+        SET status = 'DELETED'
+        WHERE document_id = #{documentId}
+          AND status != 'DELETED'
+
+    </update>
+
     <update id="markDeletedByKnowledgeBaseId">
 
         UPDATE document_chunk

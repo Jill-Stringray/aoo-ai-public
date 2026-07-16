@@ -1,6 +1,8 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import {
+  createKnowledgeBase,
+  deleteDocument,
   deleteKnowledgeBase,
   getDocumentFileUrl,
   getKnowledgeStats,
@@ -18,7 +20,6 @@ const selectedFile = ref(null);
 const uploadKnowledgeBaseId = ref(null);
 const uploadState = ref('idle');
 const uploadMessage = ref('');
-const uploadResult = ref(null);
 const uploadedDocuments = ref([]);
 const stats = ref({
   documentCount: 0,
@@ -35,6 +36,7 @@ const browserState = ref('idle');
 const browserMessage = ref('');
 const documentState = ref('idle');
 const activeKnowledgeMenuId = ref(null);
+const activeDocumentMenuId = ref(null);
 const renameDialogOpen = ref(false);
 const renameKnowledgeBaseId = ref(null);
 const renameKnowledgeBaseName = ref('');
@@ -43,6 +45,15 @@ const deleteDialogOpen = ref(false);
 const deleteKnowledgeBaseId = ref(null);
 const deleteKnowledgeBaseName = ref('');
 const deleteSaving = ref(false);
+const deleteDocumentDialogOpen = ref(false);
+const deleteDocumentId = ref(null);
+const deleteDocumentName = ref('');
+const deleteDocumentSaving = ref(false);
+const createDialogOpen = ref(false);
+const createKnowledgeBaseName = ref('');
+const createKnowledgeBaseDescription = ref('');
+const createKnowledgeBaseVisibility = ref('COMPANY');
+const createSaving = ref(false);
 
 const isUploading = computed(() => uploadState.value === 'uploading');
 const canUpload = computed(() => Boolean(selectedFile.value) && Boolean(uploadKnowledgeBaseId.value) && !isUploading.value);
@@ -79,8 +90,8 @@ const healthSummary = computed(() => {
 const governanceItems = computed(() => [
   {
     label: '知识库范围',
-    value: '默认库',
-    detail: '后端尚未暴露多知识库管理接口，上传会进入默认知识库。'
+    value: `${knowledgeBases.value.length} 个`,
+    detail: '管理员可创建多个知识库，用户问答时可按知识库范围检索。'
   },
   {
     label: '数据可见性',
@@ -90,7 +101,7 @@ const governanceItems = computed(() => [
   {
     label: '操作闭环',
     value: `${missingKnowledgeEndpoints.length} 类缺口`,
-    detail: '新增、编辑、删除、状态刷新等治理能力仍需后端接口补齐。'
+    detail: '新增、分页和状态刷新等治理能力仍需后端接口补齐。'
   }
 ]);
 const endpointStatus = computed(() => [
@@ -102,15 +113,8 @@ const endpointStatus = computed(() => [
     state: '待接入',
     tone: 'danger'
   }))
-]);
+].filter((item) => item.path !== '/admin/knowledge'));
 const activeKnowledgeBase = computed(() => knowledgeBases.value.find((item) => item.id === activeKnowledgeBaseId.value));
-const pipelineSteps = computed(() => [
-  { name: '文件接收', value: selectedFile.value ? '已选择' : '待文件', active: Boolean(selectedFile.value) },
-  { name: '解析切片', value: uploadResult.value ? `${uploadResult.value.savedChunkCount || 0} 片` : '上传后执行', active: Boolean(uploadResult.value) },
-  { name: '向量索引', value: uploadResult.value ? `${uploadResult.value.indexedChunkCount || 0} 片` : '等待入库', active: Boolean(uploadResult.value) },
-  { name: '问答可用', value: uploadState.value === 'success' ? '已刷新统计' : '未完成', active: uploadState.value === 'success' }
-]);
-
 async function loadKnowledgeStats() {
   statsState.value = 'loading';
   try {
@@ -194,19 +198,71 @@ function closeKnowledgeMenu() {
   activeKnowledgeMenuId.value = null;
 }
 
+function closeDocumentMenu() {
+  activeDocumentMenuId.value = null;
+}
+
 function toggleKnowledgeMenu(knowledgeBaseId) {
   activeKnowledgeMenuId.value = activeKnowledgeMenuId.value === knowledgeBaseId ? null : knowledgeBaseId;
+  closeDocumentMenu();
+}
+
+function toggleDocumentMenu(documentId) {
+  activeDocumentMenuId.value = activeDocumentMenuId.value === documentId ? null : documentId;
+  closeKnowledgeMenu();
 }
 
 function startUploadForKnowledgeBase(knowledgeBase) {
   if (!knowledgeBase) return;
   uploadKnowledgeBaseId.value = knowledgeBase.id;
   selectedFile.value = null;
-  uploadResult.value = null;
   uploadMessage.value = `将上传到「${knowledgeBase.name}」。请选择文件。`;
   uploadState.value = 'idle';
   closeKnowledgeMenu();
   fileInput.value?.click();
+}
+
+function openCreateDialog() {
+  createKnowledgeBaseName.value = '';
+  createKnowledgeBaseDescription.value = '';
+  createKnowledgeBaseVisibility.value = 'COMPANY';
+  createDialogOpen.value = true;
+  closeKnowledgeMenu();
+}
+
+function closeCreateDialog() {
+  createDialogOpen.value = false;
+  createKnowledgeBaseName.value = '';
+  createKnowledgeBaseDescription.value = '';
+  createKnowledgeBaseVisibility.value = 'COMPANY';
+  createSaving.value = false;
+}
+
+async function submitCreateKnowledgeBase() {
+  if (createSaving.value) return;
+  const name = createKnowledgeBaseName.value.trim();
+  if (!name) {
+    browserMessage.value = '知识库名称不能为空';
+    return;
+  }
+
+  createSaving.value = true;
+  browserMessage.value = '';
+  try {
+    const response = await createKnowledgeBase({
+      name,
+      description: createKnowledgeBaseDescription.value.trim(),
+      visibility: createKnowledgeBaseVisibility.value
+    });
+    if (!response.success) throw new Error(response.message || '新建知识库失败');
+    activeKnowledgeBaseId.value = response.data?.id || activeKnowledgeBaseId.value;
+    await loadKnowledgeBrowser();
+    closeCreateDialog();
+  } catch (error) {
+    browserMessage.value = error.message || '新建知识库失败';
+  } finally {
+    createSaving.value = false;
+  }
 }
 
 function openRenameDialog(knowledgeBase) {
@@ -254,6 +310,39 @@ function openDeleteDialog(knowledgeBase) {
   deleteKnowledgeBaseName.value = knowledgeBase.name || '';
   deleteDialogOpen.value = true;
   closeKnowledgeMenu();
+}
+
+function openDeleteDocumentDialog(document) {
+  if (!document) return;
+  deleteDocumentId.value = document.id;
+  deleteDocumentName.value = document.title || document.fileName || '';
+  deleteDocumentDialogOpen.value = true;
+  closeDocumentMenu();
+}
+
+function closeDeleteDocumentDialog() {
+  deleteDocumentDialogOpen.value = false;
+  deleteDocumentId.value = null;
+  deleteDocumentName.value = '';
+  deleteDocumentSaving.value = false;
+}
+
+async function submitDeleteDocument() {
+  if (!deleteDocumentId.value || deleteDocumentSaving.value) return;
+  deleteDocumentSaving.value = true;
+  try {
+    const response = await deleteDocument(deleteDocumentId.value);
+    if (!response.success) throw new Error(response.message || '删除文档失败');
+    await Promise.all([
+      loadKnowledgeStats(),
+      activeKnowledgeBaseId.value ? loadDocuments(activeKnowledgeBaseId.value) : Promise.resolve()
+    ]);
+    closeDeleteDocumentDialog();
+  } catch (error) {
+    browserMessage.value = error.message || '删除文档失败';
+  } finally {
+    deleteDocumentSaving.value = false;
+  }
 }
 
 function closeDeleteDialog() {
@@ -304,7 +393,6 @@ function validateFile(file) {
 }
 
 function setFile(file) {
-  uploadResult.value = null;
   if (!file) {
     selectedFile.value = null;
     uploadMessage.value = '';
@@ -367,7 +455,6 @@ async function submitUpload() {
     uploadedDocuments.value = [record, ...uploadedDocuments.value];
     await loadKnowledgeStats();
     await loadKnowledgeBrowser();
-    uploadResult.value = result;
     uploadState.value = 'success';
     uploadMessage.value = response.message || '上传成功，文档已完成解析并进入可检索知识库。';
     selectedFile.value = null;
@@ -444,9 +531,12 @@ onMounted(async () => {
           <h3>知识库文件浏览</h3>
           <p class="muted">管理员可以切换知识库、查看库内文件列表，并打开文档切片内容核查数据质量。</p>
         </div>
-        <button type="button" class="button secondary compact-button" :disabled="browserState === 'loading'" @click="loadKnowledgeBrowser">
-          {{ browserState === 'loading' ? '刷新中...' : '刷新列表' }}
-        </button>
+        <div class="browser-actions">
+          <button type="button" class="button secondary compact-button" @click="openCreateDialog">新建知识库</button>
+          <button type="button" class="button secondary compact-button" :disabled="browserState === 'loading'" @click="loadKnowledgeBrowser">
+            {{ browserState === 'loading' ? '刷新中...' : '刷新列表' }}
+          </button>
+        </div>
       </div>
       <p v-if="browserMessage" class="error">{{ browserMessage }}</p>
       <input ref="fileInput" class="sr-only" type="file" :accept="acceptedTypes.join(',')" @change="handleFileChange">
@@ -470,7 +560,7 @@ onMounted(async () => {
             </div>
           </div>
           <div v-if="!knowledgeBases.length && browserState !== 'loading'" class="empty-upload muted">
-            暂无知识库数据，请先在数据库中创建知识库。
+            暂无知识库数据，请先新建知识库。
           </div>
         </aside>
 
@@ -481,22 +571,27 @@ onMounted(async () => {
               <p class="muted">{{ documents.length }} 个文件</p>
             </div>
           </div>
-          <div v-if="documents.length" class="admin-document-table">
-            <button
+          <div v-if="documents.length" :class="['admin-document-table', { 'has-open-menu': activeDocumentMenuId !== null }]">
+            <div
               v-for="document in documents"
               :key="document.id"
-              type="button"
               class="admin-document-row"
-              @click="openDocument(document)"
             >
-              <span>
-                <strong>{{ document.title || document.fileName }}</strong>
-                <small>{{ document.fileName }}</small>
-              </span>
-              <span>{{ document.fileType || '-' }}</span>
-              <span>{{ formatFileSize(document.fileSize) }}</span>
-              <span :class="['status-pill', document.status === 'READY' ? 'success-pill' : 'warning-pill']">{{ document.status }}</span>
-            </button>
+              <button type="button" class="admin-document-main" @click="openDocument(document)">
+                <span>
+                  <strong>{{ document.title || document.fileName }}</strong>
+                  <small>{{ document.fileName }}</small>
+                </span>
+                <span>{{ document.fileType || '-' }}</span>
+                <span>{{ formatFileSize(document.fileSize) }}</span>
+                <span :class="['status-pill', document.status === 'READY' ? 'success-pill' : 'warning-pill']">{{ document.status }}</span>
+              </button>
+              <button type="button" class="knowledge-base-more document-more" aria-label="文档更多操作" @click.stop="toggleDocumentMenu(document.id)">⋯</button>
+              <div v-if="activeDocumentMenuId === document.id" class="knowledge-base-menu document-menu">
+                <button type="button" @click="openDocument(document)">打开文件</button>
+                <button type="button" class="danger" @click="openDeleteDocumentDialog(document)">删除文件</button>
+              </div>
+            </div>
           </div>
           <div v-else class="empty-state compact">
             <div>
@@ -514,29 +609,6 @@ onMounted(async () => {
 
     <div class="knowledge-admin-layout">
       <div class="admin-main-column">
-        <article class="card">
-          <div class="section-header">
-            <div>
-              <h3>入库链路观测</h3>
-              <p class="muted">从文件接收到问答可用的关键阶段，上传成功后会展示真实返回的切片结果。</p>
-            </div>
-          </div>
-          <div class="pipeline-list">
-            <div v-for="step in pipelineSteps" :key="step.name" :class="['pipeline-step', { active: step.active }]">
-              <span></span>
-              <div>
-                <strong>{{ step.name }}</strong>
-                <small>{{ step.value }}</small>
-              </div>
-            </div>
-          </div>
-          <div v-if="uploadResult" class="result-grid">
-            <span>文档 ID：{{ uploadResult.documentId }}</span>
-            <span>保存切片：{{ uploadResult.savedChunkCount }}</span>
-            <span>索引切片：{{ uploadResult.indexedChunkCount }}</span>
-          </div>
-        </article>
-
         <article class="card">
           <div class="section-header">
             <div>
@@ -575,7 +647,7 @@ onMounted(async () => {
           <div class="section-header">
             <div>
               <h3>本页上传记录</h3>
-              <p class="muted">后端未暴露文档列表接口，因此这里仅保留当前页面本次上传成功的记录。</p>
+              <p class="muted">这里保留当前页面本次上传成功的记录，完整文件以知识库文件浏览列表为准。</p>
             </div>
           </div>
           <div v-if="uploadedDocuments.length" class="document-table">
@@ -617,6 +689,40 @@ onMounted(async () => {
       </aside>
     </div>
 
+    <div v-if="createDialogOpen" class="dialog-mask" @click.self="closeCreateDialog">
+      <div class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="create-kb-title">
+        <div class="dialog-head">
+          <div>
+            <p class="status-pill">新建知识库</p>
+            <h3 id="create-kb-title">创建知识库</h3>
+          </div>
+          <button type="button" class="source-close" aria-label="关闭新建知识库弹窗" @click="closeCreateDialog">x</button>
+        </div>
+        <label class="dialog-field">
+          <span class="muted">知识库名称</span>
+          <input v-model="createKnowledgeBaseName" type="text" maxlength="128" placeholder="请输入知识库名称" @keydown.enter.prevent="submitCreateKnowledgeBase">
+        </label>
+        <label class="dialog-field">
+          <span class="muted">描述</span>
+          <textarea v-model="createKnowledgeBaseDescription" rows="3" maxlength="1024" placeholder="可选，用于说明知识范围"></textarea>
+        </label>
+        <label class="dialog-field">
+          <span class="muted">可见性</span>
+          <select v-model="createKnowledgeBaseVisibility">
+            <option value="COMPANY">公司可见</option>
+            <option value="DEPARTMENT">部门可见</option>
+            <option value="PRIVATE">私有</option>
+          </select>
+        </label>
+        <div class="dialog-actions">
+          <button type="button" class="button secondary" @click="closeCreateDialog">取消</button>
+          <button type="button" :disabled="createSaving" @click="submitCreateKnowledgeBase">
+            {{ createSaving ? '创建中...' : '确认创建' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div v-if="renameDialogOpen" class="dialog-mask" @click.self="closeRenameDialog">
       <div class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="rename-kb-title">
         <div class="dialog-head">
@@ -653,6 +759,25 @@ onMounted(async () => {
           <button type="button" class="button secondary" @click="closeDeleteDialog">取消</button>
           <button type="button" class="danger-button" :disabled="deleteSaving" @click="submitDeleteKnowledgeBase">
             {{ deleteSaving ? '删除中...' : '确认删除' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="deleteDocumentDialogOpen" class="dialog-mask" @click.self="closeDeleteDocumentDialog">
+      <div class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="delete-document-title">
+        <div class="dialog-head">
+          <div>
+            <p class="status-pill danger-pill">删除文件</p>
+            <h3 id="delete-document-title">确认删除「{{ deleteDocumentName }}」？</h3>
+          </div>
+          <button type="button" class="source-close" aria-label="关闭删除文件弹窗" @click="closeDeleteDocumentDialog">x</button>
+        </div>
+        <p class="muted">删除后该文件将从当前知识库文件列表中移除，关联切片也会标记为已删除。</p>
+        <div class="dialog-actions">
+          <button type="button" class="button secondary" @click="closeDeleteDocumentDialog">取消</button>
+          <button type="button" class="danger-button" :disabled="deleteDocumentSaving" @click="submitDeleteDocument">
+            {{ deleteDocumentSaving ? '删除中...' : '确认删除' }}
           </button>
         </div>
       </div>

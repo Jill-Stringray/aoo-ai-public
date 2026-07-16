@@ -40,6 +40,16 @@ public class KnowledgeController {
         return ApiResponse.success("KNOWLEDGE_BASES_FETCHED", "知识库列表已获取", knowledgeService.listKnowledgeBases());
     }
 
+    @PostMapping("/bases")
+    public ApiResponse<KnowledgeService.KnowledgeBaseVO> createKnowledgeBase(
+            @RequestBody KnowledgeService.CreateKnowledgeBaseRequest request) {
+        return ApiResponse.success(
+                "KNOWLEDGE_BASE_CREATED",
+                "知识库已创建",
+                knowledgeService.createKnowledgeBase(request)
+        );
+    }
+
     @PutMapping("/bases/{knowledgeBaseId}/name")
     public ApiResponse<Void> renameKnowledgeBase(
             @PathVariable("knowledgeBaseId") Long knowledgeBaseId,
@@ -72,6 +82,12 @@ public class KnowledgeController {
                 "文档内容已获取",
                 knowledgeService.getDocumentContent(documentId)
         );
+    }
+
+    @DeleteMapping("/documents/{documentId}")
+    public ApiResponse<Void> deleteDocument(@PathVariable("documentId") Long documentId) {
+        knowledgeService.deleteDocument(documentId);
+        return ApiResponse.success("KNOWLEDGE_DOCUMENT_DELETED", "文档已删除", null);
     }
 
     @GetMapping("/documents/{documentId}/file")

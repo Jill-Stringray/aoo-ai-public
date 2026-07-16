@@ -487,6 +487,19 @@ button:disabled { background: #bfdbfe; color: #475569; cursor: not-allowed; }
   border-bottom: 1px solid #e2e8f0;
 }
 .chat-toolbar h3, .chat-toolbar p { margin: 0; }
+.knowledge-select-field {
+  display: grid;
+  gap: 6px;
+}
+.knowledge-select-field span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+.compact-notice {
+  margin-top: 6px !important;
+  font-size: 12px;
+}
 .conversation-box {
   display: flex;
   flex-direction: column;
@@ -727,7 +740,10 @@ button:disabled { background: #bfdbfe; color: #475569; cursor: not-allowed; }
   gap: 8px;
 }
 .dialog-field .muted { margin: 0; }
-.dialog-field input { margin-bottom: 0; }
+.dialog-field input,
+.dialog-field textarea,
+.dialog-field select { margin-bottom: 0; }
+.dialog-field textarea { resize: vertical; }
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -929,46 +945,6 @@ button:disabled { background: #bfdbfe; color: #475569; cursor: not-allowed; }
   position: sticky;
   top: 24px;
 }
-.pipeline-list {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 14px;
-}
-.pipeline-step {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
-  align-items: center;
-  padding: 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  background: #f8fafc;
-}
-.pipeline-step > span {
-  width: 12px;
-  height: 12px;
-  border-radius: 999px;
-  background: #cbd5e1;
-}
-.pipeline-step.active {
-  border-color: #93c5fd;
-  background: #eff6ff;
-}
-.pipeline-step.active > span {
-  background: #2563eb;
-}
-.pipeline-step strong,
-.pipeline-step small {
-  display: block;
-}
-.pipeline-step strong {
-  color: #0f172a;
-}
-.pipeline-step small {
-  margin-top: 4px;
-  color: #64748b;
-}
 .governance-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1078,6 +1054,12 @@ button:disabled { background: #bfdbfe; color: #475569; cursor: not-allowed; }
 .knowledge-browser-card {
   display: grid;
   gap: 14px;
+}
+.browser-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
 }
 .knowledge-browser {
   display: grid;
@@ -1212,10 +1194,15 @@ button:disabled { background: #bfdbfe; color: #475569; cursor: not-allowed; }
   max-height: 410px;
   overflow-y: auto;
 }
+.admin-document-table.has-open-menu {
+  min-height: 150px;
+  padding-bottom: 92px;
+}
 .admin-document-row {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 80px 100px auto;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  gap: 8px;
   align-items: center;
   width: 100%;
   min-height: auto;
@@ -1227,22 +1214,52 @@ button:disabled { background: #bfdbfe; color: #475569; cursor: not-allowed; }
   text-align: left;
   box-shadow: none;
 }
+.admin-document-main {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 80px 100px auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  box-shadow: none;
+}
+.admin-document-main:hover {
+  background: transparent;
+}
 .admin-document-row:hover {
   border-color: #93c5fd;
   background: #eff6ff;
   color: #1d4ed8;
 }
-.admin-document-row strong,
-.admin-document-row small {
+.admin-document-main strong,
+.admin-document-main small {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.admin-document-row small {
+.admin-document-main small {
   margin-top: 4px;
   color: #64748b;
   font-size: 12px;
+}
+.document-more {
+  opacity: 0;
+  transition: opacity .15s ease, background .15s ease, color .15s ease;
+}
+.admin-document-row:hover .document-more,
+.document-more:focus {
+  opacity: 1;
+}
+.document-menu {
+  top: 42px;
+  right: 10px;
+  width: 128px;
 }
 .document-viewer-mask {
   position: fixed;
@@ -1308,10 +1325,84 @@ button:disabled { background: #bfdbfe; color: #475569; cursor: not-allowed; }
   line-height: 1.8;
   white-space: pre-wrap;
 }
+.admin-console-page {
+  gap: 16px;
+}
+.admin-console-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  gap: 16px;
+  align-items: start;
+}
+.admin-users-card,
+.admin-config-card {
+  display: grid;
+  gap: 14px;
+}
+.admin-user-table {
+  display: grid;
+  gap: 8px;
+  overflow-x: auto;
+}
+.admin-user-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.1fr) minmax(180px, 1fr) 108px minmax(190px, 1.1fr) 86px;
+  gap: 12px;
+  align-items: center;
+  min-width: 860px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+}
+.admin-user-head {
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+}
+.admin-user-row strong,
+.admin-user-row small {
+  display: block;
+}
+.admin-user-row small {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.admin-config-form {
+  display: grid;
+  gap: 10px;
+}
+.admin-config-form label {
+  display: grid;
+  gap: 6px;
+}
+.admin-config-form label span {
+  color: #475569;
+  font-size: 13px;
+  font-weight: 800;
+}
+.admin-config-form input {
+  margin-bottom: 0;
+}
+.config-toggle {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 13px;
+  background: #f8fbff;
+}
+.config-toggle input {
+  width: auto;
+}
 
 @media (max-width: 1180px) {
   .admin-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .knowledge-admin-layout { grid-template-columns: 1fr; }
+  .admin-console-layout { grid-template-columns: 1fr; }
   .admin-side-column { position: static; }
 }
 
@@ -1329,11 +1420,15 @@ button:disabled { background: #bfdbfe; color: #475569; cursor: not-allowed; }
     justify-content: flex-start;
   }
   .admin-metric-grid,
-  .pipeline-list,
   .governance-grid,
   .knowledge-browser,
-  .admin-document-row {
+  .admin-document-row,
+  .admin-document-main {
     grid-template-columns: 1fr;
+  }
+  .document-more {
+    opacity: 1;
+    justify-self: start;
   }
 }
 @keyframes sourceDrawerIn {

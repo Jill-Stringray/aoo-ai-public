@@ -1,5 +1,6 @@
 package com.clockshore.aooai.service;
 
+import cn.hutool.core.util.IdUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.clockshore.aooai.Utility.ToJsonUtil;
 import com.clockshore.aooai.entity.DocumentChunk;
@@ -316,6 +317,30 @@ public class KnowledgeService {
                 .toList();
     }
 
+    @Transactional
+    public KnowledgeBaseVO createKnowledgeBase(CreateKnowledgeBaseRequest request) {
+        if (request == null || request.name() == null || request.name().trim().isEmpty()) {
+            throw new IllegalArgumentException("知识库名称不能为空");
+        }
+
+        KnowledgeBase knowledgeBase = KnowledgeBase.builder()
+                .kbCode("KB-" + IdUtil.fastSimpleUUID().substring(0, 12).toUpperCase())
+                .name(request.name().trim())
+                .description(request.description() == null ? null : request.description().trim())
+                .visibility(hasText(request.visibility()) ? request.visibility().trim() : "COMPANY")
+                .status("ACTIVE")
+                .embeddingModel("text-embedding-3-small")
+                .retrievalConfig("{}")
+                .build();
+
+        knowledgeBaseMapper.insert(knowledgeBase);
+        return KnowledgeBaseVO.of(knowledgeBaseMapper.selectById(knowledgeBase.getId()));
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
+    }
+
     public List<KnowledgeDocumentVO> listDocuments(Long knowledgeBaseId) {
         if (knowledgeBaseId == null) {
             throw new IllegalArgumentException("knowledgeBaseId不能为空");
@@ -373,6 +398,17 @@ public class KnowledgeService {
         documentChunkMapper.markDeletedByKnowledgeBaseId(knowledgeBaseId);
     }
 
+    @Transactional
+    public void deleteDocument(Long documentId) {
+        if (documentId == null) {
+            throw new IllegalArgumentException("documentId不能为空");
+        }
+        if (knowledgeDocumentMapper.markDeleted(documentId) == 0) {
+            throw new IllegalArgumentException("文档不存在");
+        }
+        documentChunkMapper.markDeletedByDocumentId(documentId);
+    }
+
     public OriginalDocumentResource getOriginalDocument(Long documentId) {
         if (documentId == null) {
             throw new IllegalArgumentException("documentId不能为空");
@@ -406,6 +442,9 @@ public class KnowledgeService {
     }
 
     public record KnowledgeStats(int documentCount, int searchableDocumentCount, int chunkCount) {
+    }
+
+    public record CreateKnowledgeBaseRequest(String name, String description, String visibility) {
     }
 
     public record KnowledgeBaseVO(

@@ -65,6 +65,15 @@
 
     </delete>
 
+    <update id="markDeleted">
+
+        UPDATE knowledge_document
+        SET status = 'DELETED'
+        WHERE id = #{id}
+          AND status != 'DELETED'
+
+    </update>
+
     <update id="markDeletedByKnowledgeBaseId">
 
         UPDATE knowledge_document
