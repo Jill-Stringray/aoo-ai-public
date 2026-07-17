@@ -266,6 +266,8 @@ public class ChatService {
         //召回去重
         docs = deduplicateRetrievedDocs(docs);
 
+
+
         //将document转化成DTO
         List<RetrievalSourceDTO> retrievalSourceDTOS = new ArrayList<>();
 
