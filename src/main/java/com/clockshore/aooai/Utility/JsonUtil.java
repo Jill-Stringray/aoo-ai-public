@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Component
-public class ToJsonUtil {
+public class JsonUtil {
 
     @Resource
     private ObjectMapper objectMapper;

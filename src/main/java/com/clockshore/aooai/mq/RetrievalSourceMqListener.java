@@ -1,6 +1,6 @@
 package com.clockshore.aooai.mq;
 
-import com.clockshore.aooai.Utility.ToJsonUtil;
+import com.clockshore.aooai.Utility.JsonUtil;
 import com.clockshore.aooai.dto.mq.RetrievalSourceDTO;
 import com.clockshore.aooai.entity.MessageRetrievalSource;
 import com.clockshore.aooai.mapper.MessageRetrievalSourceMapper;
@@ -18,7 +18,7 @@ public class RetrievalSourceMqListener {
 
 
     @Resource
-    private ToJsonUtil toJsonUtil;
+    private JsonUtil jsonUtil;
 
 
     @Resource
@@ -33,10 +33,9 @@ public class RetrievalSourceMqListener {
 
 
         RetrievalSourceEvent event =
-                toJsonUtil.fromJson(
+                jsonUtil.fromJson(
                         payload,
-                        new TypeReference<>() {
-                        }
+                        new TypeReference<>() {}
                 );
 
         if (event == null || event.getMessageKey() == null || event.getMessageKey().isBlank()) {

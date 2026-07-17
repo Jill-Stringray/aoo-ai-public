@@ -1,6 +1,6 @@
 package com.clockshore.aooai.mq;
 
-import com.clockshore.aooai.Utility.ToJsonUtil;
+import com.clockshore.aooai.Utility.JsonUtil;
 import com.clockshore.aooai.entity.LocalMqMessage;
 import com.clockshore.aooai.enumType.LocalMqMessageStatus;
 import com.clockshore.aooai.mapper.LocalMqMessageMapper;
@@ -15,14 +15,14 @@ public class RetrievalSourceMqProducer {
     private LocalMqMessageMapper localMqMessageMapper;
 
     @Resource
-    private ToJsonUtil toJsonUtil;
+    private JsonUtil jsonUtil;
 
     /**
      * 投递消息召回来源持久化：先落库，再由 LocalMqMessageDispatcher 投递到 RabbitMQ。
      */
     @Transactional
     public void publishRetrievalSourcePersist(RetrievalSourceEvent event) {
-        String payload = toJsonUtil.toJson(event);
+        String payload = jsonUtil.toJson(event);
 
         LocalMqMessage localMqMessage = LocalMqMessage.builder()
                 .eventKey("retrieval-source:" + event.getMessageKey())

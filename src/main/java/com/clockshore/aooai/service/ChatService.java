@@ -6,10 +6,10 @@ import com.clockshore.aooai.dto.message.ChatRequest;
 import com.clockshore.aooai.dto.mq.RetrievalSourceDTO;
 import com.clockshore.aooai.entity.Conversation;
 import com.clockshore.aooai.entity.ConversationMessage;
-import com.clockshore.aooai.entity.MessageRetrievalSource;
+import com.clockshore.aooai.entity.QueryRewriteResult;
 import com.clockshore.aooai.enumType.CharacterRole;
 import com.clockshore.aooai.enumType.ConversationStatus;
-import com.clockshore.aooai.enumType.Prompts;
+import com.clockshore.aooai.enumType.Prompt;
 import com.clockshore.aooai.factory.ChatMessageEventFactory;
 import com.clockshore.aooai.mapper.ConversationMapper;
 import com.clockshore.aooai.mapper.ConversationMessageMapper;
@@ -32,6 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -63,6 +65,9 @@ public class ChatService {
 
     @Resource
     private ConversationMapper conversationMapper;
+
+    @Resource
+    private QueryRewriteService queryRewriteService;
 
     @Resource
     private RetrievalSourceMqProducer retrievalSourceMqProducer;
@@ -234,27 +239,34 @@ public class ChatService {
 
         //基础提示词
         messages.add(
-                new SystemMessage(Prompts.SYSTEM_DEFAULT_MARK_MESSAGE.getPrompt()));
+                new SystemMessage(Prompt.SYSTEM_RAG_ASSISTANT.getPrompt()));
 
-        // 解析当前问题
-        //todo 加问题改写
+        //解析当前问题
         String question = request.resolveMessage();
 
-        // 检索知识库
-        List<Document> docs;
-        try {
-            docs = knowledgeRetrievalService.retrieve(
-                    question,
-                    5,
-                    request.getKnowledgeBaseId()
-            );
-        } catch (RuntimeException e) {
-            log.warn("召回失败, continue without RAG context. question={}", question, e);
-            docs = List.of();
+        //问题改写
+        List<String> queries = queryRewriteService.rewrite(question).getQueries();
+
+        //检索知识库,多路召回
+        List<Document> docs = new ArrayList<>();
+        for(String query : queries){
+            try {
+                List<Document> documents = knowledgeRetrievalService.retrieve(query, 5, request.getKnowledgeBaseId());
+                int rank = 1;
+                for(Document document : documents){
+                    document.getMetadata().put("querySource", query);
+                    document.getMetadata().put("rank", rank++);
+                    }
+                docs.addAll(documents);
+            } catch (RuntimeException e) {
+                log.warn("召回失败, query={}", query, e);
+            }
         }
 
-        //将document转化成DTO
+        //召回去重
+        docs = deduplicateRetrievedDocs(docs);
 
+        //将document转化成DTO
         List<RetrievalSourceDTO> retrievalSourceDTOS = new ArrayList<>();
 
         for(Document doc : docs){
@@ -282,6 +294,44 @@ public class ChatService {
         messages.add(new UserMessage(question));
 
         return messages;
+    }
+
+    private List<Document> deduplicateRetrievedDocs(List<Document> docs) {
+        if (docs == null || docs.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        Map<String, Document> deduplicatedDocs = new LinkedHashMap<>();
+        for (Document doc : docs) {
+            String key = buildRetrievalDedupKey(doc);
+            if (!deduplicatedDocs.containsKey(key)) {
+                deduplicatedDocs.put(key, doc);
+            }
+        }
+
+        int duplicateCount = docs.size() - deduplicatedDocs.size();
+        if (duplicateCount > 0) {
+            log.info("召回去重完成, 原始数量={}, 去重后数量={}, 重复数量={}",
+                    docs.size(), deduplicatedDocs.size(), duplicateCount);
+        }
+        return new ArrayList<>(deduplicatedDocs.values());
+    }
+
+    private String buildRetrievalDedupKey(Document doc) {
+        if (doc == null) {
+            return "empty";
+        }
+        Map<String, Object> metadata = doc.getMetadata();
+        Object chunkId = metadata.get("chunkId");
+        if (chunkId != null) {
+            return "chunkId:" + chunkId;
+        }
+        Object chunkKey = metadata.get("chunkKey");
+        if (chunkKey != null && !chunkKey.toString().isBlank()) {
+            return "chunkKey:" + chunkKey;
+        }
+        String text = doc.getText();
+        return "text:" + (text == null ? "" : text.replaceAll("\\s+", " ").trim());
     }
 
     private Integer toInteger(Number value) {

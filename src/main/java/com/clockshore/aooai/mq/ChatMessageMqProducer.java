@@ -1,6 +1,6 @@
 package com.clockshore.aooai.mq;
 
-import com.clockshore.aooai.Utility.ToJsonUtil;
+import com.clockshore.aooai.Utility.JsonUtil;
 import com.clockshore.aooai.entity.LocalMqMessage;
 import com.clockshore.aooai.enumType.LocalMqMessageStatus;
 import com.clockshore.aooai.mapper.LocalMqMessageMapper;
@@ -15,7 +15,7 @@ public class ChatMessageMqProducer {
     private LocalMqMessageMapper localMqMessageMapper;
 
     @Resource
-    private ToJsonUtil toJsonUtil;
+    private JsonUtil jsonUtil;
 
     //persist 持久化
     @Transactional
@@ -24,7 +24,7 @@ public class ChatMessageMqProducer {
         if (localMqMessageMapper.countByEventKey(eventKey) > 0) {
             return;
         }
-        String payload = toJsonUtil.toJson(event);
+        String payload = jsonUtil.toJson(event);
         LocalMqMessage localMqMessage = LocalMqMessage.builder()
                 .eventKey(eventKey)
                 .topic(ChatMqConfig.CHAT_EXCHANGE)
@@ -39,7 +39,7 @@ public class ChatMessageMqProducer {
     @Transactional
     public LocalMqMessage publishEmbeddingTask(Long documentId){
 
-        String payload = toJsonUtil.toJson(documentId);
+        String payload = jsonUtil.toJson(documentId);
         LocalMqMessage localMqMessage = LocalMqMessage.builder()
                 .eventKey("embedding:" + documentId)
                 .topic(ChatMqConfig.EMBEDDING_EXCHANGE)

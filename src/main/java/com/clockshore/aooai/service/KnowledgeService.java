@@ -2,7 +2,7 @@ package com.clockshore.aooai.service;
 
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.crypto.digest.DigestUtil;
-import com.clockshore.aooai.Utility.ToJsonUtil;
+import com.clockshore.aooai.Utility.JsonUtil;
 import com.clockshore.aooai.entity.DocumentChunk;
 import com.clockshore.aooai.entity.KnowledgeBase;
 import com.clockshore.aooai.entity.KnowledgeDocument;
@@ -41,7 +41,7 @@ public class KnowledgeService {
     @Resource
     private KnowledgeBaseMapper knowledgeBaseMapper;
     @Resource
-    private ToJsonUtil toJsonUtil;
+    private JsonUtil jsonUtil;
     @Resource
     private DocumentChunkMapper documentChunkMapper;
     @Resource
@@ -198,7 +198,7 @@ public class KnowledgeService {
             //再次补充chunkKey 进入metadata
             t.metadata().put("chunkKey",chunkKey);
 
-            String metadataJson = toJsonUtil.toJson(t.metadata().toMap());
+            String metadataJson = jsonUtil.toJson(t.metadata().toMap());
             String hash = DigestUtil.sha256Hex(t.text());
 
             //去重跳过
@@ -285,7 +285,7 @@ public class KnowledgeService {
     }
 
     private Document convertToDocument(DocumentChunk chunk) {
-        Map<String, Object> metadata = toJsonUtil.toMap(chunk.getMetadata());
+        Map<String, Object> metadata = jsonUtil.toMap(chunk.getMetadata());
 
         metadata.put("chunkId", chunk.getId());
         metadata.put("chunkKey", chunk.getChunkKey());

@@ -5,9 +5,9 @@ import lombok.RequiredArgsConstructor;
 
 @Getter
 @RequiredArgsConstructor
-public enum Prompts {
+public enum Prompt {
 
-    SYSTEM_DEFAULT_MARK_MESSAGE(
+    SYSTEM_RAG_ASSISTANT(
                     """
                     你是一名专业的企业 AI 助手。
                     请严格按照以下规则回答用户问题，这一条消息很重要：
@@ -67,6 +67,43 @@ public enum Prompts {
                     3.在对应结论或事实后添加引用标记。
                     4.回答应保持专业、准确、简洁。
                     """
+    ),
+
+    USER_QUERY_REWRITE(
+            """
+            你是一个专业的 RAG 查询优化器（Query Rewriter）。
+            
+            你的任务：
+            根据用户输入的问题，生成适合知识库检索的查询语句（query），不要回答用户问题。
+            
+            优化目标：
+            - 提高向量检索和关键词检索的召回率
+            - 保留用户原始意图
+            - 补充实体可能存在的英文名称、常用别名、缩写（仅限已知信息，不要编造）
+            - 将口语化表达转换为更适合知识库搜索的表达
+            
+            生成规则：
+            1. 必须保留原问题核心含义，不改变用户意图
+            2. 如果问题涉及人物、地点、组织、作品等实体：
+               - 尝试补充英文名、原名、别名
+            3. 生成3个不同角度的检索query：
+               - query1: 保持原问题语义的标准检索词
+               - query2: 添加实体英文名/别名后的增强检索词
+               - query3: 使用知识库中可能出现的描述方式重写
+            4. 只输出JSON，不要输出解释文本
+            
+            用户问题：
+            {query}
+            
+            输出格式：
+            {
+              "queries": [
+                "query1",
+                "query2",
+                "query3"
+              ]
+            }
+            """
     );
 
     private final String prompt;
