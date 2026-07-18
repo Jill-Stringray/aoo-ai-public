@@ -1,7 +1,10 @@
 package com.clockshore.aooai.service;
 
-import lombok.RequiredArgsConstructor;
+import com.clockshore.aooai.dto.rerank.RerankRequest;
+import com.clockshore.aooai.dto.rerank.RerankResponse;
+import com.clockshore.aooai.dto.rerank.RerankResult;
 import org.springframework.ai.document.Document;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -9,15 +12,17 @@ import org.springframework.web.reactive.function.client.WebClient;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 public class RerankService {
 
     private final WebClient webClient;
+    private final String apiKey;
 
-    public RerankService(WebClient.Builder builder) {
-        this.webClient = builder
-                .baseUrl("https://api.siliconflow.cn")
-                .build();
+    public RerankService(
+            @Qualifier("siliconFlow") WebClient webClient,
+            @Value("${spring.ai.openai.embedding.api-key}") String apiKey
+    ) {
+        this.webClient = webClient;
+        this.apiKey = apiKey;
     }
 
 
