@@ -119,19 +119,22 @@ class RetrievalDebugTest {
         for (DedupResult result : dedupResults) {
             report.append("chunk ")
                     .append(result.displayChunkId())
+                    .append(result.content)
                     .append("\n");
         }
+
 
         return report.toString();
     }
 
-    private record RecallResult(String dedupKey, Long chunkId, String query, Double score) {
+    private record RecallResult(String dedupKey, Long chunkId, String query, Double score, String content) {
 
         private static RecallResult from(String query, Document document) {
             Map<String, Object> metadata = document.getMetadata();
             Long chunkId = toLong(metadata.get("chunkId"));
             String dedupKey = buildDedupKey(document, chunkId);
-            return new RecallResult(dedupKey, chunkId, query, document.getScore());
+            String content = document.getText();
+            return new RecallResult(dedupKey, chunkId, query, document.getScore(),content);
         }
 
         private static String buildDedupKey(Document document, Long chunkId) {
@@ -151,10 +154,10 @@ class RetrievalDebugTest {
         }
     }
 
-    private record DedupResult(String dedupKey, Long chunkId, Double finalScore) {
+    private record DedupResult(String dedupKey, Long chunkId, Double finalScore, String content) {
 
         private static DedupResult from(RecallResult result) {
-            return new DedupResult(result.dedupKey(), result.chunkId(), result.score());
+            return new DedupResult(result.dedupKey(), result.chunkId(), result.score(), result.content());
         }
 
         private String displayChunkId() {
