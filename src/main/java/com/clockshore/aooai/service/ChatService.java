@@ -4,6 +4,7 @@ package com.clockshore.aooai.service;
 import cn.hutool.core.util.IdUtil;
 import com.clockshore.aooai.dto.message.ChatRequest;
 import com.clockshore.aooai.dto.mq.RetrievalSourceDTO;
+import com.clockshore.aooai.dto.rerank.RerankResult;
 import com.clockshore.aooai.entity.Conversation;
 import com.clockshore.aooai.entity.ConversationMessage;
 import com.clockshore.aooai.entity.QueryRewriteResult;
@@ -272,18 +273,21 @@ public class ChatService {
             docs.add(temp);
         }
 
-        //召回去重
-        docs = deduplicateRetrievedDocs(docs);
+        //召回去重，分高的优先保留
+        List<Document> retrievedDocs = deduplicateRetrievedDocs(docs);
 
-
-        //rerank
-        rerankService.rerank()
-
+        //和原问题rerank
+        List<RerankResult> rerankResults = rerankService.rerank(question, retrievedDocs);
+        List<Document> rerankedDocs = rerankResults.stream()
+                .map(RerankResult::index)
+                .filter(index -> index != null && index >= 0 && index < retrievedDocs.size())
+                .map(retrievedDocs::get)
+                .toList();
 
         //将document转化成DTO
         List<RetrievalSourceDTO> retrievalSourceDTOS = new ArrayList<>();
 
-        for(Document doc : docs){
+        for(Document doc : rerankedDocs){
             RetrievalSourceDTO dto = RetrievalSourceDTO.of(doc);
             retrievalSourceDTOS.add(dto);
         }
@@ -292,7 +296,7 @@ public class ChatService {
 
         StringBuilder ragText = new StringBuilder("以下内容为企业知识库召回结果：");
 
-        for (Document doc : docs) {
+        for (Document doc : rerankedDocs) {
             ragText.append(ragPromptService.buildAll(doc))
                     .append("\n\n------------------\n\n");
         }
@@ -308,12 +312,10 @@ public class ChatService {
         messages.add(new UserMessage(question));
 
         return messages;
-         **/
-        return null;
     }
 
-    private List<List<Document>> deduplicateRetrievedDocs(List<List<Document>> docs){
-        Map<String,DocumentScore> documentScoreMap = new HashMap<>();
+    private List<Document> deduplicateRetrievedDocs(List<List<Document>> docs){
+        Map<String,DocumentScore> documentScoreMap = new LinkedHashMap<>();
 
         for (List<Document> documentList : docs){
             for (Document document : documentList){
@@ -346,24 +348,11 @@ public class ChatService {
                 }
             }
         }
-        
-        List<List<Document>> deduplicatedDocs = new ArrayList<>();
-        for (List<Document> documentList : docs) {
-            List<Document> deduplicatedDocumentList = new ArrayList<>();
-            for (Document document : documentList) {
-                String key = String.valueOf(
-                        document.getMetadata().get("chunkId")
-                );
-                DocumentScore documentScore = documentScoreMap.get(key);
-                if (documentScore != null
-                        && isSameScore(document.getScore(), documentScore.getScore())) {
-                    deduplicatedDocumentList.add(document);
-                }
-            }
-            deduplicatedDocs.add(deduplicatedDocumentList);
-        }
 
-        return deduplicatedDocs;
+        return new ArrayList<>(documentScoreMap.values())
+                .stream()
+                .map(DocumentScore::getDocument)
+                .toList();
     }
 
     //避免装箱npe
