@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
 
@@ -319,6 +320,7 @@ public class ChatService {
                 String key = String.valueOf(
                         document.getMetadata().get("chunkId")
                 );
+                Double score = document.getScore();
 
                 //是否存在该ChunkId
                 DocumentScore old = documentScoreMap.get(key);
@@ -328,27 +330,57 @@ public class ChatService {
                             DocumentScore
                                     .builder()
                                     .document(document)
-                                    .score(document.getScore())
+                                    .score(score)
                                     .build()
                     );
                 }else{
-                    if(document.getScore() > old.getScore()){
+                    if(isHigherScore(score, old.getScore())){
                         documentScoreMap.put(key,
                                 DocumentScore
                                         .builder()
                                         .document(document)
-                                        .score(document.getScore())
+                                        .score(score)
                                         .build()
                         );
                     }
                 }
             }
         }
+        
+        List<List<Document>> deduplicatedDocs = new ArrayList<>();
+        for (List<Document> documentList : docs) {
+            List<Document> deduplicatedDocumentList = new ArrayList<>();
+            for (Document document : documentList) {
+                String key = String.valueOf(
+                        document.getMetadata().get("chunkId")
+                );
+                DocumentScore documentScore = documentScoreMap.get(key);
+                if (documentScore != null
+                        && isSameScore(document.getScore(), documentScore.getScore())) {
+                    deduplicatedDocumentList.add(document);
+                }
+            }
+            deduplicatedDocs.add(deduplicatedDocumentList);
+        }
 
-        //codex改写处
-        //将map里面的值和List<list<document>>去对比，当chunkId和score都对的上时就保留，chunkId不存在或者score不对都删掉
+        return deduplicatedDocs;
+    }
 
-        return docs;
+    private boolean isHigherScore(Double score, Double oldScore) {
+        if (score == null) {
+            return false;
+        }
+        if (oldScore == null) {
+            return true;
+        }
+        return Double.compare(score, oldScore) > 0;
+    }
+
+    private boolean isSameScore(Double score, Double retainedScore) {
+        if (score == null || retainedScore == null) {
+            return Objects.equals(score, retainedScore);
+        }
+        return Double.compare(score, retainedScore) == 0;
     }
 
     /**
@@ -361,7 +393,7 @@ public class ChatService {
 
         Document document;
 
-        double score;
+        Double score;
     }
 
     /**
