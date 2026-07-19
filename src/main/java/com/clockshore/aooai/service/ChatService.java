@@ -275,7 +275,7 @@ public class ChatService {
         //召回去重
         docs = deduplicateRetrievedDocs(docs);
 
-        /**
+
         //rerank
         rerankService.rerank()
 
@@ -366,6 +366,7 @@ public class ChatService {
         return deduplicatedDocs;
     }
 
+    //避免装箱npe
     private boolean isHigherScore(Double score, Double oldScore) {
         if (score == null) {
             return false;
@@ -376,6 +377,7 @@ public class ChatService {
         return Double.compare(score, oldScore) > 0;
     }
 
+    //避免装箱npe
     private boolean isSameScore(Double score, Double retainedScore) {
         if (score == null || retainedScore == null) {
             return Objects.equals(score, retainedScore);
