@@ -25,7 +25,7 @@ public class RerankService {
         this.apiKey = apiKey;
     }
 
-
+    //保留原始排序
     public List<RerankResult> rerank(
             String query,
             List<Document> documents

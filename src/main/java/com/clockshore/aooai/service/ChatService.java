@@ -18,6 +18,9 @@ import com.clockshore.aooai.mq.RetrievalSourceEvent;
 import com.clockshore.aooai.mq.RetrievalSourceMqProducer;
 import com.clockshore.aooai.security.SecurityUtils;
 import jakarta.annotation.Resource;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -74,6 +77,9 @@ public class ChatService {
 
     @Resource
     private ConversationService conversationService;
+
+    @Resource
+    private RerankService rerankService;
 
     public ChatService(ChatClient.Builder builder,
                        ConversationMessageMapper conversationMessageMapper
@@ -248,24 +254,29 @@ public class ChatService {
         List<String> queries = queryRewriteService.rewrite(question).getQueries();
 
         //检索知识库,多路召回
-        List<Document> docs = new ArrayList<>();
+        List<List<Document>> docs = new ArrayList<>();
         for(String query : queries){
+            List<Document> temp = new ArrayList<>();
             try {
                 List<Document> documents = knowledgeRetrievalService.retrieve(query, 5, request.getKnowledgeBaseId());
-                int rank = 1;
+                int index = 1;
                 for(Document document : documents){
                     document.getMetadata().put("querySource", query);
-                    document.getMetadata().put("rank", rank++);
+                    document.getMetadata().put("index", index++);
                     }
-                docs.addAll(documents);
+                temp.addAll(documents);
             } catch (RuntimeException e) {
                 log.warn("召回失败, query={}", query, e);
             }
+            docs.add(temp);
         }
 
         //召回去重
         docs = deduplicateRetrievedDocs(docs);
 
+        /**
+        //rerank
+        rerankService.rerank()
 
 
         //将document转化成DTO
@@ -296,9 +307,70 @@ public class ChatService {
         messages.add(new UserMessage(question));
 
         return messages;
+         **/
+        return null;
     }
 
-    private List<Document> deduplicateRetrievedDocs(List<Document> docs) {
+    private List<List<Document>> deduplicateRetrievedDocs(List<List<Document>> docs){
+        Map<String,DocumentScore> documentScoreMap = new HashMap<>();
+
+        for (List<Document> documentList : docs){
+            for (Document document : documentList){
+                String key = String.valueOf(
+                        document.getMetadata().get("chunkId")
+                );
+
+                //是否存在该ChunkId
+                DocumentScore old = documentScoreMap.get(key);
+                if(old == null){
+                    //构造Value类，放入hashmap
+                    documentScoreMap.put(key,
+                            DocumentScore
+                                    .builder()
+                                    .document(document)
+                                    .score(document.getScore())
+                                    .build()
+                    );
+                }else{
+                    if(document.getScore() > old.getScore()){
+                        documentScoreMap.put(key,
+                                DocumentScore
+                                        .builder()
+                                        .document(document)
+                                        .score(document.getScore())
+                                        .build()
+                        );
+                    }
+                }
+            }
+        }
+
+        //codex改写处
+        //将map里面的值和List<list<document>>去对比，当chunkId和score都对的上时就保留，chunkId不存在或者score不对都删掉
+
+        return docs;
+    }
+
+    /**
+     * 用于deduplicateRetrievedDocs方法中map内容
+     */
+    @Data
+    @AllArgsConstructor
+    @Builder
+    static class DocumentScore {
+
+        Document document;
+
+        double score;
+    }
+
+    /**
+     * 使用这个方法时，只针对单个List<Document>的列表内去重，List<List<Document>>的不要使用这个方法
+     * 旧方法，已弃用
+     * @param docs
+     * @return
+     */
+    private List<Document> deduplicate(List<Document> docs) {
         if (docs == null || docs.isEmpty()) {
             return new ArrayList<>();
         }
@@ -319,6 +391,9 @@ public class ChatService {
         return new ArrayList<>(deduplicatedDocs.values());
     }
 
+    /**
+     * 优先级选择，如果有 chunkId：直接返回，后面的 chunkKey 和 text 不看。
+     */
     private String buildRetrievalDedupKey(Document doc) {
         if (doc == null) {
             return "empty";

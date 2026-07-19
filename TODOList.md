@@ -67,3 +67,9 @@ m -
 12.streamchat()抛出异常无法被SSE捕捉
 
 原因是在创建好SSE之前就抛出了异常。Supplier 的核心作用就一句话： 把一段代码先包起来，晚点再执行。 在这个场景下，它让 SseEmitter 先创建好，再执行可能抛异常的 chatService.streamChat(request)，这样异常就能被 SseService 捕获并按 SSE 格式返回。
+
+13.在召回去重时，数据结构为List<List<Document，如果按照简单的去重，即维护一个hashmap,如果特征不存在则加入，存在则丢弃有可能导致召回分数低的那个可能被去掉。
+
+解决方法：在遍历时加入hashmap时同时记录分数，如果重复，则保留分数高的那个召回项
+
+14.score 和 distance 是互为1的互补关系 例：score=0.7 distance=0.3，正常来说是distance越小越相关，但这里为了方便展示，添加score字段让他按数值越大越好
