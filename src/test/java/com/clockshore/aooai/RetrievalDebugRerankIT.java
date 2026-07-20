@@ -16,14 +16,13 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 @SpringBootTest(classes = AooAiApplication.class)
 class RetrievalDebugRerankIT {
 
     private static final String QUESTION = "吉尔是谁";
     private static final int TOP_K = 5;
+    private static final int RRF_K = 60;
     private static final Long KNOWLEDGE_BASE_ID = null;
 
     @Resource
@@ -61,26 +60,34 @@ class RetrievalDebugRerankIT {
         List<RecallResult> recallResults = new ArrayList<>();
         for (String query : rewriteQueries) {
             List<Document> documents = knowledgeRetrievalService.retrieve(query, TOP_K, KNOWLEDGE_BASE_ID);
-            for (Document document : documents) {
-                recallResults.add(RecallResult.from(query, document));
+            for (int i = 0; i < documents.size(); i++) {
+                recallResults.add(RecallResult.from(query, i + 1, documents.get(i)));
             }
         }
         return recallResults;
     }
 
     private List<Document> deduplicate(List<RecallResult> recallResults) {
-        return recallResults.stream()
-                .collect(Collectors.groupingBy(
-                        RecallResult::dedupKey,
-                        LinkedHashMap::new,
-                        Collectors.maxBy(Comparator.comparingDouble(RecallResult::score))
-                ))
-                .values()
+        Map<String, DedupResult> dedupResultMap = new LinkedHashMap<>();
+        for (RecallResult result : recallResults) {
+            DedupResult old = dedupResultMap.get(result.dedupKey());
+            double rrfScore = calculateRrfScore(result.rank());
+            if (old == null) {
+                dedupResultMap.put(result.dedupKey(), DedupResult.from(result, rrfScore));
+            } else {
+                dedupResultMap.put(result.dedupKey(), old.merge(result, rrfScore));
+            }
+        }
+
+        return dedupResultMap.values()
                 .stream()
-                .flatMap(Optional::stream)
-                .sorted(Comparator.comparingDouble(RecallResult::score).reversed())
-                .map(RecallResult::document)
+                .sorted(Comparator.comparingDouble(DedupResult::finalScore).reversed())
+                .map(DedupResult::documentWithRrfScore)
                 .toList();
+    }
+
+    private double calculateRrfScore(int rank) {
+        return 1.0 / (RRF_K + rank);
     }
 
     private String buildRerankReport(
@@ -169,13 +176,13 @@ class RetrievalDebugRerankIT {
         return "index-document";
     }
 
-    private record RecallResult(String dedupKey, Long chunkId, String query, Double score, Document document) {
+    private record RecallResult(String dedupKey, Long chunkId, String query, int rank, Double score, Document document) {
 
-        private static RecallResult from(String query, Document document) {
+        private static RecallResult from(String query, int rank, Document document) {
             Map<String, Object> metadata = document.getMetadata();
             Long chunkId = toLong(metadata.get("chunkId"));
             String dedupKey = buildDedupKey(document, chunkId);
-            return new RecallResult(dedupKey, chunkId, query, document.getScore(), document);
+            return new RecallResult(dedupKey, chunkId, query, rank, document.getScore(), document);
         }
 
         private static String buildDedupKey(Document document, Long chunkId) {
@@ -193,6 +200,34 @@ class RetrievalDebugRerankIT {
         private String displayChunkId() {
             return chunkId == null ? dedupKey : chunkId.toString();
         }
+    }
+
+    private record DedupResult(String dedupKey, Double sourceScore, Double finalScore, Document document) {
+
+        private static DedupResult from(RecallResult result, double rrfScore) {
+            return new DedupResult(result.dedupKey(), result.score(), rrfScore, result.document());
+        }
+
+        private DedupResult merge(RecallResult result, double rrfScore) {
+            if (isHigherScore(result.score(), sourceScore)) {
+                return new DedupResult(dedupKey, result.score(), finalScore + rrfScore, result.document());
+            }
+            return new DedupResult(dedupKey, sourceScore, finalScore + rrfScore, document);
+        }
+
+        private Document documentWithRrfScore() {
+            return document.mutate().score(finalScore).build();
+        }
+    }
+
+    private static boolean isHigherScore(Double score, Double oldScore) {
+        if (score == null) {
+            return false;
+        }
+        if (oldScore == null) {
+            return true;
+        }
+        return Double.compare(score, oldScore) > 0;
     }
 
     private static Long toLong(Object value) {

@@ -1,4 +1,4 @@
-1\.注意到该chunk异常，之后再进行解决。！！！
+1\.注意到该chunk异常，之后再进行解决。
 
 t .
 i S
@@ -20,6 +20,9 @@ s il
 o i
 m -
 该 chunk 内容长度为：491
+
+应对措施：reader 替换成 tika,首先尝试修复，然后
+
 
 2\.在进行召回测试的时候存在一个问题，即重复召回，后续进行改进。
 
@@ -74,4 +77,6 @@ m -
 
 14.score 和 distance 是互为1的互补关系 例：score=0.7 distance=0.3，正常来说是distance越小越相关，但这里为了方便展示，添加score字段让他按数值越大越好
 
-RRF（Reciprocal Rank Fusion，倒数排名融合） 是一种多路召回结果合并算法。!!!!!!
+15.RRF（Reciprocal Rank Fusion，倒数排名融合） 是一种多路（query）召回结果合并算法。
+
+在rerank之前加入，看一个 chunk 在多个召回结果里的排名，然后根据排名给它加分。出现越多、排名越靠前，最终分越高。它不看原始 score，只看排名

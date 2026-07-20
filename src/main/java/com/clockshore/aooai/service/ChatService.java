@@ -36,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,6 +50,11 @@ import java.util.concurrent.atomic.AtomicReference;
 public class ChatService {
 
     private static final double RERANK_SCORE_THRESHOLD = 0.44;
+    private static final double ORIGINAL_SCORE_WEIGHT = 0.4;
+    private static final double RERANK_SCORE_WEIGHT = 0.6;
+    private static final int RRF_K = 60;
+    private static final int MAX_HISTORY_CONTEXT_TOKENS = 32 * 1024;
+    private static final int MESSAGE_TOKEN_OVERHEAD = 4;
 
     private ChatClient chatClient;
 
@@ -315,44 +321,49 @@ public class ChatService {
     }
 
     private List<Document> deduplicateRetrievedDocs(List<List<Document>> docs){
-        Map<String,DocumentScore> documentScoreMap = new LinkedHashMap<>();
+        Map<String, DocumentScore> documentScoreMap = new LinkedHashMap<>();
 
         for (List<Document> documentList : docs){
-            for (Document document : documentList){
-                String key = String.valueOf(
-                        document.getMetadata().get("chunkId")
-                );
-                Double score = document.getScore();
+            if (documentList == null || documentList.isEmpty()) {
+                continue;
+            }
+            for (int i = 0; i < documentList.size(); i++){
+                Document document = documentList.get(i);
+                if (document == null) {
+                    continue;
+                }
+                String key = buildRetrievalDedupKey(document);
+                double rrfScore = calculateRrfScore(i + 1);
 
-                //是否存在该ChunkId
                 DocumentScore old = documentScoreMap.get(key);
                 if(old == null){
-                    //构造Value类，放入hashmap
                     documentScoreMap.put(key,
                             DocumentScore
                                     .builder()
                                     .document(document)
-                                    .score(score)
+                                    .sourceScore(document.getScore())
+                                    .score(rrfScore)
                                     .build()
                     );
                 }else{
-                    if(isHigherScore(score, old.getScore())){
-                        documentScoreMap.put(key,
-                                DocumentScore
-                                        .builder()
-                                        .document(document)
-                                        .score(score)
-                                        .build()
-                        );
+                    old.setScore(old.getScore() + rrfScore);
+                    if(isHigherScore(document.getScore(), old.getSourceScore())){
+                        old.setDocument(document);
+                        old.setSourceScore(document.getScore());
                     }
                 }
             }
         }
 
-        return new ArrayList<>(documentScoreMap.values())
+        return documentScoreMap.values()
                 .stream()
-                .map(DocumentScore::getDocument)
+                .sorted(Comparator.comparingDouble(DocumentScore::getScore).reversed())
+                .map(item -> item.getDocument().mutate().score(item.getScore()).build())
                 .toList();
+    }
+
+    private double calculateRrfScore(int rank) {
+        return 1.0 / (RRF_K + rank);
     }
 
     private List<Document> rerankRetrievedDocs(String question, List<Document> retrievedDocs) {
@@ -380,7 +391,9 @@ public class ChatService {
                     .filter(result -> result.index() != null
                             && result.index() >= 0
                             && result.index() < rerankableDocs.size())
-                    .map(result -> rerankableDocs.get(result.index()))
+                    .map(result -> buildCombinedScoreDocument(result, rerankableDocs.get(result.index())))
+                    .sorted(Comparator.comparingDouble(ScoredDocument::score).reversed())
+                    .map(ScoredDocument::document)
                     .limit(5)
                     .toList();
 
@@ -392,6 +405,13 @@ public class ChatService {
         }
 
         return retrievedDocs;
+    }
+
+    private ScoredDocument buildCombinedScoreDocument(RerankResult result, Document document) {
+        double originalScore = document.getScore() == null ? 0.0 : document.getScore();
+        double rerankScore = result.relevanceScore() == null ? 0.0 : result.relevanceScore();
+        double combinedScore = originalScore * ORIGINAL_SCORE_WEIGHT + rerankScore * RERANK_SCORE_WEIGHT;
+        return new ScoredDocument(document.mutate().score(combinedScore).build(), combinedScore);
     }
 
     private boolean isAboveRerankScoreThreshold(RerankResult result) {
@@ -429,7 +449,12 @@ public class ChatService {
 
         Document document;
 
+        Double sourceScore;
+
         Double score;
+    }
+
+    private record ScoredDocument(Document document, double score) {
     }
 
     /**
@@ -535,17 +560,85 @@ public class ChatService {
     public List<Message> buildHistory(Long ConversationId){
         List<Message> history = new ArrayList<>();
         List<ConversationMessage> messagesList = conversationMessageMapper.selectByConversationId(ConversationId);
-        for (ConversationMessage msg : messagesList) {
-            String role = msg.getRole();
-            if (CharacterRole.USER.getValue().equals(role)) {
-                history.add(new UserMessage(msg.getContent()));
-            } else if (CharacterRole.ASSISTANT.getValue().equals(role)) {
-                history.add(new AssistantMessage(msg.getContent()));
-            } else if (CharacterRole.SYSTEM.getValue().equals(role)) {
-                history.add(new SystemMessage(msg.getContent()));
+        int usedTokens = 0;
+        int skippedCount = 0;
+
+        for (int i = messagesList.size() - 1; i >= 0; i--) {
+            ConversationMessage msg = messagesList.get(i);
+            Message message = toSpringAiMessage(msg);
+            if (message == null) {
+                continue;
             }
+
+            int messageTokens = estimateMessageTokens(msg);
+            if (!history.isEmpty() && usedTokens + messageTokens > MAX_HISTORY_CONTEXT_TOKENS) {
+                skippedCount = i + 1;
+                break;
+            }
+
+            history.add(0, message);
+            usedTokens += messageTokens;
+        }
+
+        if (skippedCount > 0) {
+            log.info("历史上下文超过限制，已跳过最早消息, conversationId={}, skippedCount={}, usedTokens={}, maxTokens={}",
+                    ConversationId, skippedCount, usedTokens, MAX_HISTORY_CONTEXT_TOKENS);
         }
         return history;
+    }
+
+    private Message toSpringAiMessage(ConversationMessage msg) {
+        if (msg == null) {
+            return null;
+        }
+        String role = msg.getRole();
+        if (CharacterRole.USER.getValue().equals(role)) {
+            return new UserMessage(msg.getContent());
+        } else if (CharacterRole.ASSISTANT.getValue().equals(role)) {
+            return new AssistantMessage(msg.getContent());
+        } else if (CharacterRole.SYSTEM.getValue().equals(role)) {
+            return new SystemMessage(msg.getContent());
+        }
+        return null;
+    }
+
+    private int estimateMessageTokens(ConversationMessage msg) {
+        if (msg == null || msg.getContent() == null || msg.getContent().isBlank()) {
+            return MESSAGE_TOKEN_OVERHEAD;
+        }
+        return MESSAGE_TOKEN_OVERHEAD + estimateTextTokens(msg.getContent());
+    }
+
+    private int estimateTextTokens(String text) {
+        int tokens = 0;
+        int asciiRunLength = 0;
+
+        for (int offset = 0; offset < text.length(); ) {
+            int codePoint = text.codePointAt(offset);
+            if (codePoint <= 0x7F) {
+                asciiRunLength++;
+            } else {
+                tokens += estimateAsciiTokens(asciiRunLength);
+                asciiRunLength = 0;
+                tokens += isCjkCodePoint(codePoint) ? 1 : 2;
+            }
+            offset += Character.charCount(codePoint);
+        }
+
+        return tokens + estimateAsciiTokens(asciiRunLength);
+    }
+
+    private int estimateAsciiTokens(int charCount) {
+        if (charCount <= 0) {
+            return 0;
+        }
+        return Math.max(1, (charCount + 3) / 4);
+    }
+
+    private boolean isCjkCodePoint(int codePoint) {
+        return (codePoint >= 0x3400 && codePoint <= 0x9FFF)
+                || (codePoint >= 0xF900 && codePoint <= 0xFAFF)
+                || (codePoint >= 0x20000 && codePoint <= 0x2FA1F);
     }
 
 
