@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import { debugRagRetrieval, fetchSystemConfig } from '../api/admin';
+import { getDocumentFileUrl } from '../api/knowledge';
 
 const debugState = ref('idle');
 const debugMessage = ref('');
@@ -33,6 +34,10 @@ function formatEmbeddingSample(values) {
 function randomizeDebugQuestion() {
   const next = sampleQuestions[Math.floor(Math.random() * sampleQuestions.length)];
   debugForm.value.question = next;
+}
+
+function hasChunkDocument(chunk) {
+  return Boolean(chunk?.documentId);
 }
 
 async function loadConfig() {
@@ -128,6 +133,13 @@ onMounted(loadConfig);
                 <span>{{ chunk.fileName || '未知文档' }}</span>
                 <span>page {{ chunk.pageNumber || '-' }}</span>
                 <span>chunk {{ chunk.chunkId || '-' }}</span>
+                <a
+                  v-if="hasChunkDocument(chunk)"
+                  class="rag-document-link"
+                  :href="getDocumentFileUrl(chunk.documentId)"
+                >
+                  查看文档
+                </a>
               </div>
               <p>{{ chunk.content }}</p>
             </article>

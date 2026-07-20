@@ -103,7 +103,7 @@ public class KnowledgeController {
 
         return ResponseEntity.ok()
                 .contentType(mediaType)
-                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline()
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                         .filename(original.fileName(), StandardCharsets.UTF_8)
                         .build()
                         .toString())

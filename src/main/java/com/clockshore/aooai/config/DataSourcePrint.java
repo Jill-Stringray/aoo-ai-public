@@ -8,11 +8,11 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
 @Component
-public class DataSourceDebug {
+public class DataSourcePrint {
 
     private final ApplicationContext applicationContext;
 
-    public DataSourceDebug(ApplicationContext applicationContext) {
+    public DataSourcePrint(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
     }
 

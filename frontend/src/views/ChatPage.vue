@@ -9,7 +9,7 @@ import {
   fetchConversationMessages,
   renameConversation
 } from '../api/qa';
-import { listKnowledgeBases } from '../api/knowledge';
+import { getDocumentFileUrl, listKnowledgeBases } from '../api/knowledge';
 
 const question = ref('');
 const selectedKnowledgeBase = ref(null);
@@ -147,6 +147,10 @@ function openSourceDrawer(source) {
 
 function closeSourceDrawer() {
   isSourceDrawerOpen.value = false;
+}
+
+function hasSourceDocument(source) {
+  return Boolean(source?.documentId);
 }
 
 function formatScore(value) {
@@ -727,6 +731,13 @@ onBeforeUnmount(() => {
           <h4>引用片段</h4>
           <p>{{ selectedSource?.quoteText || '暂无片段内容' }}</p>
         </div>
+        <a
+          v-if="hasSourceDocument(selectedSource)"
+          class="button secondary source-document-link"
+          :href="getDocumentFileUrl(selectedSource.documentId)"
+        >
+          查看文档
+        </a>
       </aside>
     </div>
 

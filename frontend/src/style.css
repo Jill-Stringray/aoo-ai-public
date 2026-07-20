@@ -814,6 +814,10 @@ button:disabled { background: #bfdbfe; color: #475569; cursor: not-allowed; }
   line-height: 1.75;
   white-space: pre-wrap;
 }
+.source-document-link {
+  width: 100%;
+  margin-top: 14px;
+}
 
 .knowledge-admin-page {
   gap: 16px;
@@ -1498,6 +1502,23 @@ button:disabled { background: #bfdbfe; color: #475569; cursor: not-allowed; }
   color: #1d4ed8;
   font-size: 12px;
   font-weight: 800;
+}
+.rag-document-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+.rag-document-link:hover {
+  border-color: #2563eb;
+  background: #dbeafe;
 }
 .rag-chunk-item p,
 .rag-answer {

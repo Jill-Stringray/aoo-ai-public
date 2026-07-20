@@ -3,16 +3,14 @@ package com.clockshore.aooai.service;
 import com.clockshore.aooai.entity.KnowledgeDocument;
 import com.clockshore.aooai.mapper.KnowledgeDocumentMapper;
 import lombok.RequiredArgsConstructor;
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.pdmodel.PDDocument;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.reader.pdf.PagePdfDocumentReader;
 import org.springframework.ai.reader.TextReader;
 import org.springframework.ai.reader.tika.TikaDocumentReader;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -66,27 +64,48 @@ public class DocumentReaderService {
     }
 
     private List<Document> readPdfDocument(Resource resource) {
-        TikaDocumentReader reader = new TikaDocumentReader(resource);
+        PagePdfDocumentReader reader = new PagePdfDocumentReader(resource);
         List<Document> docs = reader.get();
-        int totalPages = getPdfPageCount(resource);
+        int totalPages = docs.stream()
+                .mapToInt(this::resolvePdfEndPageNumber)
+                .max()
+                .orElse(0);
 
-        for (int i = 0; i < docs.size(); i++) {
-            int pageNumber = docs.size() == totalPages ? i + 1 : 1;
-            docs.get(i).getMetadata().put("page_number", pageNumber);
-            docs.get(i).getMetadata().put("pageNo", pageNumber);
-            docs.get(i).getMetadata().put("total_pages", totalPages);
-            docs.get(i).getMetadata().put("page_count", totalPages);
+        for (Document doc : docs) {
+            int pageNumber = resolvePdfStartPageNumber(doc);
+            doc.getMetadata().put("page_number", pageNumber);
+            doc.getMetadata().put("pageNo", pageNumber);
+            doc.getMetadata().put("total_pages", totalPages);
+            doc.getMetadata().put("page_count", totalPages);
         }
 
         return docs;
     }
 
-    private int getPdfPageCount(Resource resource) {
-        try (PDDocument document = Loader.loadPDF(resource.getFile())) {
-            return document.getNumberOfPages();
-        } catch (IOException ex) {
-            throw new IllegalArgumentException("PDF页数解析失败", ex);
+    private int resolvePdfStartPageNumber(Document doc) {
+        return toInt(doc.getMetadata().get(PagePdfDocumentReader.METADATA_START_PAGE_NUMBER), 1);
+    }
+
+    private int resolvePdfEndPageNumber(Document doc) {
+        Object endPageNumber = doc.getMetadata().get(PagePdfDocumentReader.METADATA_END_PAGE_NUMBER);
+        if (endPageNumber != null) {
+            return toInt(endPageNumber, 1);
         }
+        return resolvePdfStartPageNumber(doc);
+    }
+
+    private int toInt(Object value, int defaultValue) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String text) {
+            try {
+                return Integer.parseInt(text);
+            } catch (NumberFormatException ignored) {
+                return defaultValue;
+            }
+        }
+        return defaultValue;
     }
 
     public List<Document> enrichMetadata(
