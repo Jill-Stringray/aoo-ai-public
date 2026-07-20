@@ -47,6 +47,8 @@ public class KnowledgeService {
     @Resource
     private DocumentReaderService documentReaderService;
     @Resource
+    private DocumentTextRepairService documentTextRepairService;
+    @Resource
     private ChatMessageMqProducer chatMessageMqProducer;
     @Resource
     private ChunkQualityFilter chunkQualityFilter;
@@ -123,6 +125,7 @@ public class KnowledgeService {
 
         List<Document> docs = documentReaderService.read(Paths.get(document.getStorageUrl()));
         docs = documentReaderService.normalize(docs);
+        docs = documentTextRepairService.repair(docs);
         docs = documentReaderService.enrichMetadata(docs, document);
 
         knowledgeDocumentMapper.updateStatus(document.getId(), "CHUNKING");

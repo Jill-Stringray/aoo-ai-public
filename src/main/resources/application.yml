@@ -40,6 +40,10 @@ jwt:
   expire: 86400000 # 24小时(ms)
 
 rag:
+  text-repair:
+    remove-soft-hyphen: true
+    join-hyphenated-line-breaks: true
+    normalize-unicode-hyphens: true
   chunk-quality:
     min-text-length: 50
     max-single-char-line-ratio: 0.35
