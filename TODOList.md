@@ -73,3 +73,5 @@ m -
 解决方法：在遍历时加入hashmap时同时记录分数，如果重复，则保留分数高的那个召回项
 
 14.score 和 distance 是互为1的互补关系 例：score=0.7 distance=0.3，正常来说是distance越小越相关，但这里为了方便展示，添加score字段让他按数值越大越好
+
+RRF（Reciprocal Rank Fusion，倒数排名融合） 是一种多路召回结果合并算法。!!!!!!

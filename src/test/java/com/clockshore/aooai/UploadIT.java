@@ -18,15 +18,21 @@ import java.nio.file.Paths;
 import java.util.IntSummaryStatistics;
 import java.util.List;
 
-@RequiredArgsConstructor
 @SpringBootTest(classes = AooAiApplication.class)
 class UploadIT {
 
 
-    private final KnowledgeService knowledgeService;
-    private final DocumentReaderService documentReaderService;
-    private final TokenSplitterService tokenSplitterService;
-    private final KnowledgeDocumentMapper knowledgeDocumentMapper;
+    @Autowired
+    private KnowledgeService knowledgeService;
+
+    @Autowired
+    private DocumentReaderService documentReaderService;
+
+    @Autowired
+    private TokenSplitterService tokenSplitterService;
+
+    @Autowired
+    private KnowledgeDocumentMapper knowledgeDocumentMapper;
 
 
 

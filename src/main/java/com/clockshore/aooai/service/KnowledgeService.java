@@ -48,6 +48,8 @@ public class KnowledgeService {
     private DocumentReaderService documentReaderService;
     @Resource
     private ChatMessageMqProducer chatMessageMqProducer;
+    @Resource
+    private ChunkQualityFilter chunkQualityFilter;
 
     Tika tika = new Tika();
 
@@ -125,6 +127,7 @@ public class KnowledgeService {
 
         knowledgeDocumentMapper.updateStatus(document.getId(), "CHUNKING");
         List<TextSegment> segments = tokenSplitterService.split(docs);
+        segments = chunkQualityFilter.filterSegments(segments);
         int savedChunkCount = saveChunks(segments);
 
         return new IngestResult(document.getId(), savedChunkCount, 0);
@@ -203,11 +206,6 @@ public class KnowledgeService {
 
             //去重跳过
             if(documentChunkMapper.findHash(hash) > 0){
-                continue;
-            }
-
-            //太短的文本视为无效信息
-            if(t.text().length() < 50){
                 continue;
             }
 

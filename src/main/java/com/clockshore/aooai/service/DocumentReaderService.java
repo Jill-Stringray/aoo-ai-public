@@ -3,16 +3,18 @@ package com.clockshore.aooai.service;
 import com.clockshore.aooai.entity.KnowledgeDocument;
 import com.clockshore.aooai.mapper.KnowledgeDocumentMapper;
 import lombok.RequiredArgsConstructor;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.TextReader;
-import org.springframework.ai.reader.pdf.PagePdfDocumentReader;
 import org.springframework.ai.reader.tika.TikaDocumentReader;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
-import java.nio.file.Path;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,7 +22,7 @@ import java.util.List;
 @Service
 public class DocumentReaderService {
 
-    private KnowledgeDocumentMapper knowledgeDocumentMapper;
+    private final KnowledgeDocumentMapper knowledgeDocumentMapper;
     //reader对文件进行解析成为document
 
     /**
@@ -53,13 +55,7 @@ public class DocumentReaderService {
             reader.setCharset(StandardCharsets.UTF_8);
             return reader.get();
         } else if (fileName.endsWith(".pdf")) {
-            //tika本身支持pdf格式解析，但是不保留
-            //pdf页码
-            //分页信息
-            //PDF元数据
-            //所以使用PagePdfDocumentReader
-            PagePdfDocumentReader reader = new PagePdfDocumentReader(resource);
-            return reader.get();
+            return readPdfDocument(resource);
         }else if(fileName.endsWith(".docx") || fileName.endsWith(".doc")){
             TikaDocumentReader reader = new TikaDocumentReader(resource);
             return reader.get();
@@ -67,6 +63,30 @@ public class DocumentReaderService {
         throw new IllegalArgumentException(
                 "暂不支持的文件类型: " + fileName
         );
+    }
+
+    private List<Document> readPdfDocument(Resource resource) {
+        TikaDocumentReader reader = new TikaDocumentReader(resource);
+        List<Document> docs = reader.get();
+        int totalPages = getPdfPageCount(resource);
+
+        for (int i = 0; i < docs.size(); i++) {
+            int pageNumber = docs.size() == totalPages ? i + 1 : 1;
+            docs.get(i).getMetadata().put("page_number", pageNumber);
+            docs.get(i).getMetadata().put("pageNo", pageNumber);
+            docs.get(i).getMetadata().put("total_pages", totalPages);
+            docs.get(i).getMetadata().put("page_count", totalPages);
+        }
+
+        return docs;
+    }
+
+    private int getPdfPageCount(Resource resource) {
+        try (PDDocument document = Loader.loadPDF(resource.getFile())) {
+            return document.getNumberOfPages();
+        } catch (IOException ex) {
+            throw new IllegalArgumentException("PDF页数解析失败", ex);
+        }
     }
 
     public List<Document> enrichMetadata(

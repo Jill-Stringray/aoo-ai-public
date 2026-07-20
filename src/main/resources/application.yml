@@ -38,3 +38,14 @@ mybatis:
 jwt:
   secret: ${JWT_SECRET}
   expire: 86400000 # 24小时(ms)
+
+rag:
+  chunk-quality:
+    min-text-length: 50
+    max-single-char-line-ratio: 0.35
+    max-newline-ratio: 0.12
+    max-split-word-line-ratio: 0.6
+    min-split-word-line-count: 4
+    min-alpha-numeric-ratio: 0.35
+    max-repeated-char-ratio: 0.35
+    max-repeated-char-run-length: 8

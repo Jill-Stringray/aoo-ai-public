@@ -3,6 +3,7 @@ package com.clockshore.aooai.service;
 import com.clockshore.aooai.dto.rerank.RerankRequest;
 import com.clockshore.aooai.dto.rerank.RerankResponse;
 import com.clockshore.aooai.dto.rerank.RerankResult;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -12,6 +13,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import java.util.List;
 
 @Service
+@Slf4j
 public class RerankService {
 
     private final WebClient webClient;
@@ -30,14 +32,24 @@ public class RerankService {
             String query,
             List<Document> documents
     ) {
+        if (query == null || query.isBlank() || documents == null || documents.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> documentTexts = documents.stream()
+                .map(Document::getText)
+                .filter(text -> text != null && !text.isBlank())
+                .toList();
+
+        if (documentTexts.isEmpty()) {
+            return List.of();
+        }
 
         RerankRequest request = new RerankRequest(
                 "BAAI/bge-reranker-v2-m3",
                 query,
-                documents.stream()
-                        .map(Document::getText)
-                        .toList(),
-                5,
+                documentTexts,
+                Math.min(5, documentTexts.size()),
                 true
         );
 
@@ -50,6 +62,13 @@ public class RerankService {
                 )
                 .bodyValue(request)
                 .retrieve()
+                .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                        response -> response.bodyToMono(String.class)
+                                .defaultIfEmpty("")
+                                .map(body -> {
+                                    log.warn("Rerank接口请求失败, status={}, body={}", response.statusCode(), body);
+                                    return new IllegalStateException("Rerank接口请求失败: " + response.statusCode());
+                                }))
                 .bodyToMono(RerankResponse.class)
                 .block()
                 .results();

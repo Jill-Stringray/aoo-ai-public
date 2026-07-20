@@ -48,6 +48,8 @@ import java.util.concurrent.atomic.AtomicReference;
 @Slf4j
 public class ChatService {
 
+    private static final double RERANK_SCORE_THRESHOLD = 0.44;
+
     private ChatClient chatClient;
 
     @Resource
@@ -82,6 +84,9 @@ public class ChatService {
 
     @Resource
     private RerankService rerankService;
+
+    @Resource
+    private SystemConfigService systemConfigService;
 
     public ChatService(ChatClient.Builder builder,
                        ConversationMessageMapper conversationMessageMapper
@@ -276,13 +281,8 @@ public class ChatService {
         //召回去重，分高的优先保留
         List<Document> retrievedDocs = deduplicateRetrievedDocs(docs);
 
-        //和原问题rerank
-        List<RerankResult> rerankResults = rerankService.rerank(question, retrievedDocs);
-        List<Document> rerankedDocs = rerankResults.stream()
-                .map(RerankResult::index)
-                .filter(index -> index != null && index >= 0 && index < retrievedDocs.size())
-                .map(retrievedDocs::get)
-                .toList();
+        //和原提问进行rerank，失败时保留原召回顺序，避免外部重排接口影响聊天主流程
+        List<Document> rerankedDocs = rerankRetrievedDocs(question, retrievedDocs);
 
         //将document转化成DTO
         List<RetrievalSourceDTO> retrievalSourceDTOS = new ArrayList<>();
@@ -353,6 +353,51 @@ public class ChatService {
                 .stream()
                 .map(DocumentScore::getDocument)
                 .toList();
+    }
+
+    private List<Document> rerankRetrievedDocs(String question, List<Document> retrievedDocs) {
+        if (retrievedDocs == null || retrievedDocs.isEmpty()) {
+            return List.of();
+        }
+
+        if (!Boolean.TRUE.equals(systemConfigService.getConfig().rerankEnabled())) {
+            return retrievedDocs;
+        }
+
+        List<Document> rerankableDocs = retrievedDocs.stream()
+                .filter(doc -> doc != null && doc.getText() != null && !doc.getText().isBlank())
+                .toList();
+
+        if (rerankableDocs.isEmpty()) {
+            return retrievedDocs;
+        }
+
+        //最大返回五个
+        try {
+            List<RerankResult> rerankResults = rerankService.rerank(question, rerankableDocs);
+            List<Document> rerankedDocs = rerankResults.stream()
+                    .filter(this::isAboveRerankScoreThreshold)
+                    .filter(result -> result.index() != null
+                            && result.index() >= 0
+                            && result.index() < rerankableDocs.size())
+                    .map(result -> rerankableDocs.get(result.index()))
+                    .limit(5)
+                    .toList();
+
+            if (!rerankedDocs.isEmpty()) {
+                return rerankedDocs;
+            }
+        } catch (RuntimeException e) {
+            log.warn("Rerank失败，使用原召回顺序继续回答", e);
+        }
+
+        return retrievedDocs;
+    }
+
+    private boolean isAboveRerankScoreThreshold(RerankResult result) {
+        return result != null
+                && result.relevanceScore() != null
+                && Double.compare(result.relevanceScore(), RERANK_SCORE_THRESHOLD) >= 0;
     }
 
     //避免装箱npe
