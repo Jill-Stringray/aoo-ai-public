@@ -1,7 +1,7 @@
 <script setup>
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
-import { computed } from 'vue';
-import { clearSession, getCurrentIdentity } from './api/auth';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { AUTH_EXPIRED_EVENT, clearSession, getCurrentIdentity, resetAuthExpiredNotice } from './api/auth';
 
 const route = useRoute();
 const router = useRouter();
@@ -35,11 +35,34 @@ const navItems = computed(() => {
 
 const roleLabel = computed(() => (identity.value.isAdmin ? '管理员端' : '用户端'));
 const displayName = computed(() => identity.value.profile?.displayName || identity.value.username || '未登录');
+const authExpiredDialogOpen = ref(false);
+const authExpiredMessage = ref('身份认证已过期');
 
 const logout = async () => {
   clearSession();
+  resetAuthExpiredNotice();
   await router.push('/login');
 };
+
+const handleAuthExpired = async (event) => {
+  authExpiredMessage.value = event.detail?.message || '身份认证已过期';
+  authExpiredDialogOpen.value = true;
+  if (route.path !== '/login') {
+    await router.push('/login');
+  }
+};
+
+const closeAuthExpiredDialog = () => {
+  authExpiredDialogOpen.value = false;
+};
+
+onMounted(() => {
+  window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+});
+
+onUnmounted(() => {
+  window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+});
 </script>
 
 <template>
@@ -84,6 +107,22 @@ const logout = async () => {
       <main class="panel">
         <RouterView />
       </main>
+    </div>
+
+    <div v-if="authExpiredDialogOpen" class="dialog-mask" @click.self="closeAuthExpiredDialog">
+      <div class="dialog-card auth-expired-dialog" role="alertdialog" aria-modal="true" aria-labelledby="auth-expired-title">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">登录状态</p>
+            <h3 id="auth-expired-title">{{ authExpiredMessage }}</h3>
+          </div>
+          <button type="button" class="source-close" aria-label="关闭身份认证过期提示" @click="closeAuthExpiredDialog">x</button>
+        </div>
+        <p class="muted">请重新登录后继续使用。</p>
+        <div class="dialog-actions">
+          <button type="button" class="primary-action" @click="closeAuthExpiredDialog">我知道了</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>

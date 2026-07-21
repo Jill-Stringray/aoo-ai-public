@@ -17,7 +17,8 @@ public interface ConversationMapper {
 
     @Select("""
             SELECT id, conversation_key AS conversationKey, user_id AS userId,
-                   title, status, created_at AS createdAt, updated_at AS updatedAt
+                   title, status, is_favorite AS isFavorite,
+                   created_at AS createdAt, updated_at AS updatedAt
             FROM conversation
             WHERE id = #{id}
             """)
@@ -25,7 +26,8 @@ public interface ConversationMapper {
 
     @Select("""
             SELECT id, conversation_key AS conversationKey, user_id AS userId,
-                   title, status, created_at AS createdAt, updated_at AS updatedAt
+                   title, status, is_favorite AS isFavorite,
+                   created_at AS createdAt, updated_at AS updatedAt
             FROM conversation
             WHERE id = #{id}
               AND user_id = #{userId}
@@ -35,7 +37,8 @@ public interface ConversationMapper {
 
     @Select("""
     SELECT id, conversation_key AS conversationKey, user_id AS userId,
-           title, status, created_at AS createdAt, updated_at AS updatedAt
+           title, status, is_favorite AS isFavorite,
+           created_at AS createdAt, updated_at AS updatedAt
     FROM conversation
     WHERE conversation_key = #{conversationKey}
             """)
@@ -43,12 +46,16 @@ public interface ConversationMapper {
 
     @Select("""
             SELECT id, conversation_key AS conversationKey, user_id AS userId,
-                   title, status, created_at AS createdAt, updated_at AS updatedAt
+                   title, status, is_favorite AS isFavorite,
+                   created_at AS createdAt, updated_at AS updatedAt
             FROM conversation
             WHERE user_id = #{userId} AND UPPER(TRIM(status)) = 'ACTIVE'
+              AND (#{favoriteOnly} = 0 OR is_favorite = 1)
             ORDER BY updated_at DESC
             """)
-    List<Conversation> selectByUserId(@Param("userId") Long userId);
+    List<Conversation> selectByUserId(
+            @Param("userId") Long userId,
+            @Param("favoriteOnly") Boolean favoriteOnly);
 
     @Update("""
             UPDATE conversation
@@ -97,5 +104,18 @@ public interface ConversationMapper {
             @Param("id") Long id,
             @Param("userId") Long userId,
             @Param("title") String title);
+
+    @Update("""
+            UPDATE conversation
+            SET is_favorite = #{favorite},
+                updated_at = CURRENT_TIMESTAMP(3)
+            WHERE id = #{id}
+              AND user_id = #{userId}
+              AND UPPER(TRIM(status)) = 'ACTIVE'
+            """)
+    int updateFavoriteForUser(
+            @Param("id") Long id,
+            @Param("userId") Long userId,
+            @Param("favorite") Boolean favorite);
 
 }

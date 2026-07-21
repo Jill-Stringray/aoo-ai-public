@@ -1,6 +1,7 @@
 package com.clockshore.aooai.mapper;
 
 import com.clockshore.aooai.entity.MessageRetrievalSource;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -19,5 +20,8 @@ public interface MessageRetrievalSourceMapper {
             @Param("messageKeys")
             List<String> messageKeys
     );
+
+    @Delete("DELETE FROM message_retrieval_source WHERE message_key = #{messageKey}")
+    int deleteByMessageKey(@Param("messageKey") String messageKey);
 
 }

@@ -42,8 +42,8 @@ public class ConversationService {
         return conversation.getId();
     }
 
-    public List<ConversationVO> fetchConversationList(Long userId) {
-        List<Conversation> conversations = conversationMapper.selectByUserId(userId);
+    public List<ConversationVO> fetchConversationList(Long userId, Boolean favoriteOnly) {
+        List<Conversation> conversations = conversationMapper.selectByUserId(userId, Boolean.TRUE.equals(favoriteOnly));
         List<ConversationVO> conversationVOS = new ArrayList<>();
         for (Conversation conversation : conversations) {
             conversationVOS.add(ConversationVO.from(conversation));
@@ -93,6 +93,13 @@ public class ConversationService {
         );
         if (deleted == 0) {
             throw new IllegalArgumentException("会话不存在或无权删除");
+        }
+    }
+
+    public void updateFavorite(Long userId, Long conversationId, Boolean favorite) {
+        int updated = conversationMapper.updateFavoriteForUser(conversationId, userId, Boolean.TRUE.equals(favorite));
+        if (updated == 0) {
+            throw new IllegalArgumentException("会话不存在或无权收藏");
         }
     }
 

@@ -110,4 +110,19 @@
 
     </select>
 
+    <select id="summarizeByKnowledgeBase" resultType="java.util.HashMap">
+
+        SELECT
+            knowledge_base_id AS knowledgeBaseId,
+            COUNT(*) AS documentCount,
+            SUM(CASE WHEN status = 'READY' THEN 1 ELSE 0 END) AS readyDocumentCount,
+            SUM(CASE WHEN status IN ('UPLOADED', 'PARSING', 'CHUNKING', 'INDEXING') THEN 1 ELSE 0 END) AS processingDocumentCount,
+            SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) AS failedDocumentCount,
+            MAX(updated_at) AS latestDocumentUpdatedAt
+        FROM knowledge_document
+        WHERE status != 'DELETED'
+        GROUP BY knowledge_base_id
+
+    </select>
+
 </mapper>

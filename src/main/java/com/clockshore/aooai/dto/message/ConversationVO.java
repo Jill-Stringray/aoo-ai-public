@@ -25,11 +25,17 @@ public class ConversationVO {
      */
     private LocalDateTime updateTime;
 
+    /**
+     * 是否收藏
+     */
+    private Boolean isFavorite;
+
     public static ConversationVO from(Conversation conversation) {
         return ConversationVO.builder()
                 .conversationId(conversation.getId())
                 .title(conversation.getTitle())
                 .updateTime(conversation.getUpdatedAt())
+                .isFavorite(Boolean.TRUE.equals(conversation.getIsFavorite()))
                 .build();
     }
 }

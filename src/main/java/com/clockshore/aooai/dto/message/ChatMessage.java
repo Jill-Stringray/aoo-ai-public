@@ -25,6 +25,7 @@ import java.util.List;
 public class ChatMessage {
 
     private Long id;
+    private Long parentMessageId;
     private String role;
     private String content;
     private LocalDateTime createTime;

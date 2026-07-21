@@ -313,8 +313,17 @@ public class KnowledgeService {
     }
 
     public List<KnowledgeBaseVO> listKnowledgeBases() {
+        Map<Long, KnowledgeBaseSummary> summaries = new HashMap<>();
+        for (Map<String, Object> row : knowledgeDocumentMapper.summarizeByKnowledgeBase()) {
+            KnowledgeBaseSummary summary = KnowledgeBaseSummary.of(row);
+            summaries.put(summary.knowledgeBaseId(), summary);
+        }
+
         return knowledgeBaseMapper.selectAllActive().stream()
-                .map(KnowledgeBaseVO::of)
+                .map(knowledgeBase -> KnowledgeBaseVO.of(
+                        knowledgeBase,
+                        summaries.getOrDefault(knowledgeBase.getId(), KnowledgeBaseSummary.empty(knowledgeBase.getId()))
+                ))
                 .toList();
     }
 
@@ -456,9 +465,19 @@ public class KnowledgeService {
             String visibility,
             String status,
             String embeddingModel,
-            String updatedAt
+            String updatedAt,
+            int documentCount,
+            int readyDocumentCount,
+            int processingDocumentCount,
+            int failedDocumentCount,
+            String latestDocumentUpdatedAt,
+            String availabilityStatus
     ) {
         public static KnowledgeBaseVO of(KnowledgeBase knowledgeBase) {
+            return of(knowledgeBase, KnowledgeBaseSummary.empty(knowledgeBase.getId()));
+        }
+
+        public static KnowledgeBaseVO of(KnowledgeBase knowledgeBase, KnowledgeBaseSummary summary) {
             return new KnowledgeBaseVO(
                     knowledgeBase.getId(),
                     knowledgeBase.getKbCode(),
@@ -467,8 +486,75 @@ public class KnowledgeService {
                     knowledgeBase.getVisibility(),
                     knowledgeBase.getStatus(),
                     knowledgeBase.getEmbeddingModel(),
-                    knowledgeBase.getUpdatedAt() == null ? null : knowledgeBase.getUpdatedAt().toString()
+                    knowledgeBase.getUpdatedAt() == null ? null : knowledgeBase.getUpdatedAt().toString(),
+                    summary.documentCount(),
+                    summary.readyDocumentCount(),
+                    summary.processingDocumentCount(),
+                    summary.failedDocumentCount(),
+                    summary.latestDocumentUpdatedAt(),
+                    resolveAvailabilityStatus(summary)
             );
+        }
+    }
+
+    private static String resolveAvailabilityStatus(KnowledgeBaseSummary summary) {
+        if (summary.documentCount() == 0) {
+            return "EMPTY";
+        }
+        if (summary.processingDocumentCount() > 0) {
+            return "INDEXING";
+        }
+        if (summary.readyDocumentCount() > 0) {
+            return "READY";
+        }
+        if (summary.failedDocumentCount() > 0) {
+            return "FAILED";
+        }
+        return "UNAVAILABLE";
+    }
+
+    private record KnowledgeBaseSummary(
+            Long knowledgeBaseId,
+            int documentCount,
+            int readyDocumentCount,
+            int processingDocumentCount,
+            int failedDocumentCount,
+            String latestDocumentUpdatedAt
+    ) {
+        static KnowledgeBaseSummary empty(Long knowledgeBaseId) {
+            return new KnowledgeBaseSummary(knowledgeBaseId, 0, 0, 0, 0, null);
+        }
+
+        static KnowledgeBaseSummary of(Map<String, Object> row) {
+            Long knowledgeBaseId = toLong(row.get("knowledgeBaseId"));
+            return new KnowledgeBaseSummary(
+                    knowledgeBaseId,
+                    toInt(row.get("documentCount")),
+                    toInt(row.get("readyDocumentCount")),
+                    toInt(row.get("processingDocumentCount")),
+                    toInt(row.get("failedDocumentCount")),
+                    row.get("latestDocumentUpdatedAt") == null ? null : String.valueOf(row.get("latestDocumentUpdatedAt"))
+            );
+        }
+
+        private static int toInt(Object value) {
+            if (value instanceof Number number) {
+                return number.intValue();
+            }
+            if (value == null) {
+                return 0;
+            }
+            return Integer.parseInt(String.valueOf(value));
+        }
+
+        private static Long toLong(Object value) {
+            if (value instanceof Number number) {
+                return number.longValue();
+            }
+            if (value == null) {
+                return null;
+            }
+            return Long.parseLong(String.valueOf(value));
         }
     }
 

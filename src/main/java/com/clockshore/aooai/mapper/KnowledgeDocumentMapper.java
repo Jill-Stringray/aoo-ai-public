@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Map;
 
 @Mapper
 public interface KnowledgeDocumentMapper {
@@ -29,4 +30,6 @@ public interface KnowledgeDocumentMapper {
     int countByStatus(@Param("status") String status);
 
     List<KnowledgeDocument> selectByKnowledgeBaseId(@Param("knowledgeBaseId") Long knowledgeBaseId);
+
+    List<Map<String, Object>> summarizeByKnowledgeBase();
 }

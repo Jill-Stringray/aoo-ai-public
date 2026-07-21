@@ -42,9 +42,19 @@ public class ChatController {
         return sseService.stream(() -> chatService.streamChat(request));
     }
 
+    @PostMapping(value = "/{conversationId}/messages/{messageId}/regenerate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter regenerate(
+            @PathVariable("conversationId") Long conversationId,
+            @PathVariable("messageId") Long messageId,
+            @RequestBody ChatRequest request) {
+        request.setConversationId(conversationId);
+        return sseService.stream(() -> chatService.streamRegenerate(request, messageId));
+    }
+
     @GetMapping("/conversation/list")
-    public ApiResponse<List<ConversationVO>> conversationList() {
-        return ApiResponse.success(conversationService.fetchConversationList(SecurityUtils.getUserId()));
+    public ApiResponse<List<ConversationVO>> conversationList(
+            @RequestParam(value = "favoriteOnly", defaultValue = "false") Boolean favoriteOnly) {
+        return ApiResponse.success(conversationService.fetchConversationList(SecurityUtils.getUserId(), favoriteOnly));
     }
 
     @GetMapping("/{conversationId}/messages")
@@ -77,6 +87,18 @@ public class ChatController {
     @DeleteMapping("/conversation/{conversationId}")
     public ApiResponse<Void> deleteConversation(@PathVariable("conversationId") Long conversationId) {
         conversationService.deleteConversation(SecurityUtils.getUserId(), conversationId);
+        return ApiResponse.success(null);
+    }
+
+    @PutMapping("/conversation/{conversationId}/favorite")
+    public ApiResponse<Void> favoriteConversation(
+            @PathVariable("conversationId") Long conversationId,
+            @RequestBody ChatRequestVO request) {
+        conversationService.updateFavorite(
+                SecurityUtils.getUserId(),
+                conversationId,
+                request.getFavorite()
+        );
         return ApiResponse.success(null);
     }
 }

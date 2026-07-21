@@ -49,6 +49,11 @@ public class Conversation {
     private String status;
 
     /**
+     * 是否收藏。
+     */
+    private Boolean isFavorite;
+
+    /**
      * 创建时间。
      */
     private LocalDateTime createdAt;

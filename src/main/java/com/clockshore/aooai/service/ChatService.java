@@ -14,6 +14,7 @@ import com.clockshore.aooai.enumType.Prompt;
 import com.clockshore.aooai.factory.ChatMessageEventFactory;
 import com.clockshore.aooai.mapper.ConversationMapper;
 import com.clockshore.aooai.mapper.ConversationMessageMapper;
+import com.clockshore.aooai.mapper.MessageRetrievalSourceMapper;
 import com.clockshore.aooai.mq.ChatMessageMqProducer;
 import com.clockshore.aooai.mq.RetrievalSourceEvent;
 import com.clockshore.aooai.mq.RetrievalSourceMqProducer;
@@ -84,6 +85,9 @@ public class ChatService {
 
     @Resource
     private RetrievalSourceMqProducer retrievalSourceMqProducer;
+
+    @Resource
+    private MessageRetrievalSourceMapper messageRetrievalSourceMapper;
 
     @Resource
     private ConversationService conversationService;
@@ -170,6 +174,57 @@ public class ChatService {
                 ));
     }
 
+    public Flux<ChatResponse> streamRegenerate(ChatRequest chatRequest, Long assistantMessageId) {
+        ensureConversationReady(chatRequest);
+
+        Long userId = SecurityUtils.getUserId();
+        ConversationMessage oldAssistant = conversationMessageMapper.selectByIdAndUserId(
+                chatRequest.getConversationId(),
+                assistantMessageId,
+                userId
+        );
+        if (oldAssistant == null) {
+            throw new IllegalArgumentException("AI回复不存在或无权重新生成");
+        }
+        if (!CharacterRole.ASSISTANT.getValue().equals(oldAssistant.getRole())) {
+            throw new IllegalArgumentException("只能重新生成AI回复");
+        }
+
+        ConversationMessage userMessage = conversationMessageMapper.selectPreviousUserMessage(
+                oldAssistant.getConversationId(),
+                oldAssistant.getId()
+        );
+        if (userMessage == null || userMessage.getContent() == null || userMessage.getContent().isBlank()) {
+            throw new IllegalArgumentException("未找到可用于重新生成的问题");
+        }
+
+        chatRequest.setMessage(userMessage.getContent());
+        String messageKey = IdUtil.getSnowflakeNextIdStr();
+        StringBuilder replyBuffer = new StringBuilder();
+        AtomicReference<Usage> usageRef = new AtomicReference<>();
+        long startedAt = System.currentTimeMillis();
+
+        return chatClient.prompt()
+                .messages(buildRagMessages(chatRequest, messageKey, userMessage.getId()))
+                .stream()
+                .chatResponse()
+                .doOnNext(delta -> {
+                    replyBuffer.append(delta.getResult().getOutput().getText());
+                    if(delta.getMetadata() != null && delta.getMetadata().getUsage() != null){
+                        usageRef.set(delta.getMetadata().getUsage());
+                    }
+                })
+                .doOnComplete(() -> enqueueAssistantMessage(
+                        chatRequest.getConversationId(),
+                        userMessage.getId(),
+                        messageKey,
+                        replyBuffer.toString(),
+                        chatRequest.getModel(),
+                        usageRef.get(),
+                        System.currentTimeMillis() - startedAt
+                ));
+    }
+
     /**
      * MQ投递AI助手消息持久化
      *
@@ -187,6 +242,30 @@ public class ChatService {
         chatMessageMqProducer.publishMessagePersist(
                 chatMessageEventFactory.buildAssistantMessage(
                         conversationId,
+                        messageKey,
+                        reply,
+                        model,
+                        usage,
+                        latencyMs
+                )
+        );
+    }
+
+    public void enqueueAssistantMessage(Long conversationId,
+                                        Long parentMessageId,
+                                        String messageKey,
+                                        String reply,
+                                        String model,
+                                        Usage usage,
+                                        long latencyMs
+    ) {
+        if (reply == null || reply.isBlank()) {
+            return;
+        }
+        chatMessageMqProducer.publishMessagePersist(
+                chatMessageEventFactory.buildAssistantMessage(
+                        conversationId,
+                        parentMessageId,
                         messageKey,
                         reply,
                         model,
@@ -253,6 +332,10 @@ public class ChatService {
     }
 
     public List<Message> buildRagMessages(ChatRequest request,String messageKey) {
+        return buildRagMessages(request, messageKey, null);
+    }
+
+    public List<Message> buildRagMessages(ChatRequest request,String messageKey, Long historyBeforeId) {
 
         List<Message> messages = new ArrayList<>();
 
@@ -312,7 +395,7 @@ public class ChatService {
         );
 
         // 历史消息
-        messages.addAll(buildHistory(request.getConversationId()));
+        messages.addAll(buildHistory(request.getConversationId(), historyBeforeId));
 
         // 加入当前用户问题
         messages.add(new UserMessage(question));
@@ -558,6 +641,10 @@ public class ChatService {
      * @return
      */
     public List<Message> buildHistory(Long ConversationId){
+        return buildHistory(ConversationId, null);
+    }
+
+    public List<Message> buildHistory(Long ConversationId, Long beforeId){
         List<Message> history = new ArrayList<>();
         List<ConversationMessage> messagesList = conversationMessageMapper.selectByConversationId(ConversationId);
         int usedTokens = 0;
@@ -565,6 +652,9 @@ public class ChatService {
 
         for (int i = messagesList.size() - 1; i >= 0; i--) {
             ConversationMessage msg = messagesList.get(i);
+            if (beforeId != null && msg.getId() >= beforeId) {
+                continue;
+            }
             Message message = toSpringAiMessage(msg);
             if (message == null) {
                 continue;

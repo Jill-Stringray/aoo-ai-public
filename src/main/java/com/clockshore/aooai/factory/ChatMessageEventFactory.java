@@ -42,6 +42,20 @@ public class ChatMessageEventFactory {
                 .build();
     }
 
+    public ChatMessageEvent buildAssistantMessage(
+            Long conversationId,
+            Long parentMessageId,
+            String messageKey,
+            String content,
+            String modelName,
+            Usage usage,
+            long latencyMs
+    ) {
+        ChatMessageEvent event = buildAssistantMessage(conversationId, messageKey, content, modelName, usage, latencyMs);
+        event.setParentMessageId(parentMessageId);
+        return event;
+    }
+
     private Integer toInteger(Number number) {
         return number == null ? 0 : number.intValue();
     }

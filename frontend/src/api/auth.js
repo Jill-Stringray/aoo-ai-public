@@ -1,21 +1,29 @@
 const USER_PROFILE_KEY = 'aoo_user_profile';
 const USERNAME_KEY = 'aoo_user';
 const TOKEN_KEY = 'aoo_token';
+const AUTH_EXPIRED_EVENT = 'aoo-auth-expired';
+let authExpiredNotified = false;
 
-async function parseJsonResponse(res) {
+export async function parseApiResponse(res, fallbackMessage = '请求失败，请稍后重试') {
   const contentType = res.headers.get('content-type') || '';
-  const data = contentType.includes('application/json') ? await res.json() : {};
+  const data = contentType.includes('application/json') ? await res.json() : { message: await res.text() };
 
-  if (!res.ok) {
+  if (isAuthExpiredResponse(res, data)) {
+    notifyAuthExpired();
+  }
+
+  if (!res.ok || data?.success === false) {
     return {
       success: false,
       code: data?.code || 'REQUEST_FAILED',
-      message: data?.message || '请求失败，请稍后重试',
+      message: data?.message || fallbackMessage,
       data: null
     };
   }
 
-  return data;
+  return data?.success === undefined
+    ? { success: true, code: 'SUCCESS', message: data?.message || '操作成功', data }
+    : data;
 }
 
 export function getStoredProfile() {
@@ -33,6 +41,56 @@ export function getStoredUsername() {
 export function getStoredToken() {
   return localStorage.getItem(TOKEN_KEY) || '';
 }
+
+function decodeJwtPayload(token) {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const paddedPayload = normalizedPayload.padEnd(
+      normalizedPayload.length + (4 - normalizedPayload.length % 4) % 4,
+      '='
+    );
+    return JSON.parse(window.atob(paddedPayload));
+  } catch {
+    return null;
+  }
+}
+
+export function isStoredTokenExpired() {
+  const token = getStoredToken();
+  if (!token) return true;
+
+  const payload = decodeJwtPayload(token);
+  if (!payload?.exp) return false;
+
+  return payload.exp * 1000 <= Date.now();
+}
+
+export function isAuthExpiredResponse(res, data = {}) {
+  if (!getStoredToken()) return false;
+  const code = String(data?.code || '').toUpperCase();
+  const message = String(data?.message || '');
+
+  return [401, 403].includes(res.status)
+    || ['UNAUTHORIZED', 'FORBIDDEN', 'TOKEN_EXPIRED', 'JWT_EXPIRED', 'AUTH_EXPIRED'].includes(code)
+    || (/jwt|token|认证|登录|身份/.test(message) && /过期|失效|无效|未登录|unauthorized|forbidden/i.test(message));
+}
+
+export function notifyAuthExpired() {
+  if (authExpiredNotified) return;
+  authExpiredNotified = true;
+  clearSession();
+  window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT, {
+    detail: { message: '身份认证已过期' }
+  }));
+}
+
+export function resetAuthExpiredNotice() {
+  authExpiredNotified = false;
+}
+
+export { AUTH_EXPIRED_EVENT };
 
 export function buildAuthHeaders(extraHeaders = {}) {
   const token = getStoredToken();
@@ -55,7 +113,12 @@ export function getHomePathByRole(role) {
 }
 
 export function isAuthenticated() {
-  return Boolean(getStoredUsername());
+  if (!getStoredUsername() || !getStoredToken()) return false;
+  if (isStoredTokenExpired()) {
+    notifyAuthExpired();
+    return false;
+  }
+  return true;
 }
 
 export function normalizeLoginPayload(payload) {
@@ -73,6 +136,7 @@ export function saveSession(payload) {
   const profile = normalizeLoginPayload(payload);
   if (!profile?.username) return null;
 
+  resetAuthExpiredNotice();
   localStorage.setItem(USERNAME_KEY, profile.username);
   localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profile));
   if (profile.token) {
@@ -91,10 +155,15 @@ export function clearSession() {
 export function getCurrentIdentity() {
   const profile = getStoredProfile();
   const username = getStoredUsername();
+  const authenticated = Boolean(username) && Boolean(getStoredToken()) && !isStoredTokenExpired();
   const role = normalizeRole(profile?.role);
 
+  if (username && !authenticated) {
+    notifyAuthExpired();
+  }
+
   return {
-    authenticated: Boolean(username),
+    authenticated,
     username,
     profile,
     role,
@@ -108,7 +177,7 @@ export async function login(payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
-  return parseJsonResponse(res);
+  return parseApiResponse(res);
 }
 
 export async function register(payload) {
@@ -117,5 +186,5 @@ export async function register(payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
-  return parseJsonResponse(res);
+  return parseApiResponse(res);
 }

@@ -1,22 +1,4 @@
-import { buildAuthHeaders } from './auth';
-
-async function parseApiResponse(res, fallbackMessage) {
-  const contentType = res.headers.get('content-type') || '';
-  const data = contentType.includes('application/json') ? await res.json() : { message: await res.text() };
-
-  if (!res.ok || data?.success === false) {
-    return {
-      success: false,
-      code: data?.code || 'REQUEST_FAILED',
-      message: data?.message || fallbackMessage,
-      data: null
-    };
-  }
-
-  return data?.success === undefined
-    ? { success: true, code: 'SUCCESS', message: data?.message || '操作成功', data }
-    : data;
-}
+import { buildAuthHeaders, parseApiResponse } from './auth';
 
 function parseSseBlock(block) {
   let eventName = 'message';
@@ -33,8 +15,12 @@ function parseSseBlock(block) {
   return { eventName, data };
 }
 
-export async function fetchConversationList() {
-  const res = await fetch('/api/v1/chat/conversation/list', {
+export async function fetchConversationList({ favoriteOnly = false } = {}) {
+  const params = new URLSearchParams();
+  if (favoriteOnly) params.set('favoriteOnly', 'true');
+  const query = params.toString();
+
+  const res = await fetch(`/api/v1/chat/conversation/list${query ? `?${query}` : ''}`, {
     headers: buildAuthHeaders()
   });
   return parseApiResponse(res, '获取会话列表失败');
@@ -76,6 +62,17 @@ export async function deleteConversation(conversationId) {
     headers: buildAuthHeaders()
   });
   return parseApiResponse(res, '删除会话失败');
+}
+
+export async function updateConversationFavorite({ conversationId, favorite } = {}) {
+  const res = await fetch(`/api/v1/chat/conversation/${conversationId}/favorite`, {
+    method: 'PUT',
+    headers: buildAuthHeaders({
+      'Content-Type': 'application/json'
+    }),
+    body: JSON.stringify({ favorite: Boolean(favorite) })
+  });
+  return parseApiResponse(res, favorite ? '收藏会话失败' : '取消收藏失败');
 }
 
 async function askQuestionStream({ message, conversationId, knowledgeBaseId, onDelta }) {
@@ -156,6 +153,94 @@ async function askQuestionStream({ message, conversationId, knowledgeBaseId, onD
     success: true,
     code: 'SUCCESS',
     message: 'AI 已回复',
+    data: { reply }
+  };
+}
+
+export async function regenerateAnswer({ conversationId, messageId, knowledgeBaseId, onDelta } = {}) {
+  if (!conversationId || !messageId) {
+    return {
+      success: false,
+      code: 'INVALID_REGENERATE_TARGET',
+      message: '请选择要重新生成的AI回复',
+      data: null
+    };
+  }
+
+  const body = {
+    stream: true
+  };
+  if (knowledgeBaseId) body.knowledgeBaseId = knowledgeBaseId;
+
+  const res = await fetch(`/api/v1/chat/${conversationId}/messages/${messageId}/regenerate`, {
+    method: 'POST',
+    headers: buildAuthHeaders({
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream'
+    }),
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    return parseApiResponse(res, '重新生成失败');
+  }
+
+  if (!res.body) {
+    return {
+      success: false,
+      code: 'STREAM_UNAVAILABLE',
+      message: '浏览器不支持流式响应',
+      data: null
+    };
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let reply = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const blocks = buffer.split('\n\n');
+    buffer = blocks.pop() || '';
+
+    for (const block of blocks) {
+      if (!block.trim()) continue;
+
+      const { eventName, data } = parseSseBlock(block);
+      if (!data) continue;
+
+      let payload;
+      try {
+        payload = JSON.parse(data);
+      } catch {
+        continue;
+      }
+
+      if (eventName === 'delta') {
+        const token = payload?.data ?? '';
+        if (token) {
+          reply += token;
+          onDelta?.(token, reply);
+        }
+      } else if (eventName === 'error') {
+        return {
+          success: false,
+          code: 'CHAT_REGENERATE_ERROR',
+          message: payload?.data || '重新生成失败',
+          data: null
+        };
+      }
+    }
+  }
+
+  return {
+    success: true,
+    code: 'SUCCESS',
+    message: 'AI 已重新生成',
     data: { reply }
   };
 }

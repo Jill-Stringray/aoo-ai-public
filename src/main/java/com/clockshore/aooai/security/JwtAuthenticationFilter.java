@@ -1,6 +1,9 @@
 package com.clockshore.aooai.security;
 
 import com.clockshore.aooai.Utility.JwtUtils;
+import com.clockshore.aooai.common.ApiResponse;
+import com.clockshore.aooai.enumType.ResultCode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,6 +25,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtils jwtUtils;
     private final LoginUserService loginUserService;
+    private final ObjectMapper objectMapper;
 
     /**
      * Filter负责：
@@ -69,11 +73,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         } catch (Exception e) {
             System.out.println("JWT token 校验失败: " + e.getMessage());
-            //此时若校验失败，则不会将用户信息放进SecurityContextHolder
-            //System.out.println(SecurityUtils.getLoginUser());
+            SecurityContextHolder.clearContext();
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json;charset=UTF-8");
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    ApiResponse.failure(ResultCode.UNAUTHORIZED, "身份认证已过期")
+            );
+            return;
         }
 
         // 6. 放行请求
+        //  此时若校验失败，则不会将用户信息放进SecurityContextHolder
         filterChain.doFilter(request, response);
     }
 

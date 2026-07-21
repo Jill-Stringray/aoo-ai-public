@@ -41,6 +41,60 @@ public interface ConversationMessageMapper {
     ConversationMessage selectByMessageKey(@Param("messageKey") String messageKey);
 
     @Select("""
+            SELECT cm.id,
+                   cm.conversation_id,
+                   cm.message_key,
+                   cm.parent_message_id,
+                   cm.role,
+                   cm.content,
+                   cm.model_name,
+                   cm.prompt_tokens,
+                   cm.completion_tokens,
+                   cm.total_tokens,
+                   cm.latency_ms,
+                   cm.finish_reason,
+                   cm.created_at
+            FROM conversation_message cm
+            JOIN conversation c
+                ON cm.conversation_id = c.id
+            WHERE c.user_id = #{userId}
+              AND cm.conversation_id = #{conversationId}
+              AND cm.id = #{messageId}
+              AND UPPER(TRIM(c.status)) = 'ACTIVE'
+            """)
+    ConversationMessage selectByIdAndUserId(
+            @Param("conversationId") Long conversationId,
+            @Param("messageId") Long messageId,
+            @Param("userId") Long userId
+    );
+
+    @Select("""
+            SELECT id,
+                   conversation_id,
+                   message_key,
+                   parent_message_id,
+                   role,
+                   content,
+                   model_name,
+                   prompt_tokens,
+                   completion_tokens,
+                   total_tokens,
+                   latency_ms,
+                   finish_reason,
+                   created_at
+            FROM conversation_message
+            WHERE conversation_id = #{conversationId}
+              AND id < #{beforeId}
+              AND role = 'user'
+            ORDER BY id DESC
+            LIMIT 1
+            """)
+    ConversationMessage selectPreviousUserMessage(
+            @Param("conversationId") Long conversationId,
+            @Param("beforeId") Long beforeId
+    );
+
+    @Select("""
             SELECT id,
                    conversation_id,
                    message_key,
@@ -108,6 +162,21 @@ public interface ConversationMessageMapper {
             """)
     int updateByMessageKey(ConversationMessage message);
 
+    @Update("""
+            UPDATE conversation_message
+            SET message_key = #{messageKey},
+                parent_message_id = #{parentMessageId},
+                content = #{content},
+                model_name = #{modelName},
+                prompt_tokens = #{promptTokens},
+                completion_tokens = #{completionTokens},
+                total_tokens = #{totalTokens},
+                latency_ms = #{latencyMs},
+                finish_reason = #{finishReason}
+            WHERE id = #{id}
+            """)
+    int updateAssistantReplyById(ConversationMessage message);
+
     @Delete("DELETE FROM conversation_message WHERE message_key = #{messageKey}")
     int deleteByMessageKey(@Param("messageKey") String messageKey);
 
@@ -133,10 +202,11 @@ public interface ConversationMessageMapper {
         }
 
         return ChatMessage.builder()
+                .id(conversationMessage.getId())
+                .parentMessageId(conversationMessage.getParentMessageId())
                 .role(conversationMessage.getRole())
                 .content(conversationMessage.getContent())
                 .createTime(conversationMessage.getCreatedAt())
-                .id(conversationMessage.getId())
                 .build();
     }
 }

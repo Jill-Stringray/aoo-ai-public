@@ -1,19 +1,4 @@
-async function parseApiResponse(res, fallbackMessage) {
-  const contentType = res.headers.get('content-type') || '';
-  const data = contentType.includes('application/json') ? await res.json() : { message: await res.text() };
-
-  if (!res.ok || data?.success === false) {
-    return {
-      success: false,
-      code: data?.code || 'REQUEST_FAILED',
-      message: data?.message || fallbackMessage
-    };
-  }
-
-  return data?.success === undefined
-    ? { success: true, code: 'SUCCESS', message: data?.message || '操作成功', data }
-    : data;
-}
+import { buildAuthHeaders, isAuthExpiredResponse, notifyAuthExpired, parseApiResponse } from './auth';
 
 async function parseUploadResponse(res) {
   return parseApiResponse(res, '上传失败，请检查文件后重试');
@@ -54,6 +39,7 @@ export async function uploadKnowledgeDocument(file, knowledgeBaseId) {
     : '/api/v1/knowledge/upload';
   const res = await fetch(url, {
     method: 'POST',
+    headers: buildAuthHeaders(),
     body: formData
   });
 
@@ -61,21 +47,25 @@ export async function uploadKnowledgeDocument(file, knowledgeBaseId) {
 }
 
 export async function getKnowledgeStats() {
-  const res = await fetch('/api/v1/knowledge/stats');
+  const res = await fetch('/api/v1/knowledge/stats', {
+    headers: buildAuthHeaders()
+  });
   return parseApiResponse(res, '知识库统计获取失败，请稍后重试');
 }
 
 export async function listKnowledgeBases() {
-  const res = await fetch('/api/v1/knowledge/bases');
+  const res = await fetch('/api/v1/knowledge/bases', {
+    headers: buildAuthHeaders()
+  });
   return parseApiResponse(res, '知识库列表获取失败，请稍后重试');
 }
 
 export async function createKnowledgeBase({ name, description, visibility = 'COMPANY' } = {}) {
   const res = await fetch('/api/v1/knowledge/bases', {
     method: 'POST',
-    headers: {
+    headers: buildAuthHeaders({
       'Content-Type': 'application/json'
-    },
+    }),
     body: JSON.stringify({ name, description, visibility })
   });
   return parseApiResponse(res, '新建知识库失败');
@@ -84,9 +74,9 @@ export async function createKnowledgeBase({ name, description, visibility = 'COM
 export async function updateKnowledgeBase({ knowledgeBaseId, name }) {
   const res = await fetch(`/api/v1/knowledge/bases/${knowledgeBaseId}/name`, {
     method: 'PUT',
-    headers: {
+    headers: buildAuthHeaders({
       'Content-Type': 'application/json'
-    },
+    }),
     body: JSON.stringify({ name })
   });
   return parseApiResponse(res, '修改知识库名称失败');
@@ -94,7 +84,8 @@ export async function updateKnowledgeBase({ knowledgeBaseId, name }) {
 
 export async function deleteKnowledgeBase(knowledgeBaseId) {
   const res = await fetch(`/api/v1/knowledge/bases/${knowledgeBaseId}`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    headers: buildAuthHeaders()
   });
   return parseApiResponse(res, '删除知识库失败');
 }
@@ -104,12 +95,16 @@ export async function getKnowledgeBaseDetail() {
 }
 
 export async function listDocuments(knowledgeBaseId) {
-  const res = await fetch(`/api/v1/knowledge/bases/${knowledgeBaseId}/documents`);
+  const res = await fetch(`/api/v1/knowledge/bases/${knowledgeBaseId}/documents`, {
+    headers: buildAuthHeaders()
+  });
   return parseApiResponse(res, '知识库文档列表获取失败，请稍后重试');
 }
 
 export async function getDocumentContent(documentId) {
-  const res = await fetch(`/api/v1/knowledge/documents/${documentId}/content`);
+  const res = await fetch(`/api/v1/knowledge/documents/${documentId}/content`, {
+    headers: buildAuthHeaders()
+  });
   return parseApiResponse(res, '文档内容获取失败，请稍后重试');
 }
 
@@ -118,8 +113,13 @@ export function getDocumentFileUrl(documentId) {
 }
 
 export async function getDocumentFileText(documentId) {
-  const res = await fetch(getDocumentFileUrl(documentId));
+  const res = await fetch(getDocumentFileUrl(documentId), {
+    headers: buildAuthHeaders()
+  });
   if (!res.ok) {
+    if (isAuthExpiredResponse(res)) {
+      notifyAuthExpired();
+    }
     throw new Error('文件内容获取失败，请稍后重试');
   }
 
@@ -129,7 +129,8 @@ export async function getDocumentFileText(documentId) {
 
 export async function deleteDocument(documentId) {
   const res = await fetch(`/api/v1/knowledge/documents/${documentId}`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    headers: buildAuthHeaders()
   });
   return parseApiResponse(res, '删除文档失败');
 }

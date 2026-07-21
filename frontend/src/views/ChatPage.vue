@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import CitationMarkdown from '../components/CitationMarkdown.vue';
 import {
   askQuestion,
@@ -7,11 +8,14 @@ import {
   deleteConversation,
   fetchConversationList,
   fetchConversationMessages,
-  renameConversation
+  regenerateAnswer,
+  renameConversation,
+  updateConversationFavorite
 } from '../api/qa';
 import { getDocumentFileUrl, listKnowledgeBases } from '../api/knowledge';
 
 const question = ref('');
+const route = useRoute();
 const selectedKnowledgeBase = ref(null);
 const knowledgeBases = ref([]);
 const knowledgeState = ref('idle');
@@ -41,18 +45,22 @@ const deleteDialogOpen = ref(false);
 const deleteConversationId = ref(null);
 const deleteConversationTitle = ref('');
 const deleteConversationSaving = ref(false);
+const conversationCollection = ref('all');
+const regeneratingMessageId = ref(null);
 
 const welcomeMessage = {
   role: 'assistant',
-  content: '你好，我是 AOO AI。我会根据知识库内容回答你的问题；若知识库中没有相关信息，我会明确告知。'
+  content: '你好，我是 AOO AI。我会根据知识库内容回答你的问题；若知识库中没有相关信息，我会明确告知。',
+  sources: []
 };
 
 const activeConversation = computed(() => conversations.value.find((item) => item.id === activeConversationId.value));
 const selectedKnowledgeBaseName = computed(() => knowledgeBases.value.find((item) => item.id === selectedKnowledgeBase.value)?.name || '全部知识库');
 const isSending = computed(() => sendState.value === 'loading');
+const isRegenerating = computed(() => regeneratingMessageId.value !== null);
 const isLoadingList = computed(() => listState.value === 'loading');
 const isLoadingMessages = computed(() => messageState.value === 'loading');
-const canSend = computed(() => Boolean(question.value.trim()) && !isSending.value && chatEndpointAvailable);
+const canSend = computed(() => Boolean(question.value.trim()) && !isSending.value && !isRegenerating.value && chatEndpointAvailable);
 const oldestMessageId = computed(() => messages.value.find((item) => item.id)?.id);
 
 function normalizeRole(role) {
@@ -82,13 +90,14 @@ function normalizePageNumber(source) {
 }
 
 function getVisibleCitationCount(message) {
-  if (message?.role !== 'assistant' || !Array.isArray(message.sources) || !message.sources.length) {
+  const sources = getDisplaySources(message);
+  if (message?.role !== 'assistant' || !Array.isArray(sources) || !sources.length) {
     return 0;
   }
 
-  const availableIndexes = new Set(message.sources.map((source) => Number(source.index)));
+  const availableIndexes = new Set(sources.map((source) => Number(source.index)));
   const visibleIndexes = new Set();
-  const content = String(message.content || '');
+  const content = String(getDisplayContent(message));
   const citePattern = /\[--cite:(\d+)]/g;
   let match;
 
@@ -109,7 +118,7 @@ function hasCitationMarkers(content) {
 function hasPendingCitationSources() {
   return messages.value.some((message) => (
     message?.role === 'assistant'
-    && hasCitationMarkers(message.content)
+    && hasCitationMarkers(getDisplayContent(message))
     && getVisibleCitationCount(message) === 0
   ));
 }
@@ -126,18 +135,127 @@ function normalizeConversation(item) {
     title: item.title || '新对话',
     time: formatTime(item.updateTime || item.updatedAt || item.createTime),
     preview: '点击查看历史消息',
+    isFavorite: Boolean(item.isFavorite ?? item.favorite),
     raw: item
   };
 }
 
 function normalizeMessage(item) {
+  const sources = normalizeSources(item.sources);
+  const content = item.content || '';
   return {
     id: item.id,
+    parentMessageId: item.parentMessageId ?? item.parent_message_id ?? null,
     role: normalizeRole(item.role),
-    content: item.content || '',
+    content,
     createTime: item.createTime,
-    sources: normalizeSources(item.sources)
+    sources,
+    replyVersions: normalizeRole(item.role) === 'assistant'
+      ? [{ id: item.id, content, sources }]
+      : [],
+    activeReplyIndex: 0
   };
+}
+
+function groupAssistantReplyVersions(nextMessages) {
+  const groupedMessages = [];
+  const assistantByParentId = new Map();
+
+  for (const message of nextMessages) {
+    if (message.role !== 'assistant' || !message.parentMessageId) {
+      groupedMessages.push(message);
+      continue;
+    }
+
+    const existing = assistantByParentId.get(message.parentMessageId);
+    if (!existing) {
+      assistantByParentId.set(message.parentMessageId, message);
+      groupedMessages.push(message);
+      continue;
+    }
+
+    existing.replyVersions.push({
+      id: message.id,
+      content: message.content,
+      sources: message.sources
+    });
+    existing.activeReplyIndex = existing.replyVersions.length - 1;
+    existing.id = message.id;
+    existing.content = message.content;
+    existing.sources = message.sources;
+  }
+
+  return groupedMessages;
+}
+
+function getReplyVersions(message) {
+  if (message?.role !== 'assistant') return [];
+  if (Array.isArray(message.replyVersions) && message.replyVersions.length) {
+    return message.replyVersions;
+  }
+  return [{
+    id: message?.id,
+    content: message?.content || '',
+    sources: Array.isArray(message?.sources) ? message.sources : []
+  }];
+}
+
+function getActiveReplyIndex(message) {
+  const versions = getReplyVersions(message);
+  if (!versions.length) return 0;
+  const index = Number(message?.activeReplyIndex);
+  if (!Number.isInteger(index)) return versions.length - 1;
+  return Math.min(Math.max(index, 0), versions.length - 1);
+}
+
+function getDisplayContent(message) {
+  if (message?.role !== 'assistant') return message?.content || '';
+  return getReplyVersions(message)[getActiveReplyIndex(message)]?.content || '';
+}
+
+function getDisplaySources(message) {
+  if (message?.role !== 'assistant') return Array.isArray(message?.sources) ? message.sources : [];
+  return getReplyVersions(message)[getActiveReplyIndex(message)]?.sources || [];
+}
+
+function getDisplayMessageId(message) {
+  if (message?.role !== 'assistant') return message?.id;
+  return getReplyVersions(message)[getActiveReplyIndex(message)]?.id || message?.id;
+}
+
+function switchReplyVersion(message, direction) {
+  const versions = getReplyVersions(message);
+  if (versions.length < 2) return;
+  const nextIndex = getActiveReplyIndex(message) + direction;
+  message.activeReplyIndex = Math.min(Math.max(nextIndex, 0), versions.length - 1);
+}
+
+function mergeReplyVersions(nextMessages) {
+  const currentById = new Map(messages.value.filter((message) => message?.id).map((message) => [message.id, message]));
+  return nextMessages.map((message) => {
+    const current = currentById.get(message.id);
+    if (message.role !== 'assistant' || !current?.replyVersions?.length) return message;
+
+    const versions = current.replyVersions.map((version) => ({ ...version }));
+    const activeIndex = getActiveReplyIndex(current);
+    const nextContent = message.content || '';
+    const nextSources = message.sources || [];
+    const existingIndex = versions.findIndex((version) => version.content === nextContent);
+
+    if (existingIndex >= 0) {
+      versions[existingIndex] = { id: message.id, content: nextContent, sources: nextSources };
+      message.activeReplyIndex = existingIndex;
+    } else if (versions[activeIndex]?.content === nextContent || !versions[activeIndex]?.content) {
+      versions[activeIndex] = { id: message.id, content: nextContent, sources: nextSources };
+      message.activeReplyIndex = activeIndex;
+    } else {
+      versions.push({ id: message.id, content: nextContent, sources: nextSources });
+      message.activeReplyIndex = versions.length - 1;
+    }
+
+    message.replyVersions = versions;
+    return message;
+  });
 }
 
 function openSourceDrawer(source) {
@@ -192,7 +310,11 @@ async function loadKnowledgeBases() {
     const response = await listKnowledgeBases();
     if (!response.success) throw new Error(response.message || '知识库列表获取失败');
     knowledgeBases.value = response.data || [];
-    if (!selectedKnowledgeBase.value && knowledgeBases.value.length) {
+    const routeKnowledgeBaseId = Number(route.query.knowledgeBaseId);
+    const routeKnowledgeBaseExists = knowledgeBases.value.some((item) => item.id === routeKnowledgeBaseId);
+    if (routeKnowledgeBaseExists) {
+      selectedKnowledgeBase.value = routeKnowledgeBaseId;
+    } else if (!selectedKnowledgeBase.value && knowledgeBases.value.length) {
       selectedKnowledgeBase.value = knowledgeBases.value[0].id;
     }
     knowledgeState.value = 'success';
@@ -320,7 +442,7 @@ async function loadConversations({ preferLatest = false, preserveMessages = fals
   listMessage.value = '';
 
   try {
-    const response = await fetchConversationList();
+    const response = await fetchConversationList({ favoriteOnly: conversationCollection.value === 'favorites' });
     if (!response.success) throw new Error(response.message || '获取会话列表失败');
 
     conversations.value = (response.data || []).map(normalizeConversation);
@@ -334,13 +456,56 @@ async function loadConversations({ preferLatest = false, preserveMessages = fals
     }
 
     const currentStillExists = conversations.value.some((item) => item.id === activeConversationId.value);
-    if (preferLatest || !currentStillExists) {
+    const routeConversationId = Number(route.query.conversationId);
+    const routeConversationExists = conversations.value.some((item) => item.id === routeConversationId);
+    if (routeConversationExists) {
+      activeConversationId.value = routeConversationId;
+    } else if (preferLatest || !currentStillExists) {
       activeConversationId.value = conversations.value[0].id;
     }
   } catch (error) {
     listMessage.value = error.message || '获取会话列表失败';
   } finally {
     listState.value = 'idle';
+  }
+}
+
+async function switchConversationCollection(collection) {
+  if (conversationCollection.value === collection) return;
+  closeHistoryMenu();
+  conversationCollection.value = collection;
+  await loadConversations();
+  if (activeConversationId.value) {
+    await loadConversationMessages(activeConversationId.value);
+  }
+}
+
+async function toggleFavoriteConversation(conversation) {
+  if (!conversation) return;
+
+  const nextFavorite = !conversation.isFavorite;
+  const previousFavorite = conversation.isFavorite;
+  conversation.isFavorite = nextFavorite;
+  messageNotice.value = '';
+  closeHistoryMenu();
+
+  try {
+    const response = await updateConversationFavorite({
+      conversationId: conversation.id,
+      favorite: nextFavorite
+    });
+    if (!response.success) throw new Error(response.message || (nextFavorite ? '收藏会话失败' : '取消收藏失败'));
+
+    if (conversationCollection.value === 'favorites' && !nextFavorite) {
+      conversations.value = conversations.value.filter((item) => item.id !== conversation.id);
+      if (activeConversationId.value === conversation.id) {
+        activeConversationId.value = conversations.value[0]?.id || null;
+        await loadConversationMessages(activeConversationId.value);
+      }
+    }
+  } catch (error) {
+    conversation.isFavorite = previousFavorite;
+    messageNotice.value = error.message || (nextFavorite ? '收藏会话失败' : '取消收藏失败');
   }
 }
 
@@ -363,7 +528,10 @@ async function loadConversationMessages(
     const response = await fetchConversationMessages({ conversationId, beforeId, limit: 20 });
     if (!response.success) throw new Error(response.message || '获取会话消息失败');
 
-    const nextMessages = (response.data || []).map(normalizeMessage);
+    let nextMessages = groupAssistantReplyVersions((response.data || []).map(normalizeMessage));
+    if (preserveMessages) {
+      nextMessages = mergeReplyVersions(nextMessages);
+    }
     hasMoreMessages.value = nextMessages.length >= 20;
 
     if (expectedAssistantReply) {
@@ -444,10 +612,12 @@ const loadMoreMessages = async () => {
 
 const startNewConversation = () => {
   closeHistoryMenu();
+  conversationCollection.value = 'all';
   activeConversationId.value = null;
   messages.value = [{
     role: 'assistant',
-    content: '已开始新的问答会话，请输入你的问题。'
+    content: '已开始新的问答会话，请输入你的问题。',
+    sources: []
   }];
   sendState.value = 'idle';
   sendMessage.value = '输入问题后发送，AI 将创建新的后端会话。';
@@ -487,7 +657,7 @@ const formatSize = (size) => {
 };
 
 const sendQuestion = async () => {
-  if (!question.value.trim() || isSending.value) return;
+  if (!question.value.trim() || isSending.value || isRegenerating.value) return;
 
   const content = question.value.trim();
   const conversationIdBeforeSend = activeConversationId.value;
@@ -524,6 +694,10 @@ const sendQuestion = async () => {
       active.time = '刚刚';
     }
 
+    if (!conversationIdBeforeSend && conversationCollection.value === 'favorites') {
+      conversationCollection.value = 'all';
+    }
+
     await loadConversations({ preferLatest: !conversationIdBeforeSend, preserveMessages: true });
     await refreshConversationMessagesAfterSend(activeConversationId.value, {
       preferLatest: !conversationIdBeforeSend,
@@ -536,6 +710,60 @@ const sendQuestion = async () => {
       messages.value[assistantIndex].content = sendMessage.value;
     }
   } finally {
+    await scrollToBottom();
+  }
+};
+
+const regenerateMessage = async (message, index) => {
+  const targetMessageId = getDisplayMessageId(message);
+  if (!activeConversationId.value || !targetMessageId || isSending.value || isRegenerating.value) return;
+
+  const previousContent = message.content;
+  const previousSources = message.sources;
+  const previousVersions = getReplyVersions(message).map((version) => ({ ...version }));
+  const previousActiveReplyIndex = getActiveReplyIndex(message);
+  const nextVersionIndex = previousVersions.length;
+  message.replyVersions = [...previousVersions, { id: null, content: '', sources: [] }];
+  message.activeReplyIndex = nextVersionIndex;
+  regeneratingMessageId.value = message.id;
+  message.content = '';
+  message.sources = [];
+  sendState.value = 'loading';
+  sendMessage.value = '正在重新生成 AI 回复...';
+  messageNotice.value = '';
+  await scrollToBottom();
+
+  try {
+    const response = await regenerateAnswer({
+      conversationId: activeConversationId.value,
+      messageId: targetMessageId,
+      knowledgeBaseId: selectedKnowledgeBase.value,
+      onDelta: (_token, fullReply) => {
+        messages.value[index].replyVersions[nextVersionIndex].content = fullReply;
+        messages.value[index].content = fullReply;
+        scrollToBottom();
+      }
+    });
+    if (!response.success) throw new Error(response.message || '重新生成失败');
+    const finalReply = response.data?.reply || messages.value[index].content;
+    messages.value[index].replyVersions[nextVersionIndex].content = finalReply;
+    messages.value[index].content = finalReply;
+    sendState.value = 'success';
+    sendMessage.value = 'AI 已重新生成。';
+
+    await refreshConversationMessagesAfterSend(activeConversationId.value, {
+      preserveMessages: true,
+      expectedAssistantReply: messages.value[index].content
+    });
+  } catch (error) {
+    message.content = previousContent;
+    message.sources = previousSources;
+    message.replyVersions = previousVersions;
+    message.activeReplyIndex = previousActiveReplyIndex;
+    sendState.value = 'error';
+    sendMessage.value = error.message || '重新生成失败，请稍后重试';
+  } finally {
+    regeneratingMessageId.value = null;
     await scrollToBottom();
   }
 };
@@ -612,8 +840,27 @@ onBeforeUnmount(() => {
           <button type="button" class="button secondary compact-button" @click="startNewConversation">新建</button>
         </div>
 
+        <div class="history-collections" aria-label="问答收藏集筛选">
+          <button
+            type="button"
+            :class="{ active: conversationCollection === 'all' }"
+            @click="switchConversationCollection('all')"
+          >
+            全部
+          </button>
+          <button
+            type="button"
+            :class="{ active: conversationCollection === 'favorites' }"
+            @click="switchConversationCollection('favorites')"
+          >
+            收藏集
+          </button>
+        </div>
+
         <p v-if="listMessage" class="error">{{ listMessage }}</p>
-        <div v-else-if="!conversations.length && !isLoadingList" class="empty-upload muted">暂无历史会话，发送第一条消息后会自动创建。</div>
+        <div v-else-if="!conversations.length && !isLoadingList" class="empty-upload muted">
+          {{ conversationCollection === 'favorites' ? '暂无收藏对话。' : '暂无历史会话，发送第一条消息后会自动创建。' }}
+        </div>
 
         <div
           v-for="conversation in conversations"
@@ -621,9 +868,20 @@ onBeforeUnmount(() => {
           :class="['history-item', { active: conversation.id === activeConversationId }]"
         >
           <button type="button" class="history-item-main" @click="chooseConversation(conversation)">
-            <span class="history-title">{{ conversation.title }}</span>
+            <span class="history-title">
+              <span v-if="conversation.isFavorite" class="history-favorite-mark">★</span>{{ conversation.title }}
+            </span>
             <span class="history-preview">{{ conversation.preview }}</span>
             <span class="history-time">{{ conversation.time }}</span>
+          </button>
+          <button
+            type="button"
+            :class="['history-favorite-button', { active: conversation.isFavorite }]"
+            :aria-label="conversation.isFavorite ? '取消收藏对话' : '收藏对话'"
+            :title="conversation.isFavorite ? '取消收藏' : '收藏'"
+            @click.stop="toggleFavoriteConversation(conversation)"
+          >
+            {{ conversation.isFavorite ? '★' : '☆' }}
           </button>
           <button
             type="button"
@@ -665,16 +923,64 @@ onBeforeUnmount(() => {
           <p v-if="messageNotice" class="error">{{ messageNotice }}</p>
           <p v-if="isLoadingMessages && !messages.length" class="muted">正在加载消息...</p>
 
-          <div v-for="(message, index) in messages" :key="message.id || index" :class="['message-bubble', message.role]">
-            <span class="message-role">{{ message.role === 'user' ? '我' : 'AOO AI' }}</span>
-            <span v-if="getVisibleCitationCount(message)" class="retrieval-summary">
-              本次回答召回了{{ getVisibleCitationCount(message) }}条数据库知识
-            </span>
-            <CitationMarkdown
-              :content="message.content"
-              :sources="message.sources"
-              @open-source="openSourceDrawer"
-            />
+          <div v-for="(message, index) in messages" :key="message.id || index" :class="['message-stack', message.role]">
+            <div :class="['message-bubble', message.role]">
+              <span class="message-role">{{ message.role === 'user' ? '我' : 'AOO AI' }}</span>
+              <span v-if="getVisibleCitationCount(message)" class="retrieval-summary">
+                本次回答召回了{{ getVisibleCitationCount(message) }}条数据库知识
+              </span>
+              <CitationMarkdown
+                :content="getDisplayContent(message)"
+                :sources="getDisplaySources(message)"
+                @open-source="openSourceDrawer"
+              />
+            </div>
+            <div v-if="message.role === 'assistant' && message.id" class="message-actions">
+              <div v-if="getReplyVersions(message).length > 1" class="reply-version-switcher" aria-label="切换回复版本">
+                <button
+                  type="button"
+                  class="reply-version-button"
+                  :disabled="getActiveReplyIndex(message) === 0 || isSending || isRegenerating"
+                  aria-label="上一条回复"
+                  title="上一条回复"
+                  @click="switchReplyVersion(message, -1)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="m15 18-6-6 6-6" />
+                  </svg>
+                </button>
+                <span class="reply-version-count">
+                  {{ getActiveReplyIndex(message) + 1 }}/{{ getReplyVersions(message).length }}
+                </span>
+                <button
+                  type="button"
+                  class="reply-version-button"
+                  :disabled="getActiveReplyIndex(message) === getReplyVersions(message).length - 1 || isSending || isRegenerating"
+                  aria-label="下一条回复"
+                  title="下一条回复"
+                  @click="switchReplyVersion(message, 1)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
+                </button>
+              </div>
+              <button
+                type="button"
+                :class="['message-action-button', { loading: regeneratingMessageId === message.id }]"
+                :disabled="isSending || isRegenerating"
+                :aria-label="regeneratingMessageId === message.id ? '重新生成中' : '重新生成'"
+                :title="regeneratingMessageId === message.id ? '重新生成中' : '重新生成'"
+                @click="regenerateMessage(message, index)"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M21 12a9 9 0 0 1-15.3 6.4" />
+                  <path d="M3 12A9 9 0 0 1 18.3 5.6" />
+                  <path d="M18 2v4h-4" />
+                  <path d="M6 22v-4h4" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -720,10 +1026,6 @@ onBeforeUnmount(() => {
           <div>
             <dt>页码</dt>
             <dd>{{ selectedSource?.pageNumber || '-' }}</dd>
-          </div>
-          <div>
-            <dt>相似度</dt>
-            <dd>{{ formatScore(selectedSource?.score) }}</dd>
           </div>
         </dl>
 
