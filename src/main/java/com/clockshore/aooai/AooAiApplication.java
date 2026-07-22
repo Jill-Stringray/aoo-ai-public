@@ -7,9 +7,11 @@ import org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptio
 import org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration;
 import org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration;
 import org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @EnableScheduling
+@EnableDiscoveryClient
 @SpringBootApplication(exclude = {
         PgVectorStoreAutoConfiguration.class,
         OpenAiAudioSpeechAutoConfiguration.class,
