@@ -1,5 +1,11 @@
 server:
   port: 8081
+  tomcat:
+    threads:
+      max: 300
+      min-spare: 50
+    accept-count: 1000
+    max-connections: 2000
 
 ai:
   mock:
@@ -73,3 +79,4 @@ rag:
     min-alpha-numeric-ratio: 0.35
     max-repeated-char-ratio: 0.35
     max-repeated-char-run-length: 8
+

@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "ai.mock")
 public class AiMockProperties {
 
-    private boolean enabled = false;
+    private boolean enabled = true;
 
-    private long delay = 1000L;
+    private long delay = 50L;
 }

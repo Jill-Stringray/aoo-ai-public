@@ -46,6 +46,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 
@@ -113,15 +115,19 @@ public class ChatService {
     public String nonStreamChat(ChatRequest chatRequest) {
 
         //Advisor = ChatClient 的“拦截器 / 增强器 / 插件系统”
+        ChatCostStat costStat = new ChatCostStat(System.nanoTime());
         ensureConversationReady(chatRequest);
         long startedAt = System.currentTimeMillis();
         //生成雪花key
         String messageKey = IdUtil.getSnowflakeNextIdStr();
 
+        List<Message> messages = buildRagMessages(chatRequest, messageKey, costStat);
+        long aiInvokeStartedAt = System.nanoTime();
         ChatResponse response = chatClient.prompt()
-                .messages(buildRagMessages(chatRequest,messageKey))
+                .messages(messages)
                 .call()
                 .chatResponse();
+        costStat.setAiInvokeCostMs(elapsedMs(aiInvokeStartedAt));
 
         if (response == null || response.getResult() == null) {
             throw new IllegalStateException("模型未返回有效响应");
@@ -136,6 +142,7 @@ public class ChatService {
                 chatRequest.getModel(),
                 usage,
                 System.currentTimeMillis() - startedAt);
+        logChatCost(costStat);
         return reply;
     }
 
@@ -144,6 +151,7 @@ public class ChatService {
     public Flux<ChatResponse> streamChat(ChatRequest chatRequest){
 
 
+        ChatCostStat costStat = new ChatCostStat(System.nanoTime());
         ensureConversationReady(chatRequest);
 
 
@@ -153,19 +161,29 @@ public class ChatService {
         //生成雪花
         String messageKey = IdUtil.getSnowflakeNextIdStr();
 
-        if (aiMockProperties.isEnabled()) {
-            return mockStreamChat(chatRequest, messageKey, null);
-        }
-
         StringBuilder replyBuffer = new StringBuilder();
         AtomicReference<Usage> usageRef = new AtomicReference<>();
         long startedAt = System.currentTimeMillis();
+        List<Message> messages = buildRagMessages(chatRequest, messageKey, costStat);
+
+        if (aiMockProperties.isEnabled()) {
+            log.info("ai mock enabled, skip real ai invoke");
+            return mockStreamChat(chatRequest, messageKey, null, costStat);
+        }
+
+        AtomicLong aiStartedAt = new AtomicLong();
+        AtomicBoolean firstTokenReceived = new AtomicBoolean(false);
 
         return chatClient.prompt()
-                .messages(buildRagMessages(chatRequest,messageKey))
+                .messages(messages)
                 .stream()
                 .chatResponse()
+                .doOnSubscribe(subscription -> aiStartedAt.set(System.nanoTime()))
                 .doOnNext(delta -> {
+                    long currentAiStartedAt = aiStartedAt.get();
+                    if (currentAiStartedAt > 0 && firstTokenReceived.compareAndSet(false, true)) {
+                        log.info("ai first token cost={}ms", elapsedMs(currentAiStartedAt));
+                    }
                     //对输出增量进行保存
                     replyBuffer.append(delta.getResult().getOutput().getText());
                     if(delta.getMetadata() != null && delta.getMetadata().getUsage() != null){
@@ -180,10 +198,19 @@ public class ChatService {
                         chatRequest.getModel(),
                         usageRef.get(),
                         System.currentTimeMillis() - startedAt
-                ));
+                ))
+                .doOnComplete(() -> {
+                    long currentAiStartedAt = aiStartedAt.get();
+                    if (currentAiStartedAt > 0) {
+                        costStat.setAiInvokeCostMs(elapsedMs(currentAiStartedAt));
+                        log.info("ai total cost={}ms", costStat.getAiInvokeCostMs());
+                    }
+                    logChatCost(costStat);
+                });
     }
 
     public Flux<ChatResponse> streamRegenerate(ChatRequest chatRequest, Long assistantMessageId) {
+        ChatCostStat costStat = new ChatCostStat(System.nanoTime());
         ensureConversationReady(chatRequest);
 
         Long userId = SecurityUtils.getUserId();
@@ -210,19 +237,29 @@ public class ChatService {
         chatRequest.setMessage(userMessage.getContent());
         String messageKey = IdUtil.getSnowflakeNextIdStr();
 
-        if (aiMockProperties.isEnabled()) {
-            return mockStreamChat(chatRequest, messageKey, userMessage.getId());
-        }
-
         StringBuilder replyBuffer = new StringBuilder();
         AtomicReference<Usage> usageRef = new AtomicReference<>();
         long startedAt = System.currentTimeMillis();
+        List<Message> messages = buildRagMessages(chatRequest, messageKey, userMessage.getId(), costStat);
+
+        if (aiMockProperties.isEnabled()) {
+            log.info("ai mock enabled, skip real ai invoke");
+            return mockStreamChat(chatRequest, messageKey, userMessage.getId(), costStat);
+        }
+
+        AtomicLong aiStartedAt = new AtomicLong();
+        AtomicBoolean firstTokenReceived = new AtomicBoolean(false);
 
         return chatClient.prompt()
-                .messages(buildRagMessages(chatRequest, messageKey, userMessage.getId()))
+                .messages(messages)
                 .stream()
                 .chatResponse()
+                .doOnSubscribe(subscription -> aiStartedAt.set(System.nanoTime()))
                 .doOnNext(delta -> {
+                    long currentAiStartedAt = aiStartedAt.get();
+                    if (currentAiStartedAt > 0 && firstTokenReceived.compareAndSet(false, true)) {
+                        log.info("ai first token cost={}ms", elapsedMs(currentAiStartedAt));
+                    }
                     replyBuffer.append(delta.getResult().getOutput().getText());
                     if(delta.getMetadata() != null && delta.getMetadata().getUsage() != null){
                         usageRef.set(delta.getMetadata().getUsage());
@@ -236,10 +273,22 @@ public class ChatService {
                         chatRequest.getModel(),
                         usageRef.get(),
                         System.currentTimeMillis() - startedAt
-                ));
+                ))
+                .doOnComplete(() -> {
+                    long currentAiStartedAt = aiStartedAt.get();
+                    if (currentAiStartedAt > 0) {
+                        costStat.setAiInvokeCostMs(elapsedMs(currentAiStartedAt));
+                        log.info("ai total cost={}ms", costStat.getAiInvokeCostMs());
+                    }
+                    logChatCost(costStat);
+                });
     }
 
     private Flux<ChatResponse> mockStreamChat(ChatRequest chatRequest, String messageKey, Long parentMessageId) {
+        return mockStreamChat(chatRequest, messageKey, parentMessageId, new ChatCostStat(System.nanoTime()));
+    }
+
+    private Flux<ChatResponse> mockStreamChat(ChatRequest chatRequest, String messageKey, Long parentMessageId, ChatCostStat costStat) {
         List<String> mockTokens = List.of(
                 "hello",
                 "hello w",
@@ -248,12 +297,26 @@ public class ChatService {
                 "hello world"
         );
         long startedAt = System.currentTimeMillis();
+        AtomicLong aiStartedAt = new AtomicLong();
+        AtomicBoolean firstTokenReceived = new AtomicBoolean(false);
 
         return Flux.fromIterable(mockTokens)
                 .delayElements(Duration.ofMillis(Math.max(0L, aiMockProperties.getDelay())))
                 .map(this::mockChatResponse)
+                .doOnSubscribe(subscription -> aiStartedAt.set(System.nanoTime()))
+                .doOnNext(delta -> {
+                    long currentAiStartedAt = aiStartedAt.get();
+                    if (currentAiStartedAt > 0 && firstTokenReceived.compareAndSet(false, true)) {
+                        log.info("ai first token cost={}ms", elapsedMs(currentAiStartedAt));
+                    }
+                })
                 .doOnComplete(() -> {
                     long latencyMs = System.currentTimeMillis() - startedAt;
+                    long currentAiStartedAt = aiStartedAt.get();
+                    if (currentAiStartedAt > 0) {
+                        costStat.setAiInvokeCostMs(elapsedMs(currentAiStartedAt));
+                        log.info("ai total cost={}ms", costStat.getAiInvokeCostMs());
+                    }
                     String reply = mockTokens.get(mockTokens.size() - 1);
                     if (parentMessageId == null) {
                         enqueueAssistantMessage(
@@ -275,6 +338,7 @@ public class ChatService {
                                 latencyMs
                         );
                     }
+                    logChatCost(costStat);
                 });
     }
 
@@ -389,10 +453,20 @@ public class ChatService {
     }
 
     public List<Message> buildRagMessages(ChatRequest request,String messageKey) {
-        return buildRagMessages(request, messageKey, null);
+        return buildRagMessages(request, messageKey, (Long) null);
     }
 
     public List<Message> buildRagMessages(ChatRequest request,String messageKey, Long historyBeforeId) {
+        return buildRagMessages(request, messageKey, historyBeforeId, null);
+    }
+
+    private List<Message> buildRagMessages(ChatRequest request, String messageKey, ChatCostStat costStat) {
+        return buildRagMessages(request, messageKey, null, costStat);
+    }
+
+    private List<Message> buildRagMessages(ChatRequest request,String messageKey, Long historyBeforeId, ChatCostStat costStat) {
+
+        long promptBuildStartedAt = System.nanoTime();
 
         List<Message> messages = new ArrayList<>();
 
@@ -404,12 +478,17 @@ public class ChatService {
         String question = request.resolveMessage();
 
         //问题改写
+        long queryRewriteStartedAt = System.nanoTime();
         List<String> queries = queryRewriteService.rewrite(question).getQueries();
+        if (costStat != null) {
+            costStat.setQueryRewriteCostMs(elapsedMs(queryRewriteStartedAt));
+        }
 
         //检索知识库,多路召回
         List<List<Document>> docs = new ArrayList<>();
         for(String query : queries){
             List<Document> temp = new ArrayList<>();
+            long retrieveStartedAt = System.nanoTime();
             try {
                 List<Document> documents = knowledgeRetrievalService.retrieve(query, 5, request.getKnowledgeBaseId());
                 int index = 1;
@@ -420,31 +499,49 @@ public class ChatService {
                 temp.addAll(documents);
             } catch (RuntimeException e) {
                 log.warn("召回失败, query={}", query, e);
+            } finally {
+                addRetrieveCost(costStat, elapsedMs(retrieveStartedAt));
             }
             docs.add(temp);
         }
 
         //召回去重，分高的优先保留
+        long deduplicateStartedAt = System.nanoTime();
         List<Document> retrievedDocs = deduplicateRetrievedDocs(docs);
+        if (costStat != null) {
+            costStat.setDeduplicateCostMs(elapsedMs(deduplicateStartedAt));
+        }
 
         //和原提问进行rerank，失败时保留原召回顺序，避免外部重排接口影响聊天主流程
+        long rerankStartedAt = System.nanoTime();
         List<Document> rerankedDocs = rerankRetrievedDocs(question, retrievedDocs);
+        if (costStat != null && Boolean.TRUE.equals(systemConfigService.getConfig().rerankEnabled())) {
+            costStat.setRerankCostMs(elapsedMs(rerankStartedAt));
+        }
 
         //将document转化成DTO
         List<RetrievalSourceDTO> retrievalSourceDTOS = new ArrayList<>();
 
+        long retrievalSourceBuildStartedAt = System.nanoTime();
         for(Document doc : rerankedDocs){
             RetrievalSourceDTO dto = RetrievalSourceDTO.of(doc);
             retrievalSourceDTOS.add(dto);
         }
 
         enqueueRetrievalSource(messageKey,retrievalSourceDTOS);
+        if (costStat != null) {
+            costStat.setRetrievalSourceBuildCostMs(elapsedMs(retrievalSourceBuildStartedAt));
+        }
 
+        long ragPromptBuildStartedAt = System.nanoTime();
         StringBuilder ragText = new StringBuilder("以下内容为企业知识库召回结果：");
 
         for (Document doc : rerankedDocs) {
             ragText.append(ragPromptService.buildAll(doc))
                     .append("\n\n------------------\n\n");
+        }
+        if (costStat != null) {
+            costStat.setRagPromptBuildCostMs(elapsedMs(ragPromptBuildStartedAt));
         }
 
         messages.add(
@@ -452,12 +549,57 @@ public class ChatService {
         );
 
         // 历史消息
+        long historyBuildStartedAt = System.nanoTime();
         messages.addAll(buildHistory(request.getConversationId(), historyBeforeId));
+        if (costStat != null) {
+            costStat.setHistoryBuildCostMs(elapsedMs(historyBuildStartedAt));
+        }
 
         // 加入当前用户问题
         messages.add(new UserMessage(question));
 
+        if (costStat != null) {
+            long promptBuildCostMs = elapsedMs(promptBuildStartedAt)
+                    - costStat.getRetrieveCostMs()
+                    - costStat.getRerankCostMs();
+            costStat.setPromptBuildCostMs(Math.max(0L, promptBuildCostMs));
+            long knownPromptBuildCostMs = costStat.getQueryRewriteCostMs()
+                    + costStat.getDeduplicateCostMs()
+                    + costStat.getRetrievalSourceBuildCostMs()
+                    + costStat.getRagPromptBuildCostMs()
+                    + costStat.getHistoryBuildCostMs();
+            costStat.setPromptBuildOtherCostMs(Math.max(0L, costStat.getPromptBuildCostMs() - knownPromptBuildCostMs));
+        }
+
         return messages;
+    }
+
+    private void addRetrieveCost(ChatCostStat costStat, long costMs) {
+        if (costStat != null) {
+            costStat.setRetrieveCostMs(costStat.getRetrieveCostMs() + costMs);
+        }
+    }
+
+    private void logChatCost(ChatCostStat costStat) {
+        if (costStat == null) {
+            return;
+        }
+        log.info("service total cost={}ms", elapsedMs(costStat.getServiceStartedAt()));
+        log.info("retrieve cost={}ms", costStat.getRetrieveCostMs());
+        log.info("rerank cost={}ms", costStat.getRerankCostMs());
+        log.info("prompt build cost={}ms", costStat.getPromptBuildCostMs());
+        log.info("prompt build detail: queryRewrite={}ms, deduplicate={}ms, retrievalSource={}ms, ragPrompt={}ms, history={}ms, other={}ms",
+                costStat.getQueryRewriteCostMs(),
+                costStat.getDeduplicateCostMs(),
+                costStat.getRetrievalSourceBuildCostMs(),
+                costStat.getRagPromptBuildCostMs(),
+                costStat.getHistoryBuildCostMs(),
+                costStat.getPromptBuildOtherCostMs());
+        log.info("ai invoke cost={}ms", costStat.getAiInvokeCostMs());
+    }
+
+    private long elapsedMs(long startedAt) {
+        return (System.nanoTime() - startedAt) / 1_000_000;
     }
 
     private List<Document> deduplicateRetrievedDocs(List<List<Document>> docs){
@@ -592,6 +734,36 @@ public class ChatService {
         Double sourceScore;
 
         Double score;
+    }
+
+    @Data
+    static class ChatCostStat {
+
+        ChatCostStat(long serviceStartedAt) {
+            this.serviceStartedAt = serviceStartedAt;
+        }
+
+        private long serviceStartedAt;
+
+        private long retrieveCostMs;
+
+        private long rerankCostMs;
+
+        private long promptBuildCostMs;
+
+        private long queryRewriteCostMs;
+
+        private long deduplicateCostMs;
+
+        private long retrievalSourceBuildCostMs;
+
+        private long ragPromptBuildCostMs;
+
+        private long historyBuildCostMs;
+
+        private long promptBuildOtherCostMs;
+
+        private long aiInvokeCostMs;
     }
 
     private record ScoredDocument(Document document, double score) {

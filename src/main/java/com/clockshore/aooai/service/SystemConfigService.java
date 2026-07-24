@@ -18,7 +18,7 @@ public class SystemConfigService {
                 80,
                 5,
                 0.41,
-                false
+                true
         );
     }
 

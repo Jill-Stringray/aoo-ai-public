@@ -15,7 +15,7 @@ const config = ref({
   chunkOverlap: 80,
   topK: 5,
   similarityThreshold: 0.41,
-  rerankEnabled: false
+  rerankEnabled: true
 });
 
 const totalUsers = computed(() => users.value.length);
