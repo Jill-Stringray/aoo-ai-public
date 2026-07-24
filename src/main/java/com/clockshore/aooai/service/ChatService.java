@@ -2,6 +2,7 @@ package com.clockshore.aooai.service;
 
 
 import cn.hutool.core.util.IdUtil;
+import com.clockshore.aooai.config.AiMockProperties;
 import com.clockshore.aooai.dto.message.ChatRequest;
 import com.clockshore.aooai.dto.mq.RetrievalSourceDTO;
 import com.clockshore.aooai.dto.rerank.RerankResult;
@@ -31,11 +32,13 @@ import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -98,6 +101,9 @@ public class ChatService {
     @Resource
     private SystemConfigService systemConfigService;
 
+    @Resource
+    private AiMockProperties aiMockProperties;
+
     public ChatService(ChatClient.Builder builder,
                        ConversationMessageMapper conversationMessageMapper
     ){  this.chatClient = builder.build();
@@ -147,6 +153,9 @@ public class ChatService {
         //生成雪花
         String messageKey = IdUtil.getSnowflakeNextIdStr();
 
+        if (aiMockProperties.isEnabled()) {
+            return mockStreamChat(chatRequest, messageKey, null);
+        }
 
         StringBuilder replyBuffer = new StringBuilder();
         AtomicReference<Usage> usageRef = new AtomicReference<>();
@@ -200,6 +209,11 @@ public class ChatService {
 
         chatRequest.setMessage(userMessage.getContent());
         String messageKey = IdUtil.getSnowflakeNextIdStr();
+
+        if (aiMockProperties.isEnabled()) {
+            return mockStreamChat(chatRequest, messageKey, userMessage.getId());
+        }
+
         StringBuilder replyBuffer = new StringBuilder();
         AtomicReference<Usage> usageRef = new AtomicReference<>();
         long startedAt = System.currentTimeMillis();
@@ -223,6 +237,49 @@ public class ChatService {
                         usageRef.get(),
                         System.currentTimeMillis() - startedAt
                 ));
+    }
+
+    private Flux<ChatResponse> mockStreamChat(ChatRequest chatRequest, String messageKey, Long parentMessageId) {
+        List<String> mockTokens = List.of(
+                "hello",
+                "hello w",
+                "hello wo",
+                "hello wor",
+                "hello world"
+        );
+        long startedAt = System.currentTimeMillis();
+
+        return Flux.fromIterable(mockTokens)
+                .delayElements(Duration.ofMillis(Math.max(0L, aiMockProperties.getDelay())))
+                .map(this::mockChatResponse)
+                .doOnComplete(() -> {
+                    long latencyMs = System.currentTimeMillis() - startedAt;
+                    String reply = mockTokens.get(mockTokens.size() - 1);
+                    if (parentMessageId == null) {
+                        enqueueAssistantMessage(
+                                chatRequest.getConversationId(),
+                                messageKey,
+                                reply,
+                                chatRequest.getModel(),
+                                null,
+                                latencyMs
+                        );
+                    } else {
+                        enqueueAssistantMessage(
+                                chatRequest.getConversationId(),
+                                parentMessageId,
+                                messageKey,
+                                reply,
+                                chatRequest.getModel(),
+                                null,
+                                latencyMs
+                        );
+                    }
+                });
+    }
+
+    private ChatResponse mockChatResponse(String text) {
+        return new ChatResponse(List.of(new Generation(new AssistantMessage(text))));
     }
 
     /**

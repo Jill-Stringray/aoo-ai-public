@@ -9,7 +9,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class DocumentTextRepairServiceTest {
+class DocumentTextRepairServiceIT {
 
     private final DocumentTextRepairService repairService =
             new DocumentTextRepairService(new DocumentTextRepairProperties());

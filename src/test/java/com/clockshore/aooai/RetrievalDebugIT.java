@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 @SpringBootTest(classes = AooAiApplication.class)
-class RetrievalDebugTest {
+class RetrievalDebugIT {
 
     private static final String QUESTION = "吉尔是谁";
     private static final int TOP_K = 5;
