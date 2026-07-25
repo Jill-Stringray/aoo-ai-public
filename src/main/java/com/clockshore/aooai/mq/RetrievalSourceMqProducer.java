@@ -5,6 +5,7 @@ import com.clockshore.aooai.entity.LocalMqMessage;
 import com.clockshore.aooai.enumType.LocalMqMessageStatus;
 import com.clockshore.aooai.mapper.LocalMqMessageMapper;
 import jakarta.annotation.Resource;
+import java.time.LocalDateTime;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +32,7 @@ public class RetrievalSourceMqProducer {
                 .payload(payload)
                 .status(LocalMqMessageStatus.NEW.getValue())
                 .retryCount(0)
+                .nextRetryAt(LocalDateTime.now())
                 .build();
         localMqMessageMapper.insert(localMqMessage);
     }

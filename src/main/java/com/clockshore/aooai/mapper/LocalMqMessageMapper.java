@@ -8,6 +8,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Update;
 
 @Mapper
@@ -15,7 +16,7 @@ public interface LocalMqMessageMapper {
 
     @Insert("""
             INSERT INTO local_mq_message (event_key, topic, routing_key, payload, status, retry_count, next_retry_at)
-            VALUES (#{eventKey}, #{topic}, #{routingKey}, #{payload}, #{status}, #{retryCount}, #{nextRetryAt})
+            VALUES (#{eventKey}, #{topic}, #{routingKey}, #{payload}, #{status}, #{retryCount}, COALESCE(#{nextRetryAt}, NOW(3)))
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(LocalMqMessage message);
@@ -29,7 +30,7 @@ public interface LocalMqMessageMapper {
                    created_at AS createdAt, updated_at AS updatedAt
             FROM local_mq_message
             WHERE status IN ('NEW', 'FAILED')
-              AND (next_retry_at IS NULL OR next_retry_at <= NOW(3))
+              AND next_retry_at <= NOW(3)
             ORDER BY id
             LIMIT #{limit}
             """)
@@ -79,4 +80,53 @@ public interface LocalMqMessageMapper {
     int recoverTimeoutSending(@Param("failedStatus") LocalMqMessageStatus failedStatus,
                               @Param("sendingStatus") LocalMqMessageStatus sendingStatus,
                               @Param("timeoutMinutes") int timeoutMinutes);
+
+    @Select("""
+            SELECT id
+            FROM local_mq_message
+            WHERE status = #{sentStatus.value}
+              AND updated_at < DATE_SUB(NOW(3), INTERVAL #{retentionDays} DAY)
+            ORDER BY id
+            LIMIT #{limit}
+            """)
+    List<Long> selectArchiveCandidateIds(@Param("sentStatus") LocalMqMessageStatus sentStatus,
+                                         @Param("retentionDays") int retentionDays,
+                                         @Param("limit") int limit);
+
+    @Insert("""
+            <script>
+            INSERT IGNORE INTO local_mq_message_archive (
+                original_message_id, event_key, topic, routing_key, payload, status, retry_count,
+                next_retry_at, fail_reason, created_at, updated_at
+            )
+            SELECT id, event_key, topic, routing_key, payload, status, retry_count,
+                   next_retry_at, fail_reason, created_at, updated_at
+            FROM local_mq_message
+            WHERE status = #{sentStatus.value}
+              AND id IN
+              <foreach collection="ids" item="id" open="(" separator="," close=")">
+                #{id}
+              </foreach>
+            </script>
+            """)
+    int archiveByIds(@Param("ids") List<Long> ids,
+                     @Param("sentStatus") LocalMqMessageStatus sentStatus);
+
+    @Delete("""
+            <script>
+            DELETE FROM local_mq_message
+            WHERE status = #{sentStatus.value}
+              AND id IN
+              <foreach collection="ids" item="id" open="(" separator="," close=")">
+                #{id}
+              </foreach>
+              AND EXISTS (
+                  SELECT 1
+                  FROM local_mq_message_archive archive_message
+                  WHERE archive_message.original_message_id = local_mq_message.id
+              )
+            </script>
+            """)
+    int deleteArchivedByIds(@Param("ids") List<Long> ids,
+                            @Param("sentStatus") LocalMqMessageStatus sentStatus);
 }

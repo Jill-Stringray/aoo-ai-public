@@ -12,6 +12,7 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS `local_mq_message`;
+DROP TABLE IF EXISTS `local_mq_message_archive`;
 DROP TABLE IF EXISTS `outbox_event`;
 DROP TABLE IF EXISTS `audit_log`;
 DROP TABLE IF EXISTS `qa_feedback`;
@@ -272,12 +273,35 @@ CREATE TABLE `local_mq_message` (
   `payload` JSON NOT NULL COMMENT '消息载荷',
   `status` VARCHAR(32) NOT NULL DEFAULT 'NEW' COMMENT '状态：NEW/SENDING/SENT/FAILED',
   `retry_count` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '已重试次数',
-  `next_retry_at` DATETIME(3) NULL COMMENT '下次重试时间',
+  `next_retry_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '下次重试时间',
   `fail_reason` VARCHAR(2048) NULL COMMENT '失败原因',
   `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_local_mq_message_event_key` (`event_key`)
+  UNIQUE KEY `uk_local_mq_message_event_key` (`event_key`),
+  KEY `idx_mq_status_retry_id` (`status`, `next_retry_at`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='本地 MQ 消息表';
+
+-- 17. 本地 MQ 消息归档表：保存已投递且过保留期的冷数据，降低热表扫描成本。
+CREATE TABLE `local_mq_message_archive` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '归档ID',
+  `original_message_id` BIGINT UNSIGNED NOT NULL COMMENT '热表原消息ID',
+  `event_key` VARCHAR(128) NOT NULL COMMENT '事件唯一键',
+  `topic` VARCHAR(128) NOT NULL COMMENT 'MQ 交换机或主题名称',
+  `routing_key` VARCHAR(128) NOT NULL COMMENT 'MQ 路由键',
+  `payload` JSON NOT NULL COMMENT '消息载荷',
+  `status` VARCHAR(32) NOT NULL COMMENT '归档时状态，通常为 SENT',
+  `retry_count` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '已重试次数',
+  `next_retry_at` DATETIME(3) NOT NULL COMMENT '下次重试时间',
+  `fail_reason` VARCHAR(2048) NULL COMMENT '失败原因',
+  `created_at` DATETIME(3) NOT NULL COMMENT '原消息创建时间',
+  `updated_at` DATETIME(3) NOT NULL COMMENT '原消息更新时间',
+  `archived_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '归档时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_mq_archive_original_message_id` (`original_message_id`),
+  UNIQUE KEY `uk_mq_archive_event_key` (`event_key`),
+  KEY `idx_mq_archive_created_at` (`created_at`),
+  KEY `idx_mq_archive_archived_at` (`archived_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='本地 MQ 消息归档表';
 
 SET FOREIGN_KEY_CHECKS = 1;

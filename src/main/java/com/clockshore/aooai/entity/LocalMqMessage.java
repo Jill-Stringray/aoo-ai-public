@@ -56,7 +56,8 @@ public class LocalMqMessage {
     /**
      * 下次重试时间。
      */
-    private LocalDateTime nextRetryAt;
+    @Builder.Default
+    private LocalDateTime nextRetryAt = LocalDateTime.now();
 
     /**
      * 失败原因。
