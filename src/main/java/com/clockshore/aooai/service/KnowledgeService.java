@@ -52,6 +52,8 @@ public class KnowledgeService {
     private ChatMessageMqProducer chatMessageMqProducer;
     @Resource
     private ChunkQualityFilter chunkQualityFilter;
+    @Resource
+    private KnowledgeVectorService knowledgeVectorService;
 
     Tika tika = new Tika();
 
@@ -404,6 +406,7 @@ public class KnowledgeService {
         if (knowledgeBaseMapper.markDeleted(knowledgeBaseId) == 0) {
             throw new IllegalArgumentException("知识库不存在");
         }
+        knowledgeVectorService.deleteByKnowledgeBaseId(knowledgeBaseId);
         knowledgeDocumentMapper.markDeletedByKnowledgeBaseId(knowledgeBaseId);
         documentChunkMapper.markDeletedByKnowledgeBaseId(knowledgeBaseId);
     }
@@ -416,6 +419,7 @@ public class KnowledgeService {
         if (knowledgeDocumentMapper.markDeleted(documentId) == 0) {
             throw new IllegalArgumentException("文档不存在");
         }
+        knowledgeVectorService.deleteByDocumentId(documentId);
         documentChunkMapper.markDeletedByDocumentId(documentId);
     }
 

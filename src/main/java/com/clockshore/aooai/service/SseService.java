@@ -1,16 +1,22 @@
 package com.clockshore.aooai.service;
 
 import com.clockshore.aooai.dto.sse.SseMessage;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
+import reactor.core.Disposable;
 
-import java.io.IOException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 @Service
+@Slf4j
 public class SseService {
 
     /**
@@ -19,6 +25,8 @@ public class SseService {
     private static final long TIMEOUT = 0L;
 
     private final AtomicLong eventId = new AtomicLong();
+
+    private final ConcurrentMap<SseEmitter, SseConnection> connections = new ConcurrentHashMap<>();
 
     public SseEmitter stream(Supplier<Flux<ChatResponse>> fluxSupplier) {
 
@@ -46,28 +54,42 @@ public class SseService {
 
     private void subscribe(SseEmitter emitter, Flux<ChatResponse> flux) {
 
-        flux.subscribe(
+        SseConnection connection = connections.get(emitter);
+        if (connection == null || connection.isClosed()) {
+            return;
+        }
+
+        Disposable disposable = flux.subscribe(
 
                 response -> {
-                    try {
-                        send(emitter, "delta",
-                                response.getResult().getOutput().getText());
-                    } catch (IOException e) {
-                        completeWithError(emitter, e);
+                    if (connection.isClosed()) {
+                        return;
                     }
+                    send(emitter, "delta",
+                            response.getResult().getOutput().getText());
                 },
 
-                error -> error(emitter, error.getMessage()),
+                error -> {
+                    if (connection.isClosed()) {
+                        log.debug("SSE flux error after connection closed", error);
+                        return;
+                    }
+                    error(emitter, error.getMessage());
+                },
 
                 () -> {
-                    try {
-                        complete(emitter);
-                    } catch (IOException e) {
-                        completeWithError(emitter, e);
+                    if (connection.isClosed()) {
+                        return;
                     }
+                    complete(emitter);
                 }
 
         );
+
+        connection.setDisposable(disposable);
+        if (connection.isClosed()) {
+            disposable.dispose();
+        }
     }
 
     /**
@@ -76,14 +98,16 @@ public class SseService {
     public SseEmitter createEmitter() {
 
         SseEmitter emitter = new SseEmitter(TIMEOUT);
+        SseConnection connection = new SseConnection();
+        connections.put(emitter, connection);
 
         emitter.onCompletion(() -> {
-            // log.info("SSE completed");
+            close(emitter);
         });
 
-        emitter.onTimeout(emitter::complete);
+        emitter.onTimeout(() -> close(emitter));
 
-        emitter.onError(emitter::completeWithError);
+        emitter.onError(e -> close(emitter));
 
         return emitter;
     }
@@ -91,37 +115,49 @@ public class SseService {
     /**
      * AI 回复 Token
      */
-    public void sendToken(SseEmitter emitter, String token) throws IOException {
+    public void sendToken(SseEmitter emitter, String token) {
         send(emitter, "delta", token);
     }
 
     /**
      * 检索到的引用
      */
-    public void sendReference(SseEmitter emitter, Object reference) throws IOException {
+    public void sendReference(SseEmitter emitter, Object reference) {
         send(emitter, "reference", reference);
     }
 
     /**
      * 状态
      */
-    public void sendStatus(SseEmitter emitter, String status) throws IOException {
+    public void sendStatus(SseEmitter emitter, String status) {
         send(emitter, "status", status);
     }
 
     /**
      * 心跳
      */
-    public void heartbeat(SseEmitter emitter) throws IOException {
+    public void heartbeat(SseEmitter emitter) {
         send(emitter, "heartbeat", "ping");
     }
 
     /**
      * 完成
      */
-    public void complete(SseEmitter emitter) throws IOException {
-        send(emitter, "done", null);
-        emitter.complete();
+    public void complete(SseEmitter emitter) {
+        SseConnection connection = connections.get(emitter);
+        if (connection == null || !send(emitter, "done", null)) {
+            close(emitter);
+            return;
+        }
+        if (connection.close()) {
+            try {
+                emitter.complete();
+            } catch (IllegalStateException e) {
+                log.debug("SSE emitter already completed", e);
+            } finally {
+                connections.remove(emitter);
+            }
+        }
     }
 
     /**
@@ -129,41 +165,102 @@ public class SseService {
      */
     public void error(SseEmitter emitter, String message) {
 
-        try {
-            send(emitter, "error", message);
-        } catch (IOException ignored) {
-        }
+        send(emitter, "error", message);
 
-        emitter.complete();
+        close(emitter);
     }
 
     /**
      * 异常结束
      */
     public void completeWithError(SseEmitter emitter, Throwable e) {
-        emitter.completeWithError(e);
+        SseConnection connection = connections.get(emitter);
+        if (connection == null || !connection.close()) {
+            return;
+        }
+        try {
+            emitter.completeWithError(e);
+        } catch (IllegalStateException ex) {
+            log.debug("SSE emitter already completed with error", ex);
+        } finally {
+            connections.remove(emitter);
+        }
     }
 
     /**
      * 统一发送
      */
-    private void send(
+    private boolean send(
             SseEmitter emitter,
             String type,
             Object data
-    ) throws IOException {
+    ) {
+
+        SseConnection connection = connections.get(emitter);
+        if (connection == null || connection.isClosed()) {
+            return false;
+        }
 
         long id = eventId.incrementAndGet();
 
         SseMessage<Object> message =
                 new SseMessage<>(id, data);
 
-        emitter.send(
-                SseEmitter.event()
-                        .id(String.valueOf(id))
-                        .name(type)
-                        .data(message)
-        );
+        try {
+            emitter.send(
+                    SseEmitter.event()
+                            .id(String.valueOf(id))
+                            .name(type)
+                            .data(message)
+            );
+            return true;
+        } catch (Exception e) {
+            log.debug("SSE send failed, close emitter and cancel subscription", e);
+            close(emitter);
+            return false;
+        }
+    }
+
+    private void close(SseEmitter emitter) {
+        SseConnection connection = connections.get(emitter);
+        if (connection == null || !connection.close()) {
+            return;
+        }
+        connections.remove(emitter);
+        try {
+            emitter.complete();
+        } catch (IllegalStateException e) {
+            log.debug("SSE emitter already completed", e);
+        }
+    }
+
+    private static class SseConnection {
+
+        private final AtomicBoolean closed = new AtomicBoolean(false);
+
+        private final AtomicReference<Disposable> disposableRef = new AtomicReference<>();
+
+        private SseConnection() {
+        }
+
+        private void setDisposable(Disposable disposable) {
+            disposableRef.set(disposable);
+        }
+
+        private boolean isClosed() {
+            return closed.get();
+        }
+
+        private boolean close() {
+            if (!closed.compareAndSet(false, true)) {
+                return false;
+            }
+            Disposable disposable = disposableRef.getAndSet(null);
+            if (disposable != null && !disposable.isDisposed()) {
+                disposable.dispose();
+            }
+            return true;
+        }
     }
 
 }

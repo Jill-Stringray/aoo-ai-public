@@ -59,6 +59,7 @@ public class ChatService {
     private static final double ORIGINAL_SCORE_WEIGHT = 0.4;
     private static final double RERANK_SCORE_WEIGHT = 0.6;
     private static final int RRF_K = 60;
+    private static final int RRF_TOP_N = 10;
     private static final int MAX_HISTORY_CONTEXT_TOKENS = 32 * 1024;
     private static final int MESSAGE_TOKEN_OVERHEAD = 4;
 
@@ -641,6 +642,7 @@ public class ChatService {
                 .stream()
                 .sorted(Comparator.comparingDouble(DocumentScore::getScore).reversed())
                 .map(item -> item.getDocument().mutate().score(item.getScore()).build())
+                .limit(RRF_TOP_N)
                 .toList();
     }
 
