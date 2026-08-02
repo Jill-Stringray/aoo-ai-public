@@ -9,7 +9,7 @@ server:
 
 ai:
   mock:
-    enabled: true
+    enabled: false
     delay: 50
 
 spring:
