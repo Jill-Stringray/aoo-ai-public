@@ -34,6 +34,9 @@ import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.ToolCallbackProvider;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
@@ -108,9 +111,38 @@ public class ChatService {
     private AiMockProperties aiMockProperties;
 
     public ChatService(ChatClient.Builder builder,
-                       ConversationMessageMapper conversationMessageMapper
-    ){  this.chatClient = builder.build();
+                       ConversationMessageMapper conversationMessageMapper,
+                       ObjectProvider<ToolCallbackProvider> toolCallbackProviders
+    ){
+        ToolCallbackProvider[] providers = toolCallbackProviders.orderedStream()
+                .toArray(ToolCallbackProvider[]::new);
+        if (providers.length > 0) {
+            builder.defaultToolCallbacks(providers);
+            log.info("registered tool callback providers for ChatClient, count={}", providers.length);
+            logMcpTools(providers);
+        } else {
+            log.warn("no tool callback providers found for ChatClient");
+        }
+        this.chatClient = builder.build();
         this.conversationMessageMapper = conversationMessageMapper;
+    }
+
+    private void logMcpTools(ToolCallbackProvider[] providers) {
+        for (ToolCallbackProvider provider : providers) {
+            try {
+                ToolCallback[] toolCallbacks = provider.getToolCallbacks();
+                List<String> toolNames = new ArrayList<>();
+                for (ToolCallback toolCallback : toolCallbacks) {
+                    toolNames.add(toolCallback.getToolDefinition().name());
+                }
+                log.info("loaded MCP tools from provider={}, count={}, tools={}",
+                        provider.getClass().getSimpleName(),
+                        toolCallbacks.length,
+                        toolNames);
+            } catch (RuntimeException e) {
+                log.warn("failed to load MCP tools from provider={}", provider.getClass().getSimpleName(), e);
+            }
+        }
     }
 
     public String nonStreamChat(ChatRequest chatRequest) {

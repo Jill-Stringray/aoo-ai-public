@@ -25,6 +25,13 @@ const emit = defineEmits<{
   openSource: [source: RetrievalSource];
 }>();
 
+function escapeRawHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 const sourceMap = computed(() => {
   const next = new Map<number, RetrievalSource>();
   for (const source of props.sources || []) {
@@ -37,7 +44,7 @@ const sourceMap = computed(() => {
 });
 
 const renderedHtml = computed(() => {
-  const markdown = String(props.content || '').replace(/\[--cite:(\d+)]/g, (_match, rawIndex) => {
+  const markdown = escapeRawHtml(String(props.content || '')).replace(/\[--cite:(\d+)]/g, (_match, rawIndex) => {
     const index = Number(rawIndex);
     if (!sourceMap.value.has(index)) {
       return '';

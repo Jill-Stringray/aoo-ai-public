@@ -46,7 +46,7 @@ spring:
         api-key: ${DEEPSEEK_API_KEY}
         base-url: https://api.deepseek.com
         options:
-          model: deepseek-v4-flash
+          model: deepseek-chat
           extra-body:
             thinking:
               type: disabled
@@ -56,6 +56,18 @@ spring:
         base-url: https://api.siliconflow.cn
         options:
           model: BAAI/bge-m3
+
+    mcp:
+      client:
+        enabled: ${MCP_ENABLED:false}
+        type: sync
+        toolcallback:
+          enabled: true
+        streamable-http:
+          connections:
+            tavily:
+              url: ${MCP_TAVILY_URL:}
+              endpoint: ${MCP_TAVILY_ENDPOINT:/mcp}
 
 postgres:
   datasource:
@@ -76,6 +88,8 @@ jwt:
 logging:
   level:
     org.springframework.ai.chat.client.advisor: DEBUG
+    org.springframework.ai.mcp: DEBUG
+    io.modelcontextprotocol: DEBUG
 
 mq:
   local-message:
