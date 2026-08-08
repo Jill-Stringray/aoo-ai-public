@@ -1,24 +1,67 @@
-# 企业级 AI 知识库问答平台 相关设计内容备忘录
+- PDF、Office 等文档解析与切片
+- 基于 pgvector 的向量检索
+- DeepSeek/OpenAI 兼容模型对话
+- SSE 流式回答与引用来源展示
+- RAG 调试、会话管理与后台管理
 
-## RAG流程 包含Spring AI 和Langchain4j
+## 技术栈
 
-文件
-↓
-Reader Spring AI
-↓
-Document Spring AI
-↓
-Splitter Langchain4j -> Spring ai的Document 类型 转化为 Langchain4J 的TextSegment 类型（注：若使用spring ai 的spliter得到的类型依然是Document，因为Langchain设计时认为文档和切片不是一个概念，与Spring ai设计思路相反）
-↓
-Embedding Spring AI
-↓
-VectorStore Spring AI
-↓
-Retriever Spring AI
-↓
-LLM Deepseek
+**后端**
 
-REST API 一般更倾向于返回对象而不是裸值
-不要相信前端传的字段数据
-框架对象不要跨层传播，数据库实体不要作为消息协议，跨模块传输应该使用 DTO/Event。
-例如Document 属于 AI 框架（临时对象），Entity 属于数据库（持久对象），DTO/Event 属于消息通信（传输对象）。三者数据可以相同，但职责不同，不要因为字段一样就混用
+- Java 17、Spring Boot 3、Spring AI
+- MyBatis、MySQL、PostgreSQL + pgvector
+- Redis、RabbitMQ、Nacos
+- LangChain4j
+
+**前端**
+
+- Vue 3、Vite、Vue Router
+
+## 项目结构
+
+```text
+aoo-ai/
+├── src/             # Spring Boot 服务
+├── frontend/        # Vue 3 前端
+├── gateway/         # 网关服务
+├── docs/            # 设计与数据库文档
+└── aoo-ai.sql       # MySQL 初始化脚本
+```
+
+## 快速开始
+
+### 1. 准备环境
+
+- JDK 17+
+- Maven 3.9+
+- Node.js 18+
+- MySQL、PostgreSQL（安装 pgvector）、Redis、RabbitMQ、Nacos
+- 可用的 OpenAI 兼容模型 API Key，例如 DeepSeek
+
+### 2. 初始化数据库
+
+执行根目录的 `aoo-ai.sql`，并根据 `docs/database/pgvector-schema.sql` 初始化 PostgreSQL 向量库。
+
+### 3. 配置服务
+
+在 `src/main/resources/application.yml` 中配置数据库、Redis、消息队列、Nacos 与模型服务连接信息。
+
+请使用自己的 API Key 和本地密码，避免将真实凭据提交到 Git 仓库。
+
+### 4. 启动后端
+
+```bash
+mvn spring-boot:run
+```
+
+默认服务端口为 `8081`。
+
+### 5. 启动前端
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+启动后根据 Vite 控制台输出的地址访问前端。
