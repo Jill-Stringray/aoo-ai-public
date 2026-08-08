@@ -1,0 +1,117 @@
+server:
+  port: 8081
+  tomcat:
+    threads:
+      max: 300
+      min-spare: 50
+    accept-count: 1000
+    max-connections: 2000
+
+ai:
+  mock:
+    enabled: false
+    delay: 50
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 200MB
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+
+  application:
+    name: aoo-ai-service
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        ip: 127.0.0.1
+      config:
+        import-check:
+          enabled: false
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/aoo-ai?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  ai:
+    openai:
+      chat:
+        api-key: ${DEEPSEEK_API_KEY}
+        base-url: https://api.deepseek.com
+        options:
+          model: deepseek-chat
+          extra-body:
+            thinking:
+              type: disabled
+
+      embedding:
+        api-key: ${SILICONFLOW_API_KEY}
+        base-url: https://api.siliconflow.cn
+        options:
+          model: BAAI/bge-m3
+
+    mcp:
+      client:
+        enabled: ${MCP_ENABLED:false}
+        type: sync
+        toolcallback:
+          enabled: true
+        streamable-http:
+          connections:
+            tavily:
+              url: ${MCP_TAVILY_URL:}
+              endpoint: ${MCP_TAVILY_ENDPOINT:/mcp}
+
+postgres:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/rag
+    username: ${POSTGRES_USERNAME}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+mybatis:
+  mapper-locations: classpath*:mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+jwt:
+  secret: ${JWT_SECRET}
+  expire: 86400000 # 24小时(ms)
+
+logging:
+  level:
+    org.springframework.ai.chat.client.advisor: DEBUG
+    io.modelcontextprotocol.client.LifecycleInitializer: ERROR
+    io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport: ERROR
+    org.springframework.ai.mcp.client.common.autoconfigure: INFO
+
+mq:
+  local-message:
+    archive:
+      enabled: true
+      retention-days: 1
+      batch-size: 500
+      cron: "0 30 2 * * ?"
+
+rag:
+  text-repair:
+    remove-soft-hyphen: true
+    join-hyphenated-line-breaks: true
+    normalize-unicode-hyphens: true
+  chunk-quality:
+    min-text-length: 50
+    max-single-char-line-ratio: 0.35
+    max-newline-ratio: 0.12
+    max-split-word-line-ratio: 0.6
+    min-split-word-line-count: 4
+    min-alpha-numeric-ratio: 0.35
+    max-repeated-char-ratio: 0.35
+    max-repeated-char-run-length: 8
+

@@ -1,0 +1,136 @@
+import { buildAuthHeaders, isAuthExpiredResponse, notifyAuthExpired, parseApiResponse } from './auth';
+
+async function parseUploadResponse(res) {
+  return parseApiResponse(res, '上传失败，请检查文件后重试');
+}
+
+export const knowledgeApiCapabilities = {
+  stats: true,
+  upload: true,
+  listKnowledgeBases: true,
+  createKnowledgeBase: true,
+  updateKnowledgeBase: true,
+  deleteKnowledgeBase: true,
+  getKnowledgeBaseDetail: true,
+  listDocuments: true,
+  deleteDocument: true,
+  chat: false
+};
+
+export const missingKnowledgeEndpoints = [
+  '文档分页/状态刷新接口'
+];
+
+function unsupportedResponse(message) {
+  return Promise.resolve({
+    success: false,
+    code: 'ENDPOINT_NOT_EXPOSED',
+    message,
+    data: null
+  });
+}
+
+export async function uploadKnowledgeDocument(file, knowledgeBaseId) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const url = knowledgeBaseId
+    ? `/api/v1/knowledge/bases/${knowledgeBaseId}/upload`
+    : '/api/v1/knowledge/upload';
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: buildAuthHeaders(),
+    body: formData
+  });
+
+  return parseUploadResponse(res);
+}
+
+export async function getKnowledgeStats() {
+  const res = await fetch('/api/v1/knowledge/stats', {
+    headers: buildAuthHeaders()
+  });
+  return parseApiResponse(res, '知识库统计获取失败，请稍后重试');
+}
+
+export async function listKnowledgeBases() {
+  const res = await fetch('/api/v1/knowledge/bases', {
+    headers: buildAuthHeaders()
+  });
+  return parseApiResponse(res, '知识库列表获取失败，请稍后重试');
+}
+
+export async function createKnowledgeBase({ name, description, visibility = 'COMPANY' } = {}) {
+  const res = await fetch('/api/v1/knowledge/bases', {
+    method: 'POST',
+    headers: buildAuthHeaders({
+      'Content-Type': 'application/json'
+    }),
+    body: JSON.stringify({ name, description, visibility })
+  });
+  return parseApiResponse(res, '新建知识库失败');
+}
+
+export async function updateKnowledgeBase({ knowledgeBaseId, name }) {
+  const res = await fetch(`/api/v1/knowledge/bases/${knowledgeBaseId}/name`, {
+    method: 'PUT',
+    headers: buildAuthHeaders({
+      'Content-Type': 'application/json'
+    }),
+    body: JSON.stringify({ name })
+  });
+  return parseApiResponse(res, '修改知识库名称失败');
+}
+
+export async function deleteKnowledgeBase(knowledgeBaseId) {
+  const res = await fetch(`/api/v1/knowledge/bases/${knowledgeBaseId}`, {
+    method: 'DELETE',
+    headers: buildAuthHeaders()
+  });
+  return parseApiResponse(res, '删除知识库失败');
+}
+
+export async function getKnowledgeBaseDetail() {
+  return listKnowledgeBases();
+}
+
+export async function listDocuments(knowledgeBaseId) {
+  const res = await fetch(`/api/v1/knowledge/bases/${knowledgeBaseId}/documents`, {
+    headers: buildAuthHeaders()
+  });
+  return parseApiResponse(res, '知识库文档列表获取失败，请稍后重试');
+}
+
+export async function getDocumentContent(documentId) {
+  const res = await fetch(`/api/v1/knowledge/documents/${documentId}/content`, {
+    headers: buildAuthHeaders()
+  });
+  return parseApiResponse(res, '文档内容获取失败，请稍后重试');
+}
+
+export function getDocumentFileUrl(documentId) {
+  return `/api/v1/knowledge/documents/${documentId}/file`;
+}
+
+export async function getDocumentFileText(documentId) {
+  const res = await fetch(getDocumentFileUrl(documentId), {
+    headers: buildAuthHeaders()
+  });
+  if (!res.ok) {
+    if (isAuthExpiredResponse(res)) {
+      notifyAuthExpired();
+    }
+    throw new Error('文件内容获取失败，请稍后重试');
+  }
+
+  const buffer = await res.arrayBuffer();
+  return new TextDecoder('utf-8').decode(buffer);
+}
+
+export async function deleteDocument(documentId) {
+  const res = await fetch(`/api/v1/knowledge/documents/${documentId}`, {
+    method: 'DELETE',
+    headers: buildAuthHeaders()
+  });
+  return parseApiResponse(res, '删除文档失败');
+}

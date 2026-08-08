@@ -1,13 +1,23 @@
 package com.clockshore.aooai;
 
+import com.clockshore.aooai.mapper.AppUserMapper;
+import jakarta.annotation.Resource;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.client.ChatClientRequest;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.ai.vectorstore.VectorStore;
+
+import java.util.List;
 
 @SpringBootTest
 class AooAiApplicationTests {
 
-    @Test
-    void contextLoads() {
-    }
 
 }
+
+

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.clockshore.aooai.mapper.AppUserMapper">
+
+    <insert id="insert" parameterType="com.clockshore.aooai.entity.AppUser" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO app_user
+        (department_id, username, password_hash, display_name, email, mobile, status, last_login_at, created_at, updated_at)
+        VALUES
+            (#{departmentId}, #{username}, #{passwordHash}, #{displayName}, #{email}, #{mobile}, #{status}, #{lastLoginAt}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update" parameterType="com.clockshore.aooai.entity.AppUser">
+        UPDATE app_user
+        SET
+            department_id = #{departmentId},
+            username = #{username},
+            password_hash = #{passwordHash},
+            display_name = #{displayName},
+            email = #{email},
+            mobile = #{mobile},
+            status = #{status},
+            last_login_at = #{lastLoginAt},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="long">
+        DELETE FROM app_user WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" parameterType="long" resultType="com.clockshore.aooai.entity.AppUser">
+        SELECT * FROM app_user WHERE id = #{id}
+    </select>
+
+    <select id="selectByUsername" parameterType="string" resultType="com.clockshore.aooai.entity.AppUser">
+        SELECT * FROM app_user WHERE username = #{username}
+    </select>
+
+    <select id="selectAll" resultType="com.clockshore.aooai.entity.AppUser">
+        SELECT * FROM app_user
+    </select>
+
+    <select id="selectPrimaryRoleCodeByUserId" parameterType="long" resultType="string">
+        SELECT r.role_code
+        FROM user_role ur
+                 INNER JOIN role r ON r.id = ur.role_id
+        WHERE ur.user_id = #{userId}
+        ORDER BY CASE r.role_code
+                     WHEN 'ADMIN' THEN 1
+                     WHEN 'SUPER_ADMIN' THEN 2
+                     WHEN 'SYSTEM_ADMIN' THEN 3
+                     WHEN 'MANAGER' THEN 4
+                     WHEN 'KB_MANAGER' THEN 5
+                     WHEN 'DOC_EDITOR' THEN 6
+                     WHEN 'AUDITOR' THEN 7
+                     WHEN 'USER' THEN 99
+                     ELSE 50
+                 END,
+                 ur.id
+        LIMIT 1
+    </select>
+
+</mapper>

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.clockshore.aooai.mapper.MessageRetrievalSourceMapper">
+
+    <insert id="batchInsert">
+
+        INSERT INTO message_retrieval_source
+        (
+        message_key,
+        knowledge_base_id,
+        document_id,
+        chunk_id,
+        page_number,
+        rank_no,
+        score,
+        rerank_score,
+        quote_text
+        )
+        VALUES
+
+        <foreach collection="list" item="item" separator=",">
+
+            (
+            #{item.messageKey},
+            #{item.knowledgeBaseId},
+            #{item.documentId},
+            #{item.chunkId},
+            #{item.pageNumber},
+            #{item.rankNo},
+            #{item.score},
+            #{item.rerankScore},
+            #{item.quoteText}
+            )
+
+        </foreach>
+
+    </insert>
+
+    <select id="selectByMessageKeys" resultType="com.clockshore.aooai.entity.MessageRetrievalSource">
+        SELECT
+            source.id,
+            source.message_key AS messageKey,
+            source.knowledge_base_id AS knowledgeBaseId,
+            kb.name AS knowledgeBaseName,
+            source.document_id AS documentId,
+            document.file_name AS fileName,
+            source.chunk_id AS chunkId,
+            source.page_number AS pageNumber,
+            source.rank_no AS rankNo,
+            source.score,
+            source.rerank_score AS rerankScore,
+            source.quote_text AS quoteText,
+            source.created_at AS createdAt
+        FROM message_retrieval_source source
+        LEFT JOIN knowledge_base kb ON kb.id = source.knowledge_base_id
+        LEFT JOIN knowledge_document document ON document.id = source.document_id
+        WHERE source.message_key IN
+        <foreach collection="messageKeys" item="messageKey" open="(" separator="," close=")">
+            #{messageKey}
+        </foreach>
+        ORDER BY source.message_key ASC, source.rank_no ASC
+    </select>
+
+</mapper>
