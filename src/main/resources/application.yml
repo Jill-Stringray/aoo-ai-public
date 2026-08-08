@@ -88,8 +88,9 @@ jwt:
 logging:
   level:
     org.springframework.ai.chat.client.advisor: DEBUG
-    org.springframework.ai.mcp: DEBUG
-    io.modelcontextprotocol: DEBUG
+    io.modelcontextprotocol.client.LifecycleInitializer: ERROR
+    io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport: ERROR
+    org.springframework.ai.mcp.client.common.autoconfigure: INFO
 
 mq:
   local-message:

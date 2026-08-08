@@ -112,10 +112,17 @@ public class ChatService {
 
     public ChatService(ChatClient.Builder builder,
                        ConversationMessageMapper conversationMessageMapper,
-                       ObjectProvider<ToolCallbackProvider> toolCallbackProviders
+                       ObjectProvider<ToolCallbackProvider> toolCallbackProviders,
+                       KnowledgeBaseSearchTool knowledgeBaseSearchTool
     ){
+        //内置RAG
+        builder.defaultTools(knowledgeBaseSearchTool);
+        log.info("registered local tool for ChatClient, tool=search_knowledge_base");
+        //MCP server
         ToolCallbackProvider[] providers = toolCallbackProviders.orderedStream()
                 .toArray(ToolCallbackProvider[]::new);
+
+        //输出日志
         if (providers.length > 0) {
             builder.defaultToolCallbacks(providers);
             log.info("registered tool callback providers for ChatClient, count={}", providers.length);
@@ -127,6 +134,10 @@ public class ChatService {
         this.conversationMessageMapper = conversationMessageMapper;
     }
 
+    /**
+     * 输出mcp tool的详细信息
+     * @param providers
+     */
     private void logMcpTools(ToolCallbackProvider[] providers) {
         for (ToolCallbackProvider provider : providers) {
             try {
@@ -154,10 +165,11 @@ public class ChatService {
         //生成雪花key
         String messageKey = IdUtil.getSnowflakeNextIdStr();
 
-        List<Message> messages = buildRagMessages(chatRequest, messageKey, costStat);
+        List<Message> messages = buildToolMessages(chatRequest, null, costStat);
         long aiInvokeStartedAt = System.nanoTime();
         ChatResponse response = chatClient.prompt()
                 .messages(messages)
+                .toolContext(buildToolContext(chatRequest, messageKey))
                 .call()
                 .chatResponse();
         costStat.setAiInvokeCostMs(elapsedMs(aiInvokeStartedAt));
@@ -185,8 +197,8 @@ public class ChatService {
 
 
         ChatCostStat costStat = new ChatCostStat(System.nanoTime());
+        //基础校验
         ensureConversationReady(chatRequest);
-
 
         // 1. 保存用户消息
         enqueueUserMessage(chatRequest.getConversationId(),chatRequest.getMessage());
@@ -197,7 +209,7 @@ public class ChatService {
         StringBuilder replyBuffer = new StringBuilder();
         AtomicReference<Usage> usageRef = new AtomicReference<>();
         long startedAt = System.currentTimeMillis();
-        List<Message> messages = buildRagMessages(chatRequest, messageKey, costStat);
+        List<Message> messages = buildToolMessages(chatRequest, null, costStat);
 
         if (aiMockProperties.isEnabled()) {
             log.info("ai mock enabled, skip real ai invoke");
@@ -209,6 +221,7 @@ public class ChatService {
 
         return chatClient.prompt()
                 .messages(messages)
+                .toolContext(buildToolContext(chatRequest, messageKey))
                 .stream()
                 .chatResponse()
                 .doOnSubscribe(subscription -> aiStartedAt.set(System.nanoTime()))
@@ -244,6 +257,7 @@ public class ChatService {
 
     public Flux<ChatResponse> streamRegenerate(ChatRequest chatRequest, Long assistantMessageId) {
         ChatCostStat costStat = new ChatCostStat(System.nanoTime());
+        //校验信息
         ensureConversationReady(chatRequest);
 
         Long userId = SecurityUtils.getUserId();
@@ -273,7 +287,7 @@ public class ChatService {
         StringBuilder replyBuffer = new StringBuilder();
         AtomicReference<Usage> usageRef = new AtomicReference<>();
         long startedAt = System.currentTimeMillis();
-        List<Message> messages = buildRagMessages(chatRequest, messageKey, userMessage.getId(), costStat);
+        List<Message> messages = buildToolMessages(chatRequest, userMessage.getId(), costStat);
 
         if (aiMockProperties.isEnabled()) {
             log.info("ai mock enabled, skip real ai invoke");
@@ -285,6 +299,7 @@ public class ChatService {
 
         return chatClient.prompt()
                 .messages(messages)
+                .toolContext(buildToolContext(chatRequest, messageKey))
                 .stream()
                 .chatResponse()
                 .doOnSubscribe(subscription -> aiStartedAt.set(System.nanoTime()))
@@ -323,11 +338,7 @@ public class ChatService {
 
     private Flux<ChatResponse> mockStreamChat(ChatRequest chatRequest, String messageKey, Long parentMessageId, ChatCostStat costStat) {
         List<String> mockTokens = List.of(
-                "hello",
-                "hello w",
-                "hello wo",
-                "hello wor",
-                "hello world"
+                "hello world,this is mock test without using LLM api!"
         );
         long startedAt = System.currentTimeMillis();
         AtomicLong aiStartedAt = new AtomicLong();
@@ -495,6 +506,39 @@ public class ChatService {
 
     private List<Message> buildRagMessages(ChatRequest request, String messageKey, ChatCostStat costStat) {
         return buildRagMessages(request, messageKey, null, costStat);
+    }
+
+    private List<Message> buildToolMessages(ChatRequest request, Long historyBeforeId, ChatCostStat costStat) {
+        long promptBuildStartedAt = System.nanoTime();
+
+        List<Message> messages = new ArrayList<>();
+        messages.add(new SystemMessage(Prompt.SYSTEM_TOOL_ASSISTANT.getPrompt()));
+
+        long historyBuildStartedAt = System.nanoTime();
+        messages.addAll(buildHistory(request.getConversationId(), historyBeforeId));
+        if (costStat != null) {
+            costStat.setHistoryBuildCostMs(elapsedMs(historyBuildStartedAt));
+        }
+
+        String question = request.resolveMessage();
+        messages.add(new UserMessage(question));
+
+        if (costStat != null) {
+            costStat.setPromptBuildCostMs(elapsedMs(promptBuildStartedAt));
+            costStat.setPromptBuildOtherCostMs(Math.max(0L,
+                    costStat.getPromptBuildCostMs() - costStat.getHistoryBuildCostMs()));
+        }
+
+        return messages;
+    }
+
+    private Map<String, Object> buildToolContext(ChatRequest request, String messageKey) {
+        Map<String, Object> toolContext = new HashMap<>();
+        toolContext.put(KnowledgeBaseSearchTool.TOOL_CONTEXT_MESSAGE_KEY, messageKey);
+        if (request.getKnowledgeBaseId() != null) {
+            toolContext.put(KnowledgeBaseSearchTool.TOOL_CONTEXT_KNOWLEDGE_BASE_ID, request.getKnowledgeBaseId());
+        }
+        return toolContext;
     }
 
     private List<Message> buildRagMessages(ChatRequest request,String messageKey, Long historyBeforeId, ChatCostStat costStat) {

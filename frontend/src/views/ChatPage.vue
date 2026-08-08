@@ -146,6 +146,7 @@ function normalizeMessage(item) {
   return {
     id: item.id,
     parentMessageId: item.parentMessageId ?? item.parent_message_id ?? null,
+    assistantReplyGroupKey: null,
     role: normalizeRole(item.role),
     content,
     createTime: item.createTime,
@@ -160,16 +161,25 @@ function normalizeMessage(item) {
 function groupAssistantReplyVersions(nextMessages) {
   const groupedMessages = [];
   const assistantByParentId = new Map();
+  let currentUserMessageId = null;
 
   for (const message of nextMessages) {
-    if (message.role !== 'assistant' || !message.parentMessageId) {
+    if (message.role === 'user') {
+      currentUserMessageId = message.id || null;
       groupedMessages.push(message);
       continue;
     }
 
-    const existing = assistantByParentId.get(message.parentMessageId);
+    const assistantGroupKey = message.parentMessageId || currentUserMessageId;
+    if (message.role !== 'assistant' || !assistantGroupKey) {
+      groupedMessages.push(message);
+      continue;
+    }
+
+    message.assistantReplyGroupKey = assistantGroupKey;
+    const existing = assistantByParentId.get(assistantGroupKey);
     if (!existing) {
-      assistantByParentId.set(message.parentMessageId, message);
+      assistantByParentId.set(assistantGroupKey, message);
       groupedMessages.push(message);
       continue;
     }
@@ -231,7 +241,20 @@ function switchReplyVersion(message, direction) {
 }
 
 function mergeReplyVersions(nextMessages) {
-  const currentById = new Map(messages.value.filter((message) => message?.id).map((message) => [message.id, message]));
+  const currentById = new Map();
+  for (const message of messages.value) {
+    if (message?.id) {
+      currentById.set(message.id, message);
+    }
+    if (message?.role !== 'assistant' || !Array.isArray(message.replyVersions)) {
+      continue;
+    }
+    for (const version of message.replyVersions) {
+      if (version?.id) {
+        currentById.set(version.id, message);
+      }
+    }
+  }
   return nextMessages.map((message) => {
     const current = currentById.get(message.id);
     if (message.role !== 'assistant' || !current?.replyVersions?.length) return message;
