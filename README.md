@@ -45,6 +45,7 @@ aoo-ai/
 - Node.js 18+
 - MySQL、PostgreSQL（安装 pgvector）、Redis、RabbitMQ、Nacos
 - 可用的 OpenAI 兼容模型 API Key，例如 DeepSeek
+- 可用的 硅基流动 API Key，主要是为了方便使用Embedding，Reranker
 
 ### 2. 初始化数据库
 
