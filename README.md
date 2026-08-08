@@ -62,7 +62,11 @@ aoo-ai/
 mvn spring-boot:run
 ```
 
-默认服务端口为 `8081`。
+默认服务端口为 `8080`。
+
+### 5. 启动Gateway
+
+Gateway可在另外一个仓库：“aoo-ai gateway”中找到。
 
 ### 5. 启动前端
 
