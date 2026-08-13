@@ -3,6 +3,7 @@ package com.clockshore.aooai.service;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.clockshore.aooai.Utility.JsonUtil;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.clockshore.aooai.entity.DocumentChunk;
 import com.clockshore.aooai.entity.KnowledgeBase;
 import com.clockshore.aooai.entity.KnowledgeDocument;
@@ -17,6 +18,7 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.tika.Tika;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +56,8 @@ public class KnowledgeService {
     private ChunkQualityFilter chunkQualityFilter;
     @Resource
     private KnowledgeVectorService knowledgeVectorService;
+    @Value("${docling.service.supported-extensions:pdf,docx,doc,pptx,ppt,xlsx,xls,csv,html,htm,md,adoc,asciidoc,odt,ods,odp,epub,eml,msg,xml,txt}")
+    private List<String> supportedExtensions;
 
     Tika tika = new Tika();
 
@@ -201,12 +205,16 @@ public class KnowledgeService {
             return 0;
         }
         List<DocumentChunk> chunks = new ArrayList<>();
+        int chunkIndex = 0;
         for(TextSegment t : segments) {
             String chunkKey = UUID.randomUUID().toString();
             //再次补充chunkKey 进入metadata
             t.metadata().put("chunkKey",chunkKey);
+            t.metadata().put("index", chunkIndex);
 
-            String metadataJson = jsonUtil.toJson(t.metadata().toMap());
+            // 把切片器阶段临时字符串化的 sectionPath/pdfPath 还原为 JSON 数组落库。
+            Map<String, Object> metadata = normalizeSegmentMetadata(t.metadata().toMap());
+            String metadataJson = jsonUtil.toJson(metadata);
             String hash = DigestUtil.sha256Hex(t.text());
 
             //去重跳过
@@ -219,16 +227,18 @@ public class KnowledgeService {
                     .knowledgeBaseId(knowledgeBaseId == null ? 1L : knowledgeBaseId)
                     .documentId(t.metadata().getLong("documentId"))
                     .chunkKey(chunkKey)
-                    .chunkIndex(t.metadata().getInteger("index"))
+                    .chunkIndex(chunkIndex)
                     .content(t.text())
                     .contentHash(hash)
                     .tokenCount(t.text().length())
                     .pageNo(t.metadata().getInteger("page_number"))
+                    .sectionTitle(t.metadata().getString("sectionTitle"))
                     .metadata(metadataJson)
                     .status("NEW")
                     .build();
 
             chunks.add(chunk);
+            chunkIndex++;
         }
 
         //防止chunks无内容时报错
@@ -643,15 +653,39 @@ public class KnowledgeService {
             throw new IllegalArgumentException("文件名不能为空");
         }
 
-        //MIME TYPE校验
-        //不使用getContentType获取，可以被修改
-        String mimeType = tika.detect(file.getInputStream());
-        Set<String> expectedMimeTypes = FILE_TYPE_MAPPING.get(FilenameUtils.getExtension(fileName).toLowerCase(Locale.ROOT));
-        //检测mimeType是否与文件后缀对应
-        if (expectedMimeTypes == null ||
-                !expectedMimeTypes.contains(mimeType)) {
-            throw new IllegalArgumentException("文件类型校验失败:"+mimeType+" 期望："+expectedMimeTypes);
+        String extension = FilenameUtils.getExtension(fileName).toLowerCase(Locale.ROOT);
+        if (!supportedExtensions.contains(extension)) {
+            throw new IllegalArgumentException("暂不支持的文件类型: " + extension);
         }
+
+        Set<String> expectedMimeTypes = FILE_TYPE_MAPPING.get(extension);
+        if (expectedMimeTypes != null) {
+            //不使用getContentType获取，可以被修改
+            String mimeType = tika.detect(file.getInputStream());
+            //检测mimeType是否与文件后缀对应
+            if (!expectedMimeTypes.contains(mimeType)) {
+                throw new IllegalArgumentException("文件类型校验失败:"+mimeType+" 期望："+expectedMimeTypes);
+            }
+        }
+    }
+
+    private Map<String, Object> normalizeSegmentMetadata(Map<String, Object> rawMetadata) {
+        Map<String, Object> metadata = new HashMap<>(rawMetadata);
+        restoreJsonStringArray(metadata, "sectionPath");
+        restoreJsonStringArray(metadata, "pdfPath");
+        return metadata;
+    }
+
+    private void restoreJsonStringArray(Map<String, Object> metadata, String key) {
+        Object value = metadata.get(key);
+        if (!(value instanceof String text)) {
+            return;
+        }
+        String trimmed = text.trim();
+        if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) {
+            return;
+        }
+        metadata.put(key, jsonUtil.fromJson(trimmed, new TypeReference<List<String>>() {}));
     }
 
 }
