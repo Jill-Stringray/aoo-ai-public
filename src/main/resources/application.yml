@@ -98,7 +98,20 @@ mq:
       enabled: true
       retention-days: 1
       batch-size: 500
-      cron: "0 30 2 * * ?"
+
+xxl:
+  job:
+    enabled: ${XXL_JOB_ENABLED:true}
+    admin:
+      addresses: ${XXL_JOB_ADMIN_ADDRESSES:http://127.0.0.1:8080}
+    executor:
+      appname: ${XXL_JOB_EXECUTOR_APPNAME:aoo-ai-executor}
+      address: ${XXL_JOB_EXECUTOR_ADDRESS:}
+      ip: ${XXL_JOB_EXECUTOR_IP:}
+      port: ${XXL_JOB_EXECUTOR_PORT:9999}
+      access-token: ${XXL_JOB_ACCESS_TOKEN:}
+      log-path: ${XXL_JOB_LOG_PATH:./logs/xxl-job/jobhandler}
+      log-retention-days: ${XXL_JOB_LOG_RETENTION_DAYS:30}
 
 docling:
   service:

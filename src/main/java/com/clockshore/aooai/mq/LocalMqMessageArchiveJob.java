@@ -5,8 +5,9 @@ import com.clockshore.aooai.mapper.LocalMqMessageMapper;
 import jakarta.annotation.Resource;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import com.xxl.job.core.handler.annotation.XxlJob;
+import com.xxl.job.core.context.XxlJobHelper;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,10 +30,11 @@ public class LocalMqMessageArchiveJob {
     @Value("${mq.local-message.archive.batch-size:500}")
     private int batchSize;
 
-    @Scheduled(cron = "${mq.local-message.archive.cron:0 1 2 * * ?}")
+    @XxlJob("localMqMessageArchive")
     @Transactional(rollbackFor = Exception.class)
     public void archiveSentMessages() {
         if (!enabled) {
+            XxlJobHelper.log("Local MQ message archive is disabled.");
             return;
         }
 
@@ -48,6 +50,8 @@ public class LocalMqMessageArchiveJob {
         int archived = localMqMessageMapper.archiveByIds(ids, LocalMqMessageStatus.SENT);
         int deleted = localMqMessageMapper.deleteArchivedByIds(ids, LocalMqMessageStatus.SENT);
         log.info("Local MQ message archive finished, candidates={}, archived={}, deleted={}",
+                ids.size(), archived, deleted);
+        XxlJobHelper.log("Local MQ message archive finished, candidates={}, archived={}, deleted={}",
                 ids.size(), archived, deleted);
     }
 }

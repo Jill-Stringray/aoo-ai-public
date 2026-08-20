@@ -51,7 +51,6 @@ class DoclingOutlineParserIT {
                             "fileName",
                             "sectionTitle",
                             "sectionPath",
-                            "pdfPath",
                             "page_number",
                             "pageNo"
                     );
@@ -61,10 +60,6 @@ class DoclingOutlineParserIT {
                 .anySatisfy(document -> {
                     assertThat(document.getMetadata())
                             .containsEntry("sectionTitle", "Recent History")
-                            .containsEntry(
-                                    "pdfPath",
-                                    List.of("VA-11 HALL-A Faction Dossier", "Recent History")
-                            )
                             .containsEntry(
                                     "sectionPath",
                                     List.of("VA-11 HALL-A Faction Dossier", "Recent History")

@@ -212,7 +212,7 @@ public class KnowledgeService {
             t.metadata().put("chunkKey",chunkKey);
             t.metadata().put("index", chunkIndex);
 
-            // 把切片器阶段临时字符串化的 sectionPath/pdfPath 还原为 JSON 数组落库。
+            // 把切片器阶段临时字符串化的 sectionPath 还原为 JSON 数组落库。
             Map<String, Object> metadata = normalizeSegmentMetadata(t.metadata().toMap());
             String metadataJson = jsonUtil.toJson(metadata);
             String hash = DigestUtil.sha256Hex(t.text());
@@ -672,7 +672,6 @@ public class KnowledgeService {
     private Map<String, Object> normalizeSegmentMetadata(Map<String, Object> rawMetadata) {
         Map<String, Object> metadata = new HashMap<>(rawMetadata);
         restoreJsonStringArray(metadata, "sectionPath");
-        restoreJsonStringArray(metadata, "pdfPath");
         return metadata;
     }
 
