@@ -85,7 +85,7 @@ m -
 17\.通过链路耗时埋点发现 Query Rewrite 阶段占据整体请求耗时约50%，进一步引入条件式查询改写策略降低无效LLM调用。
 
 18.other=19296ms 的核心原因很可能是：某一路召回 knowledgeRetrievalService.retrieve(...) 等了接近 19 秒后抛异常，之前的计时代码只在成功返回后才累加 retrieve cost，失败路径没计入，所以这段时间最后被剩余桶 other 吃掉了。
-我已经修了 [ChatService.java](/path/to/local-user/IdeaProjects/aoo-ai/src/main/java/com/clockshore/aooai/service/ChatService.java)：把每路召回耗时放到 finally 里统计，成功、失败、超时都会进入 retrieve cost。
+我已经修了 [ChatService.java](src/main/java/com/clockshore/aooai/service/ChatService.java)：把每路召回耗时放到 finally 里统计，成功、失败、超时都会进入 retrieve cost。
 other 当前含义是：prompt build cost - 已命名子阶段耗时。正常情况下它应该很小，主要是系统提示词创建、request.resolveMessage()、给召回文档写 metadata、messages.add(...) 这类碎片开销。19 秒这种量级不正常，基本不是这些 Java 拼装逻辑导致的。
 
 19\.现在：

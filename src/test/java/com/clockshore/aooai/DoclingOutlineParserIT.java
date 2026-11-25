@@ -59,13 +59,13 @@ class DoclingOutlineParserIT {
         assertThat(documents)
                 .anySatisfy(document -> {
                     assertThat(document.getMetadata())
-                            .containsEntry("sectionTitle", "Recent History")
+                            .containsEntry("sectionTitle", "Service Hours")
                             .containsEntry(
                                     "sectionPath",
-                                    List.of("VA-11 HALL-A Faction Dossier", "Recent History")
+                                    List.of("Demo Knowledge Base", "Service Hours")
                             )
-                            .containsEntry("page_number", 3);
-                    assertThat(document.getText()).contains("Dana Zane");
+                            .containsEntry("page_number", 1);
+                    assertThat(document.getText()).contains("Monday through Friday");
                 });
     }
 

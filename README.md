@@ -55,7 +55,18 @@ aoo-ai/
 
 在 `src/main/resources/application.yml` 中配置数据库、Redis、消息队列、Nacos 与模型服务连接信息。
 
-请使用自己的 API Key 和本地密码，避免将真实凭据提交到 Git 仓库。
+启动前在本机环境中设置以下变量。数据库地址默认指向本机，其他连接参数可在配置文件中调整。
+
+| 环境变量 | 用途 |
+| --- | --- |
+| `MYSQL_USERNAME` 和 `MYSQL_PASSWORD` | MySQL 连接凭据 |
+| `POSTGRES_USERNAME` 和 `POSTGRES_PASSWORD` | PostgreSQL 向量库连接凭据 |
+| `DEEPSEEK_API_KEY` 和 `SILICONFLOW_API_KEY` | 对话与向量服务的 API Key |
+| `JWT_SECRET` | 用于签发 JWT 的随机密钥，至少使用 32 字节 |
+| `MCP_ENABLED` 和 `MCP_TAVILY_URL` | 可选的 MCP 搜索服务，默认关闭 |
+| `XXL_JOB_ACCESS_TOKEN` | 启用 XXL-JOB 后按调度中心的配置设置 |
+
+`.env.example` 列出了常用的变量名。请通过系统环境变量或 IDE 的运行配置传入实际值。
 
 ### 4. 启动后端
 
